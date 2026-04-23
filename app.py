@@ -100,21 +100,24 @@ def processar_atendimento_completo(arquivos_audio_temp):
 def gerar_docx(dados_json, dicionario_evidencias, caminhos_cabecalho):
     doc = DocxTemplate("modelo_tags.docx")
     
-    # 2.1 Processamento de Fotos do Cabeçalho (Plaqueta 90mm / Maq 45mm)
+    # 2.1 Processamento de Fotos do Cabeçalho (Tamanhos exatos para não estourar a tabela)
+    # A plaqueta agora tem 65mm (ocupa a célula inteira sem deformar)
     if caminhos_cabecalho.get('info_equip'):
-        dados_json['img_info_equipamento'] = InlineImage(doc, caminhos_cabecalho['info_equip'], width=Mm(90))
+        dados_json['img_info_equipamento'] = InlineImage(doc, caminhos_cabecalho['info_equip'], width=Mm(65))
     else: dados_json['img_info_equipamento'] = ""
 
+    # Máquina e implemento reduzidos para 32mm para caberem com folga lado a lado (Total 64mm)
     if caminhos_cabecalho.get('maquina'):
-        dados_json['img_maquina'] = InlineImage(doc, caminhos_cabecalho['maquina'], width=Mm(45))
+        dados_json['img_maquina'] = InlineImage(doc, caminhos_cabecalho['maquina'], width=Mm(32))
     else: dados_json['img_maquina'] = ""
 
     if caminhos_cabecalho.get('implemento'):
-        dados_json['img_implemento'] = InlineImage(doc, caminhos_cabecalho['implemento'], width=Mm(45))
+        dados_json['img_implemento'] = InlineImage(doc, caminhos_cabecalho['implemento'], width=Mm(32))
     else: dados_json['img_implemento'] = ""
 
-    # 2.2 Processamento de Evidências (Corpo do Laudo - 145mm)
+    # 2.2 Processamento de Evidências (Corpo do Laudo)
     for categoria, arquivos in dicionario_evidencias.items():
+# ... (O restante do código continua igualzinho)
         lista_fotos = []
         if arquivos:
             for i, foto_path in enumerate(arquivos):
