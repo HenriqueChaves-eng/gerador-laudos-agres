@@ -105,12 +105,11 @@ with st.container(border=True):
     st.markdown("### 🎙️ 1. Relato Técnico")
     aba1, aba2 = st.tabs(["🔴 Gravar agora", "📁 Arquivos do celular"])
     
-  with aba1:
+    with aba1:
         st.info("Grave o relato em etapas. Use 'Remover' para excluir um trecho específico.")
         audios_rec = []
         
         for i, id_gravador in enumerate(st.session_state.lista_gravadores):
-            # O vertical_alignment="bottom" resolve o problema de alinhamento no Windows
             col_gravador, col_excluir = st.columns([0.80, 0.20], vertical_alignment="bottom")
             
             with col_gravador:
@@ -118,7 +117,6 @@ with st.container(border=True):
                 if a: audios_rec.append(a)
             
             with col_excluir:
-                # Mudamos de "❌" para "Remover" para ficar elegante quando for jogado para baixo no iPhone
                 if st.button("🗑️ Remover", key=f"btn_del_{id_gravador}", use_container_width=True):
                     st.session_state.lista_gravadores.remove(id_gravador)
                     st.rerun()
