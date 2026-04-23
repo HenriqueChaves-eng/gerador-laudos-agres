@@ -31,7 +31,7 @@ st.markdown("""
 
 # Blindagem 1: Verificação da Chave
 try:
-    GOOGLE_API_KEY = st.secrets["AIzaSyBr7Et5pOlGuFxzQWr8xfaIk0nvpexiB2I"]
+    GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=GOOGLE_API_KEY)
     model = genai.GenerativeModel('models/gemini-2.5-flash')
 except Exception as e:
