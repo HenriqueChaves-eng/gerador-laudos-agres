@@ -163,7 +163,7 @@ with st.container(border=True):
 with st.container(border=True):
     st.markdown("### 🏷️ 2. Fotos do Cabeçalho")
     col_plaqueta, col_maquina, col_implemento = st.columns(3)
-    with col_plaqueta: foto_plaqueta = st.file_uploader("📸 Plaqueta", type=['jpg', 'jpeg', 'png'], key="up_plaq")
+    with col_plaqueta: foto_plaqueta = st.file_uploader("📸 Info Equipamento", type=['jpg', 'jpeg', 'png'], key="up_plaq")
     with col_maquina: foto_maq = st.file_uploader("🚜 Máquina", type=['jpg', 'jpeg', 'png'], key="up_maq")
     with col_implemento: foto_imp = st.file_uploader("🔧 Implemento", type=['jpg', 'jpeg', 'png'], key="up_imp")
 
@@ -180,7 +180,7 @@ audios_finais = audios_rec + (audios_up if audios_up else [])
 # ==========================================
 # 4. Geração e Download (Corrigido)
 # ==========================================
-if audios_finais and st.button("🚀 Gerar Relatório Profissional"):
+if audios_finais and st.button("🚀 Gerar Relatório"):
     temp_files = []
     caminhos_cab = {}
     try:
