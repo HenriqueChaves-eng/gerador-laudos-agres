@@ -11,8 +11,11 @@ from datetime import date
 # ==========================================
 st.set_page_config(page_title="Agres | Relatórios Técnicos", page_icon="🚜", layout="centered")
 
-if 'qtd_gravacoes' not in st.session_state:
-    st.session_state.qtd_gravacoes = 1
+# ---> O SEGREDO ESTÁ AQUI: Este bloco precisa estar exatamente assim <---
+if 'lista_gravadores' not in st.session_state:
+    st.session_state.lista_gravadores = [0]
+if 'proximo_id' not in st.session_state:
+    st.session_state.proximo_id = 1
 if 'reset_audio' not in st.session_state:
     st.session_state.reset_audio = 0
 
