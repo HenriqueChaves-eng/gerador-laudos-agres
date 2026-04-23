@@ -103,19 +103,40 @@ with st.container(border=True):
     aba1, aba2 = st.tabs(["🔴 Gravar agora", "📁 Arquivos do celular"])
     
     with aba1:
+        st.info("Grave o relato em etapas. Use 'X' para remover um trecho específico.")
         audios_rec = []
-        for i in range(st.session_state.qtd_gravacoes):
-            a = st.audio_input(f"Trecho {i+1}", key=f"rec_{i}_{st.session_state.reset_audio}")
-            if a: audios_rec.append(a)
         
+        # Cria uma linha para cada gravador na lista
+        for i, id_gravador in enumerate(st.session_state.lista_gravadores):
+            col_gravador, col_excluir = st.columns([0.9, 0.1])
+            
+            with col_gravador:
+                # O ID fixo garante que o áudio não suma se você adicionar outro abaixo
+                a = st.audio_input(f"Trecho {i+1}", key=f"rec_{id_gravador}_{st.session_state.reset_audio}")
+                if a:
+                    audios_rec.append(a)
+            
+            with col_excluir:
+                st.write("") # Espaçador para alinhar com o gravador
+                # Botão de excluir específico para este ID
+                if st.button("❌", key=f"btn_del_{id_gravador}", help="Remover este trecho"):
+                    st.session_state.lista_gravadores.remove(id_gravador)
+                    st.rerun()
+        
+        st.markdown("<div class='btn-adicionar'>", unsafe_allow_html=True)
         c1, c2 = st.columns(2)
-        if c1.button("➕ Novo trecho"):
-            st.session_state.qtd_gravacoes += 1
-            st.rerun()
-        if c2.button("🗑️ Limpar tudo"):
-            st.session_state.qtd_gravacoes = 1
-            st.session_state.reset_audio += 1
-            st.rerun()
+        with c1:
+            if st.button("➕ Novo trecho", use_container_width=True):
+                st.session_state.lista_gravadores.append(st.session_state.proximo_id)
+                st.session_state.proximo_id += 1
+                st.rerun()
+        with c2:
+            if st.button("🗑️ Limpar tudo", use_container_width=True):
+                st.session_state.lista_gravadores = [st.session_state.proximo_id]
+                st.session_state.proximo_id += 1
+                st.session_state.reset_audio += 1
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
     with aba2:
         audios_up = st.file_uploader("Upload de áudios", type=['wav', 'mp3', 'm4a'], accept_multiple_files=True)
