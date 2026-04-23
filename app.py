@@ -105,24 +105,21 @@ with st.container(border=True):
     st.markdown("### 🎙️ 1. Relato Técnico")
     aba1, aba2 = st.tabs(["🔴 Gravar agora", "📁 Arquivos do celular"])
     
-    with aba1:
-        st.info("Grave o relato em etapas. Use 'X' para remover um trecho específico.")
+  with aba1:
+        st.info("Grave o relato em etapas. Use 'Remover' para excluir um trecho específico.")
         audios_rec = []
         
-        # Cria uma linha para cada gravador na lista
         for i, id_gravador in enumerate(st.session_state.lista_gravadores):
-            col_gravador, col_excluir = st.columns([0.9, 0.1])
+            # O vertical_alignment="bottom" resolve o problema de alinhamento no Windows
+            col_gravador, col_excluir = st.columns([0.80, 0.20], vertical_alignment="bottom")
             
             with col_gravador:
-                # O ID fixo garante que o áudio não suma se você adicionar outro abaixo
                 a = st.audio_input(f"Trecho {i+1}", key=f"rec_{id_gravador}_{st.session_state.reset_audio}")
-                if a:
-                    audios_rec.append(a)
+                if a: audios_rec.append(a)
             
             with col_excluir:
-                st.write("") # Espaçador para alinhar com o gravador
-                # Botão de excluir específico para este ID
-                if st.button("❌", key=f"btn_del_{id_gravador}", help="Remover este trecho"):
+                # Mudamos de "❌" para "Remover" para ficar elegante quando for jogado para baixo no iPhone
+                if st.button("🗑️ Remover", key=f"btn_del_{id_gravador}", use_container_width=True):
                     st.session_state.lista_gravadores.remove(id_gravador)
                     st.rerun()
         
