@@ -11,12 +11,12 @@ from datetime import date
 # ==========================================
 # 1. Configurações de Estado e Layout
 # ==========================================
-st.set_page_config(page_title="Agres | Relatórios Técnicos", page_icon="🚜", layout="centered")
+st.set_page_config(page_title="Agres | Relatório Técnico", page_icon="🚜", layout="centered")
 
 # ---> PAINEL DE CONTROLE DE MEDIDAS (Em Milímetros) <---
 TAM_PLAQUETA = 60      # Largura da foto da plaqueta no cabeçalho
 TAM_MAQUINA = 32       # Largura das fotos de trator/implemento (lado a lado)
-TAM_EVIDENCIA = 80    # Largura das fotos no corpo do laudo (final do documento)
+TAM_EVIDENCIA = 80    # Largura das fotos no corpo do laudo (Altura calculada automaticamente)
 
 # Inicialização da Memória
 if 'lista_gravadores' not in st.session_state:
@@ -68,10 +68,10 @@ def processar_atendimento_completo(arquivos_audio_temp):
     
     REGRAS CRÍTICAS E PROIBIÇÕES (SIGA RIGOROSAMENTE):
     1. "suporte", "instalacao", "treinamento": Preencha APENAS com a letra "X" se o serviço foi realizado, ou deixe vazio "". NUNCA escreva textos nesses campos.
-    2. "objetivos": Apenas a meta do dia de forma direta (Ex: "Instalação de equipamento").
-    3. "configuracoes": APENAS parâmetros de sistema e software (Ex: "Configurado para 4 seções"). É PROIBIDO descrever montagem física aqui.
+    2. "objetivos": Apenas a meta do dia de forma direta (Ex: "Instalação de equipamento ISO 31").
+    3. "configuracoes": APENAS parâmetros de SISTEMA e SOFTWARE na tela (Ex: "Configurado para 4 seções", "Ganhos PID"). É ESTRITAMENTE PROIBIDO listar confecção de cabos eletrônicos conversores (como PNP para NPN), chicotes ou suportes físicos neste campo.
     4. "calibracoes": APENAS aferições numéricas/físicas. É PROIBIDO colocar sugestões de troca de peças aqui.
-    5. "relato": Todo o texto narrativo obrigatoriamente vai aqui. Descreva a confecção de suportes, mangueiras, chicotes, o passo a passo e QUALQUER sugestão técnica.
+    5. "relato": Este é o campo principal. O texto DEVE ter altíssimo nível profissional, escrito em terceira pessoa, com linguagem técnica de engenharia. Descreva o passo a passo cronológico, com riqueza de detalhes: a confecção de cabos e conversores de sinal lógicos (ex: PNP para NPN), soldas, roteamento de chicotes, fabricação de suportes, problemas encontrados e a validação final do sistema.
 
     Retorne APENAS um JSON estruturado:
     {{
@@ -86,12 +86,20 @@ def processar_atendimento_completo(arquivos_audio_temp):
     """
     
     try:
-        # BLINDAGEM: Força a API a devolver apenas JSON
+        # BLINDAGEM JSON: Força a API a devolver apenas estrutura de dados
         resposta = model.generate_content(
             [prompt] + materiais_para_ia,
             generation_config=genai.GenerationConfig(response_mime_type="application/json")
         )
-        return json.loads(resposta.text.strip())
+        
+        texto_bruto = resposta.text.strip()
+        # Camada extra de segurança para limpar qualquer sujeira do Markdown da IA
+        inicio = texto_bruto.find('{')
+        fim = texto_bruto.rfind('}')
+        if inicio != -1 and fim != -1:
+            texto_bruto = texto_bruto[inicio:fim+1]
+            
+        return json.loads(texto_bruto)
     except Exception as e:
         raise Exception(f"Erro na interpretação da IA: {e}")
     finally:
@@ -137,7 +145,7 @@ def gerar_docx(dados_json, dicionario_evidencias, caminhos_cabecalho):
     
     doc.render(dados_json)
     
-    # BLINDAGEM: Limpa caracteres inválidos do nome do arquivo
+    # BLINDAGEM REGEX: Limpa caracteres inválidos do nome do arquivo
     cliente_limpo = dados_json.get('cliente_local', 'Atendimento')
     cliente_limpo = re.sub(r'[\\/*?:"<>|]', "", cliente_limpo).strip().replace(' ', '_')
     nome_arquivo = f"Relatorio_{cliente_limpo}.docx"
@@ -148,8 +156,8 @@ def gerar_docx(dados_json, dicionario_evidencias, caminhos_cabecalho):
 # ==========================================
 # 3. Interface Visual
 # ==========================================
-st.markdown("<h1 class='titulo-app'>🚜 Agres Reports</h1>", unsafe_allow_html=True)
-st.markdown("<p class='subtitulo-app'>Geração de Laudos Técnicos</p>", unsafe_allow_html=True)
+st.markdown("<h1 class='titulo-app'>🚜 Agres Relatórios</h1>", unsafe_allow_html=True)
+st.markdown("<p class='subtitulo-app'>Geração de Relatórios Técnicos</p>", unsafe_allow_html=True)
 
 with st.container(border=True):
     st.markdown("### 🎙️ 1. Relato Técnico")
@@ -186,7 +194,7 @@ with st.container(border=True):
 with st.container(border=True):
     st.markdown("### 🏷️ 2. Fotos do Cabeçalho")
     c_p1, c_p2, c_p3 = st.columns(3)
-    f_plaqueta = c_p1.file_uploader("📸 Plaqueta", type=['jpg', 'jpeg', 'png'], key="up_p1")
+    f_plaqueta = c_p1.file_uploader("📸 Informações do Equipamento", type=['jpg', 'jpeg', 'png'], key="up_p1")
     f_maquina = c_p2.file_uploader("🚜 Máquina", type=['jpg', 'jpeg', 'png'], key="up_p2")
     f_implemento = c_p3.file_uploader("🔧 Implemento", type=['jpg', 'jpeg', 'png'], key="up_p3")
 
@@ -203,12 +211,12 @@ with st.container(border=True):
 # ==========================================
 audios_finais = audios_rec + (audios_up if audios_up else [])
 
-if audios_finais and st.button("🚀 Gerar Relatório Profissional"):
+if audios_finais and st.button("Gerar Relatório Profissional"):
     st.session_state.relatorio_pronto = None 
     temp_paths = []
     cabs_paths = {}
     
-    # Gera uma "assinatura" única para não colidir arquivos
+    # Gera uma "assinatura" única para evitar choque de arquivos
     run_id = uuid.uuid4().hex[:8]
     
     try:
