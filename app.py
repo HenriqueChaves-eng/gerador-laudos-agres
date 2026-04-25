@@ -5,6 +5,7 @@ from docx.shared import Mm
 import json
 import os
 import re
+import uuid
 from datetime import date
 
 # ==========================================
@@ -13,9 +14,9 @@ from datetime import date
 st.set_page_config(page_title="Agres | Relatórios Técnicos", page_icon="🚜", layout="centered")
 
 # ---> PAINEL DE CONTROLE DE MEDIDAS (Em Milímetros) <---
-TAM_PLAQUETA = 65      # Largura da foto da plaqueta no cabeçalho
+TAM_PLAQUETA = 60      # Largura da foto da plaqueta no cabeçalho
 TAM_MAQUINA = 32       # Largura das fotos de trator/implemento (lado a lado)
-TAM_EVIDENCIA = 110    # Largura das fotos no corpo do laudo (final do documento)
+TAM_EVIDENCIA = 80    # Largura das fotos no corpo do laudo (final do documento)
 
 # Inicialização da Memória
 if 'lista_gravadores' not in st.session_state:
@@ -65,12 +66,14 @@ def processar_atendimento_completo(arquivos_audio_temp):
     prompt = f"""
     Analise os áudios e extraia dados para um relatório técnico da Agres.
     
-    REGRA CRÍTICA DE TÓPICOS:
-    - "objetivos": Apenas o propósito da visita (Ex: Instalação de kit).
-    - "configuracoes": Apenas os detalhes técnicos (Ex: suportes montados, chicotes).
-    - O campo "relato" deve ser coeso, formal e não repetir em formato de lista o que já está nos tópicos acima.
+    REGRAS CRÍTICAS E PROIBIÇÕES (SIGA RIGOROSAMENTE):
+    1. "suporte", "instalacao", "treinamento": Preencha APENAS com a letra "X" se o serviço foi realizado, ou deixe vazio "". NUNCA escreva textos nesses campos.
+    2. "objetivos": Apenas a meta do dia de forma direta (Ex: "Instalação de equipamento").
+    3. "configuracoes": APENAS parâmetros de sistema e software (Ex: "Configurado para 4 seções"). É PROIBIDO descrever montagem física aqui.
+    4. "calibracoes": APENAS aferições numéricas/físicas. É PROIBIDO colocar sugestões de troca de peças aqui.
+    5. "relato": Todo o texto narrativo obrigatoriamente vai aqui. Descreva a confecção de suportes, mangueiras, chicotes, o passo a passo e QUALQUER sugestão técnica.
 
-    Retorne APENAS um JSON:
+    Retorne APENAS um JSON estruturado:
     {{
         "suporte": "", "instalacao": "", "treinamento": "",
         "data_visita": "{date.today().strftime('%d/%m/%Y')}",
@@ -83,6 +86,7 @@ def processar_atendimento_completo(arquivos_audio_temp):
     """
     
     try:
+        # BLINDAGEM: Força a API a devolver apenas JSON
         resposta = model.generate_content(
             [prompt] + materiais_para_ia,
             generation_config=genai.GenerationConfig(response_mime_type="application/json")
@@ -133,6 +137,7 @@ def gerar_docx(dados_json, dicionario_evidencias, caminhos_cabecalho):
     
     doc.render(dados_json)
     
+    # BLINDAGEM: Limpa caracteres inválidos do nome do arquivo
     cliente_limpo = dados_json.get('cliente_local', 'Atendimento')
     cliente_limpo = re.sub(r'[\\/*?:"<>|]', "", cliente_limpo).strip().replace(' ', '_')
     nome_arquivo = f"Relatorio_{cliente_limpo}.docx"
@@ -194,7 +199,7 @@ with st.container(border=True):
     f_out = col_e2.file_uploader("📂 Outros registros", accept_multiple_files=True, type=['jpg', 'jpeg', 'png'])
 
 # ==========================================
-# 4. Lógica de Execução
+# 4. Lógica de Execução com Isolamento (UUID)
 # ==========================================
 audios_finais = audios_rec + (audios_up if audios_up else [])
 
@@ -202,18 +207,22 @@ if audios_finais and st.button("🚀 Gerar Relatório Profissional"):
     st.session_state.relatorio_pronto = None 
     temp_paths = []
     cabs_paths = {}
+    
+    # Gera uma "assinatura" única para não colidir arquivos
+    run_id = uuid.uuid4().hex[:8]
+    
     try:
         with st.status("Processando dados e imagens...", expanded=True) as status:
             for i, a in enumerate(audios_finais):
                 ext = a.name.split('.')[-1] if hasattr(a, 'name') and '.' in a.name else 'wav'
-                p = f"t_aud_{i}.{ext}"
+                p = f"t_aud_{i}_{run_id}.{ext}"
                 with open(p, "wb") as f: f.write(a.getvalue())
                 temp_paths.append(p)
             
             def save_img(file, name):
                 if file:
-                    ext = file.name.split('.')[-1] if '.' in file.name else 'jpg'
-                    p = f"{name}.{ext}"
+                    ext = file.name.split('.')[-1] if hasattr(file, 'name') and '.' in file.name else 'jpg'
+                    p = f"{name}_{run_id}.{ext}"
                     with open(p, "wb") as f: f.write(file.getvalue())
                     temp_paths.append(p)
                     return p
