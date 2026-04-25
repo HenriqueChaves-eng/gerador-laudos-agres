@@ -4,14 +4,20 @@ from docxtpl import DocxTemplate, InlineImage
 from docx.shared import Mm
 import json
 import os
+import re
 from datetime import date
 
 # ==========================================
-# 1. Configurações de Estado e Interface
+# 1. Configurações de Estado e Layout
 # ==========================================
 st.set_page_config(page_title="Agres | Relatórios Técnicos", page_icon="🚜", layout="centered")
 
-# Inicialização da Memória do App
+# ---> PAINEL DE CONTROLE DE MEDIDAS (Em Milímetros) <---
+TAM_PLAQUETA = 65      # Largura da foto da plaqueta no cabeçalho
+TAM_MAQUINA = 32       # Largura das fotos de trator/implemento (lado a lado)
+TAM_EVIDENCIA = 110    # Largura das fotos no corpo do laudo (final do documento)
+
+# Inicialização da Memória
 if 'lista_gravadores' not in st.session_state:
     st.session_state.lista_gravadores = [0]
 if 'proximo_id' not in st.session_state:
@@ -23,7 +29,6 @@ if 'relatorio_pronto' not in st.session_state:
 if 'nome_arquivo_pronto' not in st.session_state:
     st.session_state.nome_arquivo_pronto = None
 
-# Estilização Customizada (Agres Style)
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
@@ -37,7 +42,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Configuração Segura da API
 try:
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=GOOGLE_API_KEY)
@@ -59,15 +63,14 @@ def processar_atendimento_completo(arquivos_audio_temp):
         arquivos_api.append(temp_file)
         
     prompt = f"""
-    Analise os áudios anexados e extraia os dados para um relatório técnico da Agres.
+    Analise os áudios e extraia dados para um relatório técnico da Agres.
     
     REGRA CRÍTICA DE TÓPICOS:
-    - Em "objetivos", coloque apenas o propósito da visita (Ex: Instalação de kit, manutenção, etc).
-    - Em "configuracoes", coloque os detalhes técnicos do que foi feito (Ex: suportes montados, chicotes passados).
-    - Não misture os dois campos acima.
-    - O campo "relato" deve ser um texto coeso, formal (ABNT) e profissional.
+    - "objetivos": Apenas o propósito da visita (Ex: Instalação de kit).
+    - "configuracoes": Apenas os detalhes técnicos (Ex: suportes montados, chicotes).
+    - O campo "relato" deve ser coeso, formal e não repetir em formato de lista o que já está nos tópicos acima.
 
-    Retorne APENAS um JSON válido:
+    Retorne APENAS um JSON:
     {{
         "suporte": "", "instalacao": "", "treinamento": "",
         "data_visita": "{date.today().strftime('%d/%m/%Y')}",
@@ -80,16 +83,11 @@ def processar_atendimento_completo(arquivos_audio_temp):
     """
     
     try:
-        resposta = model.generate_content([prompt] + materiais_para_ia)
-        texto_bruto = resposta.text.strip()
-        
-        # Limpeza de JSON (ignora lixo textual da IA)
-        inicio = texto_bruto.find('{')
-        fim = texto_bruto.rfind('}')
-        if inicio != -1 and fim != -1:
-            texto_bruto = texto_bruto[inicio:fim+1]
-            
-        return json.loads(texto_bruto)
+        resposta = model.generate_content(
+            [prompt] + materiais_para_ia,
+            generation_config=genai.GenerationConfig(response_mime_type="application/json")
+        )
+        return json.loads(resposta.text.strip())
     except Exception as e:
         raise Exception(f"Erro na interpretação da IA: {e}")
     finally:
@@ -100,46 +98,54 @@ def processar_atendimento_completo(arquivos_audio_temp):
 def gerar_docx(dados_json, dicionario_evidencias, caminhos_cabecalho):
     doc = DocxTemplate("modelo_tags.docx")
     
-    # 2.1 Processamento de Fotos do Cabeçalho (Tamanhos exatos para não estourar a tabela)
-    # A plaqueta agora tem 65mm (ocupa a célula inteira sem deformar)
+    # Cabeçalho usando as Variáveis Padrão
     if caminhos_cabecalho.get('info_equip'):
-        dados_json['img_info_equipamento'] = InlineImage(doc, caminhos_cabecalho['info_equip'], width=Mm(65))
+        dados_json['img_info_equipamento'] = InlineImage(doc, caminhos_cabecalho['info_equip'], width=Mm(TAM_PLAQUETA))
     else: dados_json['img_info_equipamento'] = ""
 
-    # Máquina e implemento reduzidos para 32mm para caberem com folga lado a lado (Total 64mm)
     if caminhos_cabecalho.get('maquina'):
-        dados_json['img_maquina'] = InlineImage(doc, caminhos_cabecalho['maquina'], width=Mm(32))
+        dados_json['img_maquina'] = InlineImage(doc, caminhos_cabecalho['maquina'], width=Mm(TAM_MAQUINA))
     else: dados_json['img_maquina'] = ""
 
     if caminhos_cabecalho.get('implemento'):
-        dados_json['img_implemento'] = InlineImage(doc, caminhos_cabecalho['implemento'], width=Mm(32))
+        dados_json['img_implemento'] = InlineImage(doc, caminhos_cabecalho['implemento'], width=Mm(TAM_MAQUINA))
     else: dados_json['img_implemento'] = ""
 
-    # 2.2 Processamento de Evidências (Corpo do Laudo)
+    nomes_categorias = {
+        "fotos_equipamento": "Identificação do Equipamento",
+        "fotos_instalacao": "Instalação e Chicotes",
+        "fotos_configuracao": "Configurações do Sistema",
+        "fotos_outros": "Atividades Adicionais"
+    }
+
+    # Evidências usando a Variável Padrão
     for categoria, arquivos in dicionario_evidencias.items():
-# ... (O restante do código continua igualzinho)
         lista_fotos = []
         if arquivos:
             for i, foto_path in enumerate(arquivos):
-                nome = categoria.replace('fotos_', '').replace('_', ' ').title()
-                titulo = f"Figura {i+1} – Registro de {nome}."
+                nome_formatado = nomes_categorias.get(categoria, "Registro")
+                titulo = f"Figura {i+1} – {nome_formatado}."
                 fonte = f"Fonte: O autor ({date.today().year})."
-                imagem = InlineImage(doc, foto_path, width=Mm(145))
+                
+                imagem = InlineImage(doc, foto_path, width=Mm(TAM_EVIDENCIA))
                 lista_fotos.append({"titulo": titulo, "imagem": imagem, "fonte": fonte})
         dados_json[categoria] = lista_fotos
     
     doc.render(dados_json)
-    nome_arquivo = f"Relatorio_{dados_json.get('cliente_local', 'Atendimento').replace(' ', '_')}.docx"
+    
+    cliente_limpo = dados_json.get('cliente_local', 'Atendimento')
+    cliente_limpo = re.sub(r'[\\/*?:"<>|]', "", cliente_limpo).strip().replace(' ', '_')
+    nome_arquivo = f"Relatorio_{cliente_limpo}.docx"
+    
     doc.save(nome_arquivo)
     return nome_arquivo
 
 # ==========================================
-# 3. Interface Visual (Dashboard)
+# 3. Interface Visual
 # ==========================================
 st.markdown("<h1 class='titulo-app'>🚜 Agres Reports</h1>", unsafe_allow_html=True)
-st.markdown("<p class='subtitulo-app'>Geração de Laudos Técnicos de Atendimento</p>", unsafe_allow_html=True)
+st.markdown("<p class='subtitulo-app'>Geração de Laudos Técnicos</p>", unsafe_allow_html=True)
 
-# SEÇÃO 1: RELATO TÉCNICO
 with st.container(border=True):
     st.markdown("### 🎙️ 1. Relato Técnico")
     aba1, aba2 = st.tabs(["🔴 Gravar agora", "📁 Arquivos do celular"])
@@ -172,7 +178,6 @@ with st.container(border=True):
     with aba2:
         audios_up = st.file_uploader("Upload de áudios", type=['wav', 'mp3', 'm4a'], accept_multiple_files=True)
 
-# SEÇÃO 2: FOTOS DO CABEÇALHO
 with st.container(border=True):
     st.markdown("### 🏷️ 2. Fotos do Cabeçalho")
     c_p1, c_p2, c_p3 = st.columns(3)
@@ -180,7 +185,6 @@ with st.container(border=True):
     f_maquina = c_p2.file_uploader("🚜 Máquina", type=['jpg', 'jpeg', 'png'], key="up_p2")
     f_implemento = c_p3.file_uploader("🔧 Implemento", type=['jpg', 'jpeg', 'png'], key="up_p3")
 
-# SEÇÃO 3: EVIDÊNCIAS
 with st.container(border=True):
     st.markdown("### 📸 3. Evidências Fotográficas")
     col_e1, col_e2 = st.columns(2)
@@ -195,21 +199,20 @@ with st.container(border=True):
 audios_finais = audios_rec + (audios_up if audios_up else [])
 
 if audios_finais and st.button("🚀 Gerar Relatório Profissional"):
+    st.session_state.relatorio_pronto = None 
     temp_paths = []
     cabs_paths = {}
     try:
         with st.status("Processando dados e imagens...", expanded=True) as status:
-            # Salvamento de Áudios
             for i, a in enumerate(audios_finais):
                 ext = a.name.split('.')[-1] if hasattr(a, 'name') and '.' in a.name else 'wav'
                 p = f"t_aud_{i}.{ext}"
                 with open(p, "wb") as f: f.write(a.getvalue())
                 temp_paths.append(p)
             
-            # Salvamento de Fotos do Cabeçalho
             def save_img(file, name):
                 if file:
-                    ext = file.name.split('.')[-1]
+                    ext = file.name.split('.')[-1] if '.' in file.name else 'jpg'
                     p = f"{name}.{ext}"
                     with open(p, "wb") as f: f.write(file.getvalue())
                     temp_paths.append(p)
@@ -220,7 +223,6 @@ if audios_finais and st.button("🚀 Gerar Relatório Profissional"):
             cabs_paths['maquina'] = save_img(f_maquina, "t_maq")
             cabs_paths['implemento'] = save_img(f_implemento, "t_imp")
 
-            # Salvamento de Evidências
             mapa_ev = {"fotos_equipamento": f_eq, "fotos_instalacao": f_ins, "fotos_configuracao": f_conf, "fotos_outros": f_out}
             dic_ev = {}
             for cat, files in mapa_ev.items():
@@ -231,16 +233,14 @@ if audios_finais and st.button("🚀 Gerar Relatório Profissional"):
                         if p: paths.append(p)
                 dic_ev[cat] = paths
                 
-            # Chamada da IA e Word
             dados = processar_atendimento_completo(temp_paths[:len(audios_finais)])
             arq_final = gerar_docx(dados, dic_ev, cabs_paths)
             
-            # Carrega para memória RAM
             with open(arq_final, "rb") as f:
                 st.session_state.relatorio_pronto = f.read()
                 st.session_state.nome_arquivo_pronto = arq_final
                 
-            os.remove(arq_final) # Limpa arquivo físico
+            os.remove(arq_final) 
             status.update(label="Relatório Finalizado!", state="complete", expanded=False)
             
     except Exception as e:
@@ -249,7 +249,6 @@ if audios_finais and st.button("🚀 Gerar Relatório Profissional"):
         for p in temp_paths:
             if os.path.exists(p): os.remove(p)
 
-# Exibição do Botão de Download Persistente
 if st.session_state.relatorio_pronto:
     st.success("✅ O laudo está pronto para download!")
     st.download_button(
