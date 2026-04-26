@@ -14,7 +14,7 @@ import google.generativeai as genai
 import streamlit as st
 from docx import Document
 from docx.document import Document as DocumentClass
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 from docx.shared import Mm, Pt
 from docx.table import _Cell, Table
 from docxtpl import DocxTemplate, InlineImage
@@ -33,6 +33,8 @@ DRAFTS_DIR = BASE_DIR / ".rascunhos"
 TAM_PLAQUETA = 60
 TAM_MAQUINA = 32
 TAM_EVIDENCIA = 120
+FIGURA_CANVAS_PX = (1800, 1125)
+FIGURAS_POR_PAGINA = 2
 
 CAMPOS_RELATORIO = (
     "suporte",
@@ -47,6 +49,7 @@ CAMPOS_RELATORIO = (
     "configuracoes",
     "calibracoes",
     "acompanhantes",
+    "nome_arquivo_sugerido",
     "relato",
 )
 
@@ -335,6 +338,7 @@ REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 7. configuracoes: incluir somente parâmetros de sistema, software, tela, ECU, controlador, seções, geometria, versões, módulos habilitados, ganhos ou ajustes feitos em menus. Quando houver valores, use o padrão "Parâmetro: valor".
 8. calibracoes: incluir somente calibrações, aferições e validações com valores, medidas, sensores, vazão, largura, offset, angulação ou parâmetros numéricos.
 9. relato: concentrar todo o detalhamento técnico e cronológico. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
+10. nome_arquivo_sugerido: montar no padrão "AAAAMMDD - CIDADE - UF - TIPO EQUIPAMENTO". Use a data inicial quando houver intervalo. Exemplos: "20250710 - SÃO JOSÉ DOS PINHAIS - PR - SUPORTE ISOBOX SPRAYER AGRONAVE 12" ou "20260119 - GUARANIAÇU - PR - SUPORTE AGRONAVE 7 ISOBOX SPRAYER".
 
 PADRÃO DO RELATO:
 - Escrever em terceira pessoa.
@@ -357,6 +361,7 @@ Retorne apenas um JSON válido, sem markdown e sem comentários, com exatamente 
     "configuracoes": "",
     "calibracoes": "",
     "acompanhantes": "",
+    "nome_arquivo_sugerido": "",
     "relato": ""
 }}
 """
@@ -420,6 +425,123 @@ def limpar_nome_arquivo(texto: str) -> str:
     nome = re.sub(r'[\\/*?:"<>|]', "", primeira_linha)
     nome = re.sub(r"\s+", "_", nome).strip("_")
     return (nome or "Atendimento")[:80]
+
+
+def limpar_nome_relatorio(texto: str) -> str:
+    nome = limpar_texto(texto)
+    nome = nome.replace("\n", " ")
+    nome = re.sub(r'[\\/*?:"<>|]', "", nome)
+    nome = re.sub(r"\s*-\s*", " - ", nome)
+    nome = re.sub(r"\s+", " ", nome).strip(" .-_")
+    return (nome or "RELATÓRIO DE ATENDIMENTO")[:150]
+
+
+def data_para_nome_arquivo(data_visita: str) -> str:
+    texto = limpar_texto(data_visita)
+    intervalo = re.search(r"\b(\d{1,2})\s*(?:a|até|-)\s*\d{1,2}/(\d{1,2})/(\d{4})\b", texto, flags=re.I)
+    if intervalo:
+        dia, mes, ano = intervalo.groups()
+        return f"{int(ano):04d}{int(mes):02d}{int(dia):02d}"
+
+    data_br = re.search(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b", texto)
+    if data_br:
+        dia, mes, ano = data_br.groups()
+        return f"{int(ano):04d}{int(mes):02d}{int(dia):02d}"
+
+    data_iso = re.search(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b", texto)
+    if data_iso:
+        ano, mes, dia = data_iso.groups()
+        return f"{int(ano):04d}{int(mes):02d}{int(dia):02d}"
+
+    return data_atual_brasil().strftime("%Y%m%d")
+
+
+def extrair_cidade_uf(cliente_local: str) -> tuple[str, str]:
+    texto = limpar_texto(cliente_local)
+    linhas = [linha.strip() for linha in texto.split("\n") if linha.strip()]
+
+    for linha in linhas:
+        match = re.search(r"(?:cidade(?:/uf)?|local(?: cliente)?|propriedade)\s*:\s*([^,\n/]+?)\s*/\s*([A-Za-z]{2})\b", linha, re.I)
+        if match:
+            return match.group(1).strip(), match.group(2).strip()
+
+    for linha in linhas:
+        match = re.search(r"\b([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s.'-]{2,}?)\s*/\s*([A-Za-z]{2})\b", linha)
+        if match and not linha.lower().startswith(("http", "www")):
+            return match.group(1).strip(), match.group(2).strip()
+
+    cidade = ""
+    uf = ""
+    for linha in linhas:
+        match_cidade = re.search(r"cidade(?: revenda)?\s*:\s*(.+)", linha, re.I)
+        if match_cidade and not cidade:
+            cidade = match_cidade.group(1).strip()
+        match_uf = re.search(r"\b(?:uf|estado)\s*:\s*([A-Za-z]{2})\b", linha, re.I)
+        if match_uf:
+            uf = match_uf.group(1).strip()
+
+    if cidade and "/" in cidade:
+        partes = [parte.strip() for parte in cidade.rsplit("/", 1)]
+        if len(partes) == 2 and re.fullmatch(r"[A-Za-z]{2}", partes[1]):
+            return partes[0], partes[1]
+
+    if cidade and not uf:
+        match_colado = re.search(r"(.+?)([A-Za-z]{2})$", cidade)
+        if match_colado and len(match_colado.group(1).strip()) > 3:
+            cidade = match_colado.group(1).strip(" ,-/")
+            uf = match_colado.group(2)
+
+    return cidade or "LOCAL NÃO INFORMADO", uf or "UF"
+
+
+def tipo_atendimento_para_nome(dados: dict) -> str:
+    tipos = []
+    if dados.get("suporte") == "X":
+        tipos.append("SUPORTE")
+    if dados.get("instalacao") == "X":
+        tipos.append("INSTALAÇÃO")
+    if dados.get("treinamento") == "X":
+        tipos.append("TREINAMENTO")
+    return " + ".join(tipos) if tipos else "ATENDIMENTO"
+
+
+def equipamento_para_nome(dados: dict) -> str:
+    texto = normalizar_busca("\n".join([dados.get("objetivos", ""), dados.get("equipamentos", ""), dados.get("maquinas", "")]))
+    encontrados = []
+    padroes = [
+        ("ISOBOX SPRAYER", r"\bisobox\s+sprayer\b"),
+        ("AGRONAVE 12", r"\b(?:agronave|agronave|agn)\s*12\b"),
+        ("AGRONAVE 7", r"\b(?:agronave|agronave|agn)\s*7\b"),
+        ("ISOPILOT", r"\bisopilot\b"),
+        ("ANP40", r"\banp40\b"),
+        ("ANP21", r"\banp21\b"),
+    ]
+    for nome, padrao in padroes:
+        if re.search(padrao, texto) and nome not in encontrados:
+            encontrados.append(nome)
+
+    if encontrados:
+        return " ".join(encontrados)
+
+    primeira_linha = next((linha for linha in limpar_texto(dados.get("equipamentos", "")).split("\n") if linha.strip()), "")
+    primeira_linha = re.sub(r"^(modelo|tela|equipamento|ecu)\s*:\s*", "", primeira_linha, flags=re.I)
+    return primeira_linha or "EQUIPAMENTO AGRES"
+
+
+def gerar_nome_arquivo_relatorio(dados: dict) -> str:
+    sugerido = limpar_nome_relatorio(dados.get("nome_arquivo_sugerido", ""))
+    if re.match(r"^\d{8}\s+-\s+", sugerido):
+        return sugerido.upper()
+
+    data_nome = data_para_nome_arquivo(dados.get("data_visita", ""))
+    cidade, uf = extrair_cidade_uf(dados.get("cliente_local", ""))
+    partes = [
+        data_nome,
+        cidade.upper(),
+        uf.upper(),
+        f"{tipo_atendimento_para_nome(dados)} {equipamento_para_nome(dados)}".strip().upper(),
+    ]
+    return limpar_nome_relatorio(" - ".join(partes)).upper()
 
 
 def finalizar_frase(texto: str) -> str:
@@ -497,7 +619,7 @@ def gerar_docx(
             contador_figura += 1
         dados_render[categoria] = lista_fotos
 
-    nome_arquivo = f"Relatorio_{limpar_nome_arquivo(dados_render.get('cliente_local'))}.docx"
+    nome_arquivo = f"{gerar_nome_arquivo_relatorio(dados_render)}.docx"
     caminho_saida = pasta_saida / nome_arquivo
     doc.render(dados_render)
     doc.save(str(caminho_saida))
@@ -546,8 +668,8 @@ def formatar_paragrafo_figura(paragraph, keep_with_next: bool, tamanho_fonte: in
     formato.keep_with_next = keep_with_next
     formato.widow_control = True
     formato.line_spacing = 1
-    formato.space_before = Pt(3)
-    formato.space_after = Pt(3)
+    formato.space_before = Pt(2)
+    formato.space_after = Pt(2)
     if tamanho_fonte:
         for run in paragraph.runs:
             run.font.name = "Arial"
@@ -557,14 +679,17 @@ def formatar_paragrafo_figura(paragraph, keep_with_next: bool, tamanho_fonte: in
 def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
     documento = Document(str(caminho_docx))
     paragrafos = list(iterar_paragrafos_word(documento))
+    total_figuras = sum(1 for paragraph in paragrafos if limpar_texto(paragraph.text).startswith("Figura "))
 
     dentro_bloco_figura = False
+    numero_figura = 0
     for paragraph in paragrafos:
         texto = limpar_texto(paragraph.text)
         tem_imagem = bool(paragrafo_tem_imagem(paragraph))
 
         if texto.startswith("Figura "):
             dentro_bloco_figura = True
+            numero_figura += 1
             formatar_paragrafo_figura(paragraph, keep_with_next=True)
             continue
 
@@ -578,6 +703,8 @@ def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
 
         if dentro_bloco_figura and (texto.startswith("Legenda:") or texto.startswith("Nota:")):
             formatar_paragrafo_figura(paragraph, keep_with_next=False)
+            if numero_figura % FIGURAS_POR_PAGINA == 0 and numero_figura < total_figuras:
+                paragraph.add_run().add_break(WD_BREAK.PAGE)
             dentro_bloco_figura = False
             continue
 
@@ -592,7 +719,7 @@ def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
     documento.save(str(caminho_docx))
 
 
-def normalizar_imagem_para_docx(conteudo: bytes, caminho_saida: Path) -> Path:
+def normalizar_imagem_para_docx(conteudo: bytes, caminho_saida: Path, padronizar_figura: bool = False) -> Path:
     try:
         with Image.open(BytesIO(conteudo)) as imagem_original:
             imagem = ImageOps.exif_transpose(imagem_original)
@@ -605,6 +732,14 @@ def normalizar_imagem_para_docx(conteudo: bytes, caminho_saida: Path) -> Path:
             else:
                 imagem = imagem.convert("RGB")
 
+            if padronizar_figura:
+                quadro = Image.new("RGB", FIGURA_CANVAS_PX, "white")
+                imagem.thumbnail(FIGURA_CANVAS_PX, Image.Resampling.LANCZOS)
+                x = (FIGURA_CANVAS_PX[0] - imagem.width) // 2
+                y = (FIGURA_CANVAS_PX[1] - imagem.height) // 2
+                quadro.paste(imagem, (x, y))
+                imagem = quadro
+
             caminho_limpo = caminho_saida.with_suffix(".jpg")
             imagem.save(caminho_limpo, format="JPEG", quality=90, optimize=True, progressive=False)
             return caminho_limpo
@@ -614,7 +749,14 @@ def normalizar_imagem_para_docx(conteudo: bytes, caminho_saida: Path) -> Path:
         raise ValueError("Uma das imagens está incompleta ou com metadados inválidos. Tente reenviar a foto ou tirar uma nova captura.") from erro
 
 
-def salvar_upload(uploaded_file, pasta_temp: Path, prefixo: str, extensoes_permitidas: set[str], extensao_padrao: str) -> Path | None:
+def salvar_upload(
+    uploaded_file,
+    pasta_temp: Path,
+    prefixo: str,
+    extensoes_permitidas: set[str],
+    extensao_padrao: str,
+    padronizar_figura: bool = False,
+) -> Path | None:
     if uploaded_file is None:
         return None
 
@@ -626,7 +768,7 @@ def salvar_upload(uploaded_file, pasta_temp: Path, prefixo: str, extensoes_permi
     conteudo = uploaded_file.getvalue()
     caminho = pasta_temp / f"{prefixo}_{uuid.uuid4().hex[:8]}.{extensao}"
     if extensoes_permitidas == EXTENSOES_IMAGEM:
-        return normalizar_imagem_para_docx(conteudo, caminho)
+        return normalizar_imagem_para_docx(conteudo, caminho, padronizar_figura)
 
     caminho.write_bytes(conteudo)
     return caminho
@@ -714,6 +856,7 @@ def salvar_arquivo_rascunho(
     prefixo: str,
     extensoes_permitidas: set[str],
     extensao_padrao: str,
+    padronizar_figura: bool = False,
 ) -> dict | None:
     if uploaded_file is None:
         return None
@@ -733,7 +876,7 @@ def salvar_arquivo_rascunho(
     caminho = pasta / f"{prefixo}_{digest}.{extensao}"
 
     if extensoes_permitidas == EXTENSOES_IMAGEM:
-        caminho = normalizar_imagem_para_docx(conteudo, caminho)
+        caminho = normalizar_imagem_para_docx(conteudo, caminho, padronizar_figura)
     elif not caminho.exists():
         caminho.write_bytes(conteudo)
 
@@ -783,7 +926,15 @@ def atualizar_rascunho_atual(
         if arquivos:
             itens = []
             for indice, arquivo in enumerate(arquivos):
-                item = salvar_arquivo_rascunho(arquivo, draft_dir, categoria, f"{categoria}_{indice}", EXTENSOES_IMAGEM, "jpg")
+                item = salvar_arquivo_rascunho(
+                    arquivo,
+                    draft_dir,
+                    categoria,
+                    f"{categoria}_{indice}",
+                    EXTENSOES_IMAGEM,
+                    "jpg",
+                    padronizar_figura=True,
+                )
                 if item:
                     itens.append(item)
             if itens:
@@ -808,7 +959,7 @@ def caminhos_salvos_rascunho(draft_dir: Path, manifesto: dict) -> tuple[list[Pat
     }
     evidencias = {
         categoria: [
-            caminho
+            normalizar_imagem_para_docx(caminho.read_bytes(), caminho, padronizar_figura=True)
             for item in manifesto.get("evidencias", {}).get(categoria, [])
             if (caminho := resolver_arquivo_rascunho(draft_dir, item))
         ]
