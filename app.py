@@ -1,9 +1,11 @@
 import json
 import re
+import shutil
 import tempfile
 import unicodedata
 import uuid
 from datetime import date, datetime
+from hashlib import sha1
 from io import BytesIO
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -26,6 +28,7 @@ st.set_page_config(page_title="Agres | Relatório Técnico", page_icon="🚜", l
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATE_PATH = BASE_DIR / "modelo_tags.docx"
+DRAFTS_DIR = BASE_DIR / ".rascunhos"
 
 TAM_PLAQUETA = 60
 TAM_MAQUINA = 32
@@ -629,11 +632,236 @@ def salvar_upload(uploaded_file, pasta_temp: Path, prefixo: str, extensoes_permi
     return caminho
 
 
+def novo_manifesto_rascunho() -> dict:
+    return {
+        "audios": [],
+        "cabecalho": {"info_equip": None, "maquina": None, "implemento": None},
+        "evidencias": {categoria: [] for categoria in CATEGORIAS_EVIDENCIAS},
+        "observacoes": "",
+        "legendas_evidencias": {categoria: "" for categoria in CATEGORIAS_EVIDENCIAS},
+    }
+
+
+def obter_id_rascunho() -> str:
+    draft_url = st.query_params.get("draft", "")
+    if isinstance(draft_url, list):
+        draft_url = draft_url[0] if draft_url else ""
+
+    if "draft_id" in st.session_state:
+        draft_id = st.session_state.draft_id
+    elif re.fullmatch(r"[0-9a-f]{12}", str(draft_url)):
+        draft_id = str(draft_url)
+    else:
+        draft_id = uuid.uuid4().hex[:12]
+
+    st.session_state.draft_id = draft_id
+    st.query_params["draft"] = draft_id
+    return draft_id
+
+
+def pasta_rascunho_atual() -> Path:
+    draft_dir = DRAFTS_DIR / obter_id_rascunho()
+    draft_dir.mkdir(parents=True, exist_ok=True)
+    return draft_dir
+
+
+def caminho_manifesto(draft_dir: Path) -> Path:
+    return draft_dir / "manifest.json"
+
+
+def carregar_manifesto(draft_dir: Path) -> dict:
+    manifesto = novo_manifesto_rascunho()
+    caminho = caminho_manifesto(draft_dir)
+    if caminho.exists():
+        try:
+            dados = json.loads(caminho.read_text(encoding="utf-8"))
+            if isinstance(dados, dict):
+                manifesto.update(dados)
+                manifesto["cabecalho"] = {**novo_manifesto_rascunho()["cabecalho"], **manifesto.get("cabecalho", {})}
+                manifesto["evidencias"] = {**novo_manifesto_rascunho()["evidencias"], **manifesto.get("evidencias", {})}
+                manifesto["legendas_evidencias"] = {
+                    **novo_manifesto_rascunho()["legendas_evidencias"],
+                    **manifesto.get("legendas_evidencias", {}),
+                }
+        except (OSError, json.JSONDecodeError):
+            pass
+    return manifesto
+
+
+def salvar_manifesto(draft_dir: Path, manifesto: dict) -> None:
+    caminho_manifesto(draft_dir).write_text(
+        json.dumps(manifesto, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def resolver_arquivo_rascunho(draft_dir: Path, item) -> Path | None:
+    if not item:
+        return None
+    rel_path = item.get("path") if isinstance(item, dict) else str(item)
+    caminho = (draft_dir / rel_path).resolve()
+    try:
+        caminho.relative_to(draft_dir.resolve())
+    except ValueError:
+        return None
+    return caminho if caminho.exists() else None
+
+
+def salvar_arquivo_rascunho(
+    uploaded_file,
+    draft_dir: Path,
+    subpasta: str,
+    prefixo: str,
+    extensoes_permitidas: set[str],
+    extensao_padrao: str,
+) -> dict | None:
+    if uploaded_file is None:
+        return None
+
+    conteudo = uploaded_file.getvalue()
+    if not conteudo:
+        return None
+
+    nome_original = getattr(uploaded_file, "name", f"{prefixo}.{extensao_padrao}")
+    extensao = Path(nome_original).suffix.lower().lstrip(".")
+    if extensao not in extensoes_permitidas:
+        extensao = extensao_padrao
+
+    pasta = draft_dir / subpasta
+    pasta.mkdir(parents=True, exist_ok=True)
+    digest = sha1(conteudo).hexdigest()[:12]
+    caminho = pasta / f"{prefixo}_{digest}.{extensao}"
+
+    if extensoes_permitidas == EXTENSOES_IMAGEM:
+        caminho = normalizar_imagem_para_docx(conteudo, caminho)
+    elif not caminho.exists():
+        caminho.write_bytes(conteudo)
+
+    return {
+        "name": nome_original,
+        "path": str(caminho.relative_to(draft_dir)),
+        "size": len(conteudo),
+    }
+
+
+def atualizar_lista_rascunho(manifesto: dict, chave: str, arquivos, draft_dir: Path, subpasta: str, extensoes: set[str], extensao_padrao: str) -> None:
+    if not arquivos:
+        return
+
+    itens = []
+    for indice, arquivo in enumerate(arquivos):
+        item = salvar_arquivo_rascunho(arquivo, draft_dir, subpasta, f"{chave}_{indice}", extensoes, extensao_padrao)
+        if item:
+            itens.append(item)
+
+    if itens:
+        manifesto[chave] = itens
+
+
+def atualizar_rascunho_atual(
+    draft_dir: Path,
+    manifesto: dict,
+    audios,
+    cabecalho: dict,
+    evidencias_upload: dict,
+    observacoes: str,
+    legendas: dict,
+) -> dict:
+    if audios:
+        manifesto["audios"] = [
+            item
+            for indice, audio in enumerate(audios)
+            if (item := salvar_arquivo_rascunho(audio, draft_dir, "audios", f"audio_{indice}", EXTENSOES_AUDIO, "wav"))
+        ]
+
+    for chave, arquivo in cabecalho.items():
+        item = salvar_arquivo_rascunho(arquivo, draft_dir, "cabecalho", chave, EXTENSOES_IMAGEM, "jpg")
+        if item:
+            manifesto["cabecalho"][chave] = item
+
+    for categoria, arquivos in evidencias_upload.items():
+        if arquivos:
+            itens = []
+            for indice, arquivo in enumerate(arquivos):
+                item = salvar_arquivo_rascunho(arquivo, draft_dir, categoria, f"{categoria}_{indice}", EXTENSOES_IMAGEM, "jpg")
+                if item:
+                    itens.append(item)
+            if itens:
+                manifesto["evidencias"][categoria] = itens
+
+    if limpar_texto(observacoes):
+        manifesto["observacoes"] = observacoes
+
+    for categoria, texto in (legendas or {}).items():
+        if limpar_texto(texto):
+            manifesto["legendas_evidencias"][categoria] = texto
+
+    salvar_manifesto(draft_dir, manifesto)
+    return manifesto
+
+
+def caminhos_salvos_rascunho(draft_dir: Path, manifesto: dict) -> tuple[list[Path], dict, dict]:
+    audios = [caminho for item in manifesto.get("audios", []) if (caminho := resolver_arquivo_rascunho(draft_dir, item))]
+    cabecalho = {
+        chave: resolver_arquivo_rascunho(draft_dir, item)
+        for chave, item in manifesto.get("cabecalho", {}).items()
+    }
+    evidencias = {
+        categoria: [
+            caminho
+            for item in manifesto.get("evidencias", {}).get(categoria, [])
+            if (caminho := resolver_arquivo_rascunho(draft_dir, item))
+        ]
+        for categoria in CATEGORIAS_EVIDENCIAS
+    }
+    return audios, cabecalho, evidencias
+
+
+def contar_evidencias(manifesto: dict) -> int:
+    return sum(len(itens or []) for itens in manifesto.get("evidencias", {}).values())
+
+
+def limpar_rascunho_atual() -> None:
+    draft_dir = DRAFTS_DIR / st.session_state.draft_id
+    if draft_dir.exists():
+        shutil.rmtree(draft_dir)
+    st.session_state.draft_id = uuid.uuid4().hex[:12]
+    st.query_params["draft"] = st.session_state.draft_id
+    for chave in ("observacoes_texto", *[f"legenda_{categoria}" for categoria in CATEGORIAS_EVIDENCIAS]):
+        st.session_state.pop(chave, None)
+    st.session_state.relatorio_pronto = None
+    st.session_state.nome_arquivo_pronto = None
+
+
 # ==========================================
 # 5. Interface visual
 # ==========================================
+draft_dir = pasta_rascunho_atual()
+manifesto_rascunho = carregar_manifesto(draft_dir)
+
+if "observacoes_texto" not in st.session_state:
+    st.session_state.observacoes_texto = manifesto_rascunho.get("observacoes", "")
+
+for categoria in CATEGORIAS_EVIDENCIAS:
+    chave_legenda = f"legenda_{categoria}"
+    if chave_legenda not in st.session_state:
+        st.session_state[chave_legenda] = manifesto_rascunho.get("legendas_evidencias", {}).get(categoria, "")
+
 st.markdown("<h1 class='titulo-app'>🚜 Agres Relatórios</h1>", unsafe_allow_html=True)
 st.markdown("<p class='subtitulo-app'>Geração de Relatórios Técnicos</p>", unsafe_allow_html=True)
+
+with st.container(border=True):
+    col_status, col_limpar_rascunho = st.columns([0.72, 0.28], vertical_alignment="center")
+    with col_status:
+        st.caption(
+            f"Rascunho ativo: {st.session_state.draft_id} | "
+            f"Áudios salvos: {len(manifesto_rascunho.get('audios', []))} | "
+            f"Fotos salvas: {contar_evidencias(manifesto_rascunho)}"
+        )
+    with col_limpar_rascunho:
+        if st.button("Novo rascunho", use_container_width=True):
+            limpar_rascunho_atual()
+            st.rerun()
 
 with st.container(border=True):
     st.markdown("### 🎙️ 1. Relato Técnico")
@@ -672,6 +900,7 @@ with st.container(border=True):
         "Complemento técnico opcional",
         placeholder="Cliente, local, máquina, equipamento, séries, versões, falhas, parâmetros, calibrações ou pendências.",
         height=120,
+        key="observacoes_texto",
     )
 
 with st.container(border=True):
@@ -696,21 +925,25 @@ with st.container(border=True):
                 "Equipamento Agres",
                 placeholder="Plaqueta de identificação da tela AgroNave 7 | Registro da série e versões do equipamento",
                 height=90,
+                key="legenda_fotos_equipamento",
             ),
             "fotos_instalacao": st.text_area(
                 "Instalação",
                 placeholder="Roteamento do chicote principal | Chicote fixado no trator após instalação",
                 height=90,
+                key="legenda_fotos_instalacao",
             ),
             "fotos_configuracao": st.text_area(
                 "Configurações",
                 placeholder="Tela de parâmetros do piloto | Configuração final utilizada durante os testes",
                 height=90,
+                key="legenda_fotos_configuracao",
             ),
             "fotos_outros": st.text_area(
                 "Outros registros",
                 placeholder="Teste de campo após calibração | Validação operacional realizada com o cliente",
                 height=90,
+                key="legenda_fotos_outros",
             ),
         }
 
@@ -719,7 +952,44 @@ with st.container(border=True):
 # 6. Execução
 # ==========================================
 audios_finais = audios_rec + (audios_up if audios_up else [])
-entrada_disponivel = bool(audios_finais) or bool(limpar_texto(observacoes_texto))
+uploads_cabecalho = {
+    "info_equip": f_plaqueta,
+    "maquina": f_maquina,
+    "implemento": f_implemento,
+}
+uploads_evidencias = {
+    "fotos_equipamento": f_eq,
+    "fotos_instalacao": f_ins,
+    "fotos_configuracao": f_conf,
+    "fotos_outros": f_out,
+}
+
+manifesto_rascunho = atualizar_rascunho_atual(
+    draft_dir,
+    manifesto_rascunho,
+    audios_finais,
+    uploads_cabecalho,
+    uploads_evidencias,
+    observacoes_texto,
+    legendas_evidencias,
+)
+caminhos_audio_salvos, caminhos_cabecalho_salvos, evidencias_salvas = caminhos_salvos_rascunho(
+    draft_dir,
+    manifesto_rascunho,
+)
+observacoes_salvas = limpar_texto(observacoes_texto) or manifesto_rascunho.get("observacoes", "")
+legendas_salvas = {
+    categoria: limpar_texto(legendas_evidencias.get(categoria, ""))
+    or manifesto_rascunho.get("legendas_evidencias", {}).get(categoria, "")
+    for categoria in CATEGORIAS_EVIDENCIAS
+}
+
+st.caption(
+    f"Rascunho salvo agora: {len(caminhos_audio_salvos)} áudio(s), "
+    f"{sum(len(lista) for lista in evidencias_salvas.values())} foto(s) de evidência."
+)
+
+entrada_disponivel = bool(caminhos_audio_salvos) or bool(limpar_texto(observacoes_salvas))
 
 if entrada_disponivel and st.button("Gerar Relatório Técnico"):
     st.session_state.relatorio_pronto = None
@@ -730,38 +1000,18 @@ if entrada_disponivel and st.button("Gerar Relatório Técnico"):
             pasta_temp = Path(pasta_temp_raw)
 
             with st.status("Processando dados e imagens...", expanded=True) as status:
-                st.write("Salvando arquivos temporários.")
-                caminhos_audio = []
-                for i, audio in enumerate(audios_finais):
-                    caminho_audio = salvar_upload(audio, pasta_temp, f"audio_{i}", EXTENSOES_AUDIO, "wav")
-                    if caminho_audio:
-                        caminhos_audio.append(caminho_audio)
-
-                caminhos_cabecalho = {
-                    "info_equip": salvar_upload(f_plaqueta, pasta_temp, "plaqueta", EXTENSOES_IMAGEM, "jpg"),
-                    "maquina": salvar_upload(f_maquina, pasta_temp, "maquina", EXTENSOES_IMAGEM, "jpg"),
-                    "implemento": salvar_upload(f_implemento, pasta_temp, "implemento", EXTENSOES_IMAGEM, "jpg"),
-                }
-
-                mapa_evidencias = {
-                    "fotos_equipamento": f_eq,
-                    "fotos_instalacao": f_ins,
-                    "fotos_configuracao": f_conf,
-                    "fotos_outros": f_out,
-                }
-                evidencias = {}
-                for categoria, arquivos in mapa_evidencias.items():
-                    evidencias[categoria] = []
-                    for i, arquivo in enumerate(arquivos or []):
-                        caminho_foto = salvar_upload(arquivo, pasta_temp, f"{categoria}_{i}", EXTENSOES_IMAGEM, "jpg")
-                        if caminho_foto:
-                            evidencias[categoria].append(caminho_foto)
-
+                st.write("Usando arquivos salvos no rascunho.")
                 st.write("Extraindo e organizando informações técnicas.")
-                dados = processar_atendimento_completo(caminhos_audio, observacoes_texto)
+                dados = processar_atendimento_completo(caminhos_audio_salvos, observacoes_salvas)
 
                 st.write("Renderizando relatório Word.")
-                arquivo_final = gerar_docx(dados, evidencias, caminhos_cabecalho, pasta_temp, legendas_evidencias)
+                arquivo_final = gerar_docx(
+                    dados,
+                    evidencias_salvas,
+                    caminhos_cabecalho_salvos,
+                    pasta_temp,
+                    legendas_salvas,
+                )
                 st.session_state.relatorio_pronto = arquivo_final.read_bytes()
                 st.session_state.nome_arquivo_pronto = arquivo_final.name
 
