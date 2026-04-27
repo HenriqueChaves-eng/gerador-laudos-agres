@@ -1,5 +1,7 @@
 .streamlit/secrets.toml
 .rascunhos/
+teste_relatorio/
 __pycache__/
 *.pyc
 *.log
+arquivos_finais_github.zip

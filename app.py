@@ -1,9 +1,11 @@
+import base64
 import json
 import re
 import shutil
 import tempfile
 import unicodedata
 import uuid
+from copy import deepcopy
 from datetime import date, datetime
 from hashlib import sha1
 from io import BytesIO
@@ -29,6 +31,7 @@ st.set_page_config(page_title="Agres | Relatório Técnico", page_icon="🚜", l
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATE_PATH = BASE_DIR / "modelo_tags.docx"
 DRAFTS_DIR = BASE_DIR / ".rascunhos"
+LOGO_PATH = BASE_DIR / "assets" / "logo_agres.png"
 
 TAM_PLAQUETA = 60
 TAM_MAQUINA = 32
@@ -141,14 +144,163 @@ for chave, valor_inicial in {
 st.markdown(
     """
     <style>
-        #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-        div.stButton > button:first-child {
-            background-color: #0b4f2c; color: white; border-radius: 8px; height: 55px;
-            font-size: 18px; font-weight: bold; border: none; width: 100%; transition: all 0.3s ease;
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        .stApp {
+            background:
+                radial-gradient(circle at top left, rgba(120, 124, 130, 0.18), transparent 28rem),
+                linear-gradient(180deg, #e6e8eb 0%, #f1f2f4 45%, #e4e6e9 100%);
         }
-        div.stButton > button:first-child:hover { background-color: #157343; transform: translateY(-2px); }
-        .titulo-app { text-align: center; color: #1e293b; font-weight: 800; margin-bottom: 5px; }
-        .subtitulo-app { text-align: center; color: #64748b; font-size: 16px; margin-bottom: 30px; }
+        .block-container {
+            max-width: 980px;
+            padding-top: 1.4rem;
+            padding-bottom: 3rem;
+        }
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            border-color: #d4d6d8 !important;
+            border-radius: 12px !important;
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.07);
+            background: rgba(255, 255, 255, 0.97);
+        }
+        div.stButton > button {
+            border-radius: 8px;
+            min-height: 46px;
+            font-weight: 700;
+            border: 1px solid #c8cbd0;
+            background: #ffffff;
+            color: #303236;
+            transition: all 0.18s ease;
+        }
+        div.stButton > button:hover {
+            border-color: #55585c;
+            color: #323438;
+            transform: translateY(-1px);
+        }
+        div.stButton > button[kind="primary"],
+        div.stDownloadButton > button[kind="primary"] {
+            background: #3f4247;
+            color: #ffffff;
+            border: 1px solid #3f4247;
+        }
+        div.stButton > button[kind="primary"]:hover,
+        div.stDownloadButton > button[kind="primary"]:hover {
+            background: #55585c;
+            color: #ffffff;
+            border-color: #55585c;
+        }
+        .brand-hero {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            background: linear-gradient(135deg, #242528 0%, #4f5054 58%, #6b6c70 100%);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 16px;
+            padding: 1.25rem 1.4rem;
+            box-shadow: 0 18px 44px rgba(32, 37, 41, 0.24);
+            margin-bottom: 1rem;
+        }
+        .brand-logo {
+            width: 190px;
+            max-width: 34vw;
+            filter: brightness(0) invert(1);
+            opacity: 0.96;
+        }
+        .brand-copy {
+            min-width: 0;
+        }
+        .brand-kicker {
+            display: inline-flex;
+            align-items: center;
+            color: #f2f3f5 !important;
+            font-size: 0.76rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 0.32rem;
+        }
+        .brand-hero .brand-title,
+        section.brand-hero div.brand-copy div.brand-title {
+            color: #ffffff !important;
+            font-size: 2rem;
+            font-weight: 850;
+            line-height: 1.05;
+            margin: 0;
+        }
+        .brand-hero .brand-subtitle,
+        section.brand-hero div.brand-copy p.brand-subtitle {
+            color: #f4f5f6 !important;
+            font-size: 1rem;
+            line-height: 1.45;
+            margin: 0.45rem 0 0;
+            max-width: 46rem;
+        }
+        .section-title {
+            color: #25272b;
+            font-size: 1.12rem;
+            font-weight: 800;
+            margin: 0 0 0.2rem;
+        }
+        .section-caption {
+            color: #5a5e63;
+            font-size: 0.86rem;
+            margin: 0 0 0.8rem;
+        }
+        .status-strip {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.65rem;
+            margin-bottom: 0.2rem;
+        }
+        .status-item {
+            border: 1px solid #d6d8dc;
+            border-radius: 10px;
+            padding: 0.75rem 0.85rem;
+            background: linear-gradient(180deg, #ffffff 0%, #f5f6f7 100%);
+        }
+        .status-label {
+            display: block;
+            color: #656a70;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.15rem;
+        }
+        .status-value {
+            color: #25272b;
+            font-weight: 800;
+            font-size: 1.18rem;
+            word-break: break-word;
+        }
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 0.35rem;
+            border-bottom: 1px solid #d7d9dd;
+        }
+        .stTabs [data-baseweb="tab"] {
+            color: #3e4248;
+            font-weight: 650;
+        }
+        .stTabs [aria-selected="true"] {
+            color: #3f4247 !important;
+        }
+        [data-testid="stAlert"] {
+            border-radius: 10px;
+        }
+        label, .stTextInput label, .stTextArea label, .stFileUploader label {
+            color: #25272b !important;
+            font-weight: 700 !important;
+        }
+        @media (max-width: 640px) {
+            .brand-hero {
+                align-items: flex-start;
+                flex-direction: column;
+                padding: 1.05rem;
+                gap: 0.8rem;
+            }
+            .brand-logo { width: 150px; max-width: 70vw; }
+            .brand-hero .brand-title { font-size: 1.45rem; }
+            .status-strip { grid-template-columns: 1fr; }
+        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -175,6 +327,13 @@ def data_atual_brasil() -> date:
         return datetime.now(ZoneInfo("America/Sao_Paulo")).date()
     except Exception:
         return date.today()
+
+
+def imagem_data_uri(caminho: Path) -> str:
+    if not caminho.exists():
+        return ""
+    conteudo = base64.b64encode(caminho.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{conteudo}"
 
 
 def normalizar_busca(texto: str) -> str:
@@ -676,16 +835,135 @@ def formatar_paragrafo_figura(paragraph, keep_with_next: bool, tamanho_fonte: in
             run.font.size = Pt(tamanho_fonte)
 
 
+def limpar_paragrafo_word(paragraph) -> None:
+    p = paragraph._p
+    propriedades = p.pPr
+    for elemento in list(p):
+        if propriedades is not None and elemento is propriedades:
+            continue
+        p.remove(elemento)
+
+
+def remover_paragrafo_word(paragraph) -> None:
+    elemento = paragraph._element
+    pai = elemento.getparent()
+    if pai is not None:
+        pai.remove(elemento)
+
+
+def copiar_runs_word(origem, destino) -> None:
+    for elemento in origem._p:
+        if elemento.tag.endswith("}r") or elemento.tag.endswith("}hyperlink"):
+            destino._p.append(deepcopy(elemento))
+
+
+def adicionar_run_formatado(paragraph, texto: str, tamanho_fonte: int = 10):
+    run = paragraph.add_run(texto)
+    run.font.name = "Arial"
+    run.font.size = Pt(tamanho_fonte)
+    return run
+
+
+def consolidar_bloco_figura(
+    titulo_paragraph,
+    imagem_paragraph,
+    fonte_paragraph,
+    legenda_paragraph,
+    inserir_quebra_pagina: bool,
+) -> None:
+    titulo = limpar_texto(titulo_paragraph.text)
+    fonte = limpar_texto(fonte_paragraph.text)
+    legenda = limpar_texto(legenda_paragraph.text)
+
+    limpar_paragrafo_word(titulo_paragraph)
+    adicionar_run_formatado(titulo_paragraph, titulo)
+    titulo_paragraph.add_run().add_break()
+    copiar_runs_word(imagem_paragraph, titulo_paragraph)
+    titulo_paragraph.add_run().add_break()
+    adicionar_run_formatado(titulo_paragraph, fonte)
+    titulo_paragraph.add_run().add_break()
+    adicionar_run_formatado(titulo_paragraph, legenda)
+    if inserir_quebra_pagina:
+        titulo_paragraph.add_run().add_break(WD_BREAK.PAGE)
+
+    formatar_paragrafo_figura(titulo_paragraph, keep_with_next=False)
+
+
+def consolidar_figuras_em_blocos_unicos(paragrafos: list) -> None:
+    total_figuras = sum(1 for paragraph in paragrafos if limpar_texto(paragraph.text).startswith("Figura "))
+    removidos = set()
+    numero_figura = 0
+
+    for indice, paragraph in enumerate(paragrafos):
+        if id(paragraph) in removidos:
+            continue
+
+        texto = limpar_texto(paragraph.text)
+        if not texto.startswith("Figura "):
+            continue
+
+        numero_figura += 1
+        imagem_paragraph = None
+        fonte_paragraph = None
+        legenda_paragraph = None
+        paragrafos_para_remover = []
+
+        for proximo in paragrafos[indice + 1 :]:
+            proximo_texto = limpar_texto(proximo.text)
+            proximo_tem_imagem = bool(paragrafo_tem_imagem(proximo))
+
+            if proximo_texto.startswith("Figura "):
+                break
+
+            paragrafos_para_remover.append(proximo)
+            if proximo_tem_imagem and imagem_paragraph is None:
+                imagem_paragraph = proximo
+            elif proximo_texto.startswith("Fonte:"):
+                fonte_paragraph = proximo
+            elif proximo_texto.startswith(("Legenda:", "Nota:")):
+                legenda_paragraph = proximo
+                break
+
+        if not (imagem_paragraph and fonte_paragraph and legenda_paragraph):
+            formatar_paragrafo_figura(paragraph, keep_with_next=True)
+            continue
+
+        for proximo in paragrafos[indice + 1 + len(paragrafos_para_remover) :]:
+            proximo_texto = limpar_texto(proximo.text)
+            if proximo_texto or paragrafo_tem_imagem(proximo):
+                break
+            paragrafos_para_remover.append(proximo)
+
+        consolidar_bloco_figura(
+            paragraph,
+            imagem_paragraph,
+            fonte_paragraph,
+            legenda_paragraph,
+            numero_figura % FIGURAS_POR_PAGINA == 0 and numero_figura < total_figuras,
+        )
+
+        for paragrafo_remover in paragrafos_para_remover:
+            removidos.add(id(paragrafo_remover))
+            remover_paragrafo_word(paragrafo_remover)
+
+
 def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
     documento = Document(str(caminho_docx))
     paragrafos = list(iterar_paragrafos_word(documento))
-    total_figuras = sum(1 for paragraph in paragrafos if limpar_texto(paragraph.text).startswith("Figura "))
+    consolidar_figuras_em_blocos_unicos(paragrafos)
 
+    paragrafos = list(iterar_paragrafos_word(documento))
     dentro_bloco_figura = False
     numero_figura = 0
     for paragraph in paragrafos:
         texto = limpar_texto(paragraph.text)
         tem_imagem = bool(paragrafo_tem_imagem(paragraph))
+
+        if texto.startswith("Figura ") and tem_imagem:
+            numero_figura += 1
+            formatar_paragrafo_figura(paragraph, keep_with_next=False)
+            dentro_bloco_figura = False
+            continue
 
         if texto.startswith("Figura "):
             dentro_bloco_figura = True
@@ -703,8 +981,6 @@ def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
 
         if dentro_bloco_figura and (texto.startswith("Legenda:") or texto.startswith("Nota:")):
             formatar_paragrafo_figura(paragraph, keep_with_next=False)
-            if numero_figura % FIGURAS_POR_PAGINA == 0 and numero_figura < total_figuras:
-                paragraph.add_run().add_break(WD_BREAK.PAGE)
             dentro_bloco_figura = False
             continue
 
@@ -747,6 +1023,28 @@ def normalizar_imagem_para_docx(conteudo: bytes, caminho_saida: Path, padronizar
         raise ValueError("Uma das imagens enviadas não pôde ser lida. Tente reenviar em JPG ou PNG.") from erro
     except OSError as erro:
         raise ValueError("Uma das imagens está incompleta ou com metadados inválidos. Tente reenviar a foto ou tirar uma nova captura.") from erro
+
+
+def imagem_precisa_normalizacao(caminho: Path, padronizar_figura: bool = False) -> bool:
+    if not caminho.exists():
+        return True
+
+    try:
+        with Image.open(caminho) as imagem:
+            if padronizar_figura and imagem.size != FIGURA_CANVAS_PX:
+                return True
+            if imagem.mode not in ("RGB", "L"):
+                return True
+            return False
+    except (UnidentifiedImageError, OSError):
+        return True
+
+
+def normalizar_imagem_salva(caminho: Path, padronizar_figura: bool = False) -> Path:
+    caminho_final = caminho.with_suffix(".jpg")
+    if imagem_precisa_normalizacao(caminho_final, padronizar_figura):
+        return normalizar_imagem_para_docx(caminho.read_bytes(), caminho, padronizar_figura)
+    return caminho_final
 
 
 def salvar_upload(
@@ -876,7 +1174,11 @@ def salvar_arquivo_rascunho(
     caminho = pasta / f"{prefixo}_{digest}.{extensao}"
 
     if extensoes_permitidas == EXTENSOES_IMAGEM:
-        caminho = normalizar_imagem_para_docx(conteudo, caminho, padronizar_figura)
+        caminho_final = caminho.with_suffix(".jpg")
+        if imagem_precisa_normalizacao(caminho_final, padronizar_figura):
+            caminho = normalizar_imagem_para_docx(conteudo, caminho, padronizar_figura)
+        else:
+            caminho = caminho_final
     elif not caminho.exists():
         caminho.write_bytes(conteudo)
 
@@ -940,12 +1242,11 @@ def atualizar_rascunho_atual(
             if itens:
                 manifesto["evidencias"][categoria] = itens
 
-    if limpar_texto(observacoes):
-        manifesto["observacoes"] = observacoes
+    manifesto["observacoes"] = observacoes or ""
 
     for categoria, texto in (legendas or {}).items():
-        if limpar_texto(texto):
-            manifesto["legendas_evidencias"][categoria] = texto
+        if categoria in CATEGORIAS_EVIDENCIAS:
+            manifesto["legendas_evidencias"][categoria] = texto or ""
 
     salvar_manifesto(draft_dir, manifesto)
     return manifesto
@@ -959,7 +1260,7 @@ def caminhos_salvos_rascunho(draft_dir: Path, manifesto: dict) -> tuple[list[Pat
     }
     evidencias = {
         categoria: [
-            normalizar_imagem_para_docx(caminho.read_bytes(), caminho, padronizar_figura=True)
+            normalizar_imagem_salva(caminho, padronizar_figura=True)
             for item in manifesto.get("evidencias", {}).get(categoria, [])
             if (caminho := resolver_arquivo_rascunho(draft_dir, item))
         ]
@@ -998,24 +1299,27 @@ for categoria in CATEGORIAS_EVIDENCIAS:
     if chave_legenda not in st.session_state:
         st.session_state[chave_legenda] = manifesto_rascunho.get("legendas_evidencias", {}).get(categoria, "")
 
-st.markdown("<h1 class='titulo-app'>🚜 Agres Relatórios</h1>", unsafe_allow_html=True)
-st.markdown("<p class='subtitulo-app'>Geração de Relatórios Técnicos</p>", unsafe_allow_html=True)
+logo_uri = imagem_data_uri(LOGO_PATH)
+logo_html = f'<img class="brand-logo" src="{logo_uri}" alt="Agres">' if logo_uri else ""
+st.markdown(
+    f"""
+    <section class="brand-hero">
+        {logo_html}
+        <div class="brand-copy">
+            <div class="brand-kicker">Relatórios de campo</div>
+            <div class="brand-title">Relatórios Técnicos Agres</div>
+            <p class="brand-subtitle">Gere laudos profissionais com áudio, fotos, salvamento automático e evidências fotográficas padronizadas em Word.</p>
+        </div>
+    </section>
+    """,
+    unsafe_allow_html=True,
+)
 
 with st.container(border=True):
-    col_status, col_limpar_rascunho = st.columns([0.72, 0.28], vertical_alignment="center")
-    with col_status:
-        st.caption(
-            f"Rascunho ativo: {st.session_state.draft_id} | "
-            f"Áudios salvos: {len(manifesto_rascunho.get('audios', []))} | "
-            f"Fotos salvas: {contar_evidencias(manifesto_rascunho)}"
-        )
-    with col_limpar_rascunho:
-        if st.button("Novo rascunho", use_container_width=True):
-            limpar_rascunho_atual()
-            st.rerun()
-
-with st.container(border=True):
-    st.markdown("### 🎙️ 1. Relato Técnico")
+    st.markdown(
+        "<p class='section-title'>1. Relato técnico</p><p class='section-caption'>Áudio, arquivos gravados e complemento escrito do atendimento.</p>",
+        unsafe_allow_html=True,
+    )
     aba1, aba2 = st.tabs(["🔴 Gravar agora", "📁 Arquivos do celular"])
 
     with aba1:
@@ -1055,14 +1359,20 @@ with st.container(border=True):
     )
 
 with st.container(border=True):
-    st.markdown("### 🏷️ 2. Fotos do Cabeçalho")
+    st.markdown(
+        "<p class='section-title'>2. Cabeçalho do relatório</p><p class='section-caption'>Fotos de identificação do equipamento, máquina e implemento.</p>",
+        unsafe_allow_html=True,
+    )
     col_plaqueta, col_maquina, col_implemento = st.columns(3)
     f_plaqueta = col_plaqueta.file_uploader("📸 Informações do Equipamento", type=list(EXTENSOES_IMAGEM), key="up_p1")
     f_maquina = col_maquina.file_uploader("🚜 Máquina", type=list(EXTENSOES_IMAGEM), key="up_p2")
     f_implemento = col_implemento.file_uploader("🔧 Implemento", type=list(EXTENSOES_IMAGEM), key="up_p3")
 
 with st.container(border=True):
-    st.markdown("### 📸 3. Evidências Fotográficas")
+    st.markdown(
+        "<p class='section-title'>3. Evidências fotográficas</p><p class='section-caption'>As imagens são padronizadas para duas figuras por página no Word.</p>",
+        unsafe_allow_html=True,
+    )
     col_e1, col_e2 = st.columns(2)
     f_eq = col_e1.file_uploader("📋 Equipamento Agres", accept_multiple_files=True, type=list(EXTENSOES_IMAGEM))
     f_ins = col_e1.file_uploader("🔨 Instalação", accept_multiple_files=True, type=list(EXTENSOES_IMAGEM))
@@ -1135,52 +1445,54 @@ legendas_salvas = {
     for categoria in CATEGORIAS_EVIDENCIAS
 }
 
-st.caption(
-    f"Rascunho salvo agora: {len(caminhos_audio_salvos)} áudio(s), "
-    f"{sum(len(lista) for lista in evidencias_salvas.values())} foto(s) de evidência."
-)
-
 entrada_disponivel = bool(caminhos_audio_salvos) or bool(limpar_texto(observacoes_salvas))
 
-if entrada_disponivel and st.button("Gerar Relatório Técnico"):
-    st.session_state.relatorio_pronto = None
-    st.session_state.nome_arquivo_pronto = None
-
-    try:
-        with tempfile.TemporaryDirectory() as pasta_temp_raw:
-            pasta_temp = Path(pasta_temp_raw)
-
-            with st.status("Processando dados e imagens...", expanded=True) as status:
-                st.write("Usando arquivos salvos no rascunho.")
-                st.write("Extraindo e organizando informações técnicas.")
-                dados = processar_atendimento_completo(caminhos_audio_salvos, observacoes_salvas)
-
-                st.write("Renderizando relatório Word.")
-                arquivo_final = gerar_docx(
-                    dados,
-                    evidencias_salvas,
-                    caminhos_cabecalho_salvos,
-                    pasta_temp,
-                    legendas_salvas,
-                )
-                st.session_state.relatorio_pronto = arquivo_final.read_bytes()
-                st.session_state.nome_arquivo_pronto = arquivo_final.name
-
-                status.update(label="Relatório finalizado!", state="complete", expanded=False)
-
-    except Exception as erro:
-        st.error(f"Erro no processamento: {erro}")
-        st.exception(erro)
-elif not entrada_disponivel:
-    st.caption("Adicione ao menos um áudio ou complemento escrito para gerar o relatório.")
-
-if st.session_state.relatorio_pronto:
-    st.success("✅ O laudo está pronto para download!")
-    st.download_button(
-        label="📥 Baixar Relatório (Word)",
-        data=st.session_state.relatorio_pronto,
-        file_name=st.session_state.nome_arquivo_pronto,
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        type="primary",
-        use_container_width=True,
+with st.container(border=True):
+    st.markdown(
+        "<p class='section-title'>4. Gerar relatório</p><p class='section-caption'>O Word será gerado com nomenclatura técnica, arquivos preservados e evidências em padrão ABNT.</p>",
+        unsafe_allow_html=True,
     )
+    st.caption("Salvamento automático ativo durante o preenchimento.")
+
+    if entrada_disponivel and st.button("Gerar relatório técnico", type="primary", use_container_width=True):
+        st.session_state.relatorio_pronto = None
+        st.session_state.nome_arquivo_pronto = None
+
+        try:
+            with tempfile.TemporaryDirectory() as pasta_temp_raw:
+                pasta_temp = Path(pasta_temp_raw)
+
+                with st.status("Processando dados e imagens...", expanded=True) as status:
+                    st.write("Usando arquivos salvos automaticamente.")
+                    st.write("Extraindo e organizando informações técnicas.")
+                    dados = processar_atendimento_completo(caminhos_audio_salvos, observacoes_salvas)
+
+                    st.write("Renderizando relatório Word.")
+                    arquivo_final = gerar_docx(
+                        dados,
+                        evidencias_salvas,
+                        caminhos_cabecalho_salvos,
+                        pasta_temp,
+                        legendas_salvas,
+                    )
+                    st.session_state.relatorio_pronto = arquivo_final.read_bytes()
+                    st.session_state.nome_arquivo_pronto = arquivo_final.name
+
+                    status.update(label="Relatório finalizado!", state="complete", expanded=False)
+
+        except Exception as erro:
+            st.error(f"Erro no processamento: {erro}")
+            st.exception(erro)
+    elif not entrada_disponivel:
+        st.caption("Adicione ao menos um áudio ou complemento escrito para gerar o relatório.")
+
+    if st.session_state.relatorio_pronto:
+        st.success("✅ O laudo está pronto para download!")
+        st.download_button(
+            label="📥 Baixar relatório (Word)",
+            data=st.session_state.relatorio_pronto,
+            file_name=st.session_state.nome_arquivo_pronto,
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            type="primary",
+            use_container_width=True,
+        )
