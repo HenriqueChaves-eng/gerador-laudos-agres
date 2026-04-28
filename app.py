@@ -157,6 +157,17 @@ st.markdown(
             padding-top: 1.4rem;
             padding-bottom: 3rem;
         }
+        .stApp,
+        .stApp p,
+        .stApp span,
+        .stApp small,
+        .stApp div,
+        [data-testid="stMarkdownContainer"] p,
+        [data-testid="stMarkdownContainer"] span,
+        [data-testid="stCaptionContainer"],
+        [data-testid="stCaptionContainer"] * {
+            color: #303236;
+        }
         [data-testid="stVerticalBlockBorderWrapper"] {
             border-color: #d4d6d8 !important;
             border-radius: 12px !important;
@@ -182,6 +193,10 @@ st.markdown(
             background: #3f4247;
             color: #ffffff;
             border: 1px solid #3f4247;
+        }
+        div.stButton > button[kind="primary"] *,
+        div.stDownloadButton > button[kind="primary"] * {
+            color: #ffffff !important;
         }
         div.stButton > button[kind="primary"]:hover,
         div.stDownloadButton > button[kind="primary"]:hover {
@@ -285,6 +300,16 @@ st.markdown(
         }
         [data-testid="stAlert"] {
             border-radius: 10px;
+        }
+        [data-testid="stAlert"],
+        [data-testid="stAlert"] *,
+        [data-testid="stFileUploaderDropzone"],
+        [data-testid="stFileUploaderDropzone"] * {
+            color: #303236 !important;
+        }
+        [data-testid="stFileUploaderDropzone"] {
+            background: #f7f8f9 !important;
+            border-color: #c9ccd1 !important;
         }
         label, .stTextInput label, .stTextArea label, .stFileUploader label {
             color: #25272b !important;
@@ -853,7 +878,9 @@ def remover_paragrafo_word(paragraph) -> None:
 
 def copiar_runs_word(origem, destino) -> None:
     for elemento in origem._p:
-        if elemento.tag.endswith("}r") or elemento.tag.endswith("}hyperlink"):
+        if (
+            elemento.tag.endswith("}r") or elemento.tag.endswith("}hyperlink")
+        ) and elemento.xpath(".//*[local-name()='drawing' or local-name()='pict']"):
             destino._p.append(deepcopy(elemento))
 
 
@@ -874,19 +901,33 @@ def consolidar_bloco_figura(
     titulo = limpar_texto(titulo_paragraph.text)
     fonte = limpar_texto(fonte_paragraph.text)
     legenda = limpar_texto(legenda_paragraph.text)
+    imagem_runs = [
+        deepcopy(elemento)
+        for elemento in imagem_paragraph._p
+        if (
+            elemento.tag.endswith("}r") or elemento.tag.endswith("}hyperlink")
+        ) and elemento.xpath(".//*[local-name()='drawing' or local-name()='pict']")
+    ]
 
     limpar_paragrafo_word(titulo_paragraph)
     adicionar_run_formatado(titulo_paragraph, titulo)
-    titulo_paragraph.add_run().add_break()
-    copiar_runs_word(imagem_paragraph, titulo_paragraph)
-    titulo_paragraph.add_run().add_break()
-    adicionar_run_formatado(titulo_paragraph, fonte)
-    titulo_paragraph.add_run().add_break()
-    adicionar_run_formatado(titulo_paragraph, legenda)
-    if inserir_quebra_pagina:
-        titulo_paragraph.add_run().add_break(WD_BREAK.PAGE)
+    formatar_paragrafo_figura(titulo_paragraph, keep_with_next=True)
+    titulo_paragraph.paragraph_format.space_before = Pt(6)
+    titulo_paragraph.paragraph_format.space_after = Pt(0)
 
-    formatar_paragrafo_figura(titulo_paragraph, keep_with_next=False)
+    limpar_paragrafo_word(imagem_paragraph)
+    for imagem_run in imagem_runs:
+        imagem_paragraph._p.append(imagem_run)
+    imagem_paragraph.add_run().add_break()
+    adicionar_run_formatado(imagem_paragraph, fonte)
+    imagem_paragraph.add_run().add_break()
+    adicionar_run_formatado(imagem_paragraph, legenda)
+    if inserir_quebra_pagina:
+        imagem_paragraph.add_run().add_break(WD_BREAK.PAGE)
+
+    formatar_paragrafo_figura(imagem_paragraph, keep_with_next=False, tamanho_fonte=None)
+    imagem_paragraph.paragraph_format.space_before = Pt(0)
+    imagem_paragraph.paragraph_format.space_after = Pt(14)
 
 
 def consolidar_figuras_em_blocos_unicos(paragrafos: list) -> None:
@@ -943,6 +984,8 @@ def consolidar_figuras_em_blocos_unicos(paragrafos: list) -> None:
         )
 
         for paragrafo_remover in paragrafos_para_remover:
+            if paragrafo_remover is imagem_paragraph:
+                continue
             removidos.add(id(paragrafo_remover))
             remover_paragrafo_word(paragrafo_remover)
 
@@ -962,6 +1005,8 @@ def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
         if texto.startswith("Figura ") and tem_imagem:
             numero_figura += 1
             formatar_paragrafo_figura(paragraph, keep_with_next=False)
+            paragraph.paragraph_format.space_before = Pt(6)
+            paragraph.paragraph_format.space_after = Pt(14)
             dentro_bloco_figura = False
             continue
 
@@ -969,6 +1014,17 @@ def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
             dentro_bloco_figura = True
             numero_figura += 1
             formatar_paragrafo_figura(paragraph, keep_with_next=True)
+            paragraph.paragraph_format.space_before = Pt(6)
+            paragraph.paragraph_format.space_after = Pt(0)
+            continue
+
+        if dentro_bloco_figura and tem_imagem and "Fonte:" in texto and (
+            "Legenda:" in texto or "Nota:" in texto
+        ):
+            formatar_paragrafo_figura(paragraph, keep_with_next=False, tamanho_fonte=None)
+            paragraph.paragraph_format.space_before = Pt(0)
+            paragraph.paragraph_format.space_after = Pt(14)
+            dentro_bloco_figura = False
             continue
 
         if dentro_bloco_figura and tem_imagem:
@@ -1012,7 +1068,7 @@ def normalizar_imagem_para_docx(conteudo: bytes, caminho_saida: Path, padronizar
                 quadro = Image.new("RGB", FIGURA_CANVAS_PX, "white")
                 imagem.thumbnail(FIGURA_CANVAS_PX, Image.Resampling.LANCZOS)
                 x = (FIGURA_CANVAS_PX[0] - imagem.width) // 2
-                y = (FIGURA_CANVAS_PX[1] - imagem.height) // 2
+                y = FIGURA_CANVAS_PX[1] - imagem.height
                 quadro.paste(imagem, (x, y))
                 imagem = quadro
 

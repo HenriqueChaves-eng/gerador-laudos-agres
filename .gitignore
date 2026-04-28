@@ -1,6 +1,7 @@
 .streamlit/secrets.toml
 .rascunhos/
 teste_relatorio/
+teste_relatorio*/
 __pycache__/
 *.pyc
 *.log
