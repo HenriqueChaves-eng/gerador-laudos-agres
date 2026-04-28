@@ -311,6 +311,17 @@ st.markdown(
             background: #f7f8f9 !important;
             border-color: #c9ccd1 !important;
         }
+        [data-testid="stFileUploaderDropzone"] button {
+            background: #25272b !important;
+            border-color: #3f4247 !important;
+            color: #ffffff !important;
+        }
+        [data-testid="stFileUploaderDropzone"] button *,
+        [data-testid="stFileUploaderDropzone"] button svg {
+            color: #ffffff !important;
+            fill: none !important;
+            stroke: #ffffff !important;
+        }
         label, .stTextInput label, .stTextArea label, .stFileUploader label {
             color: #25272b !important;
             font-weight: 700 !important;
