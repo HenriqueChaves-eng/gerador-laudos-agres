@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 import google.generativeai as genai
 import streamlit as st
+import streamlit.components.v1 as components
 from docx import Document
 from docx.document import Document as DocumentClass
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
@@ -147,6 +148,16 @@ st.markdown(
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         header {visibility: hidden;}
+        [data-testid="stToolbar"],
+        [data-testid="stDecoration"],
+        [data-testid="stStatusWidget"],
+        [data-testid="stAppDeployButton"],
+        [data-testid="stHeaderActionElements"],
+        [data-testid="stMainMenu"] {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+        }
         .stApp {
             background:
                 radial-gradient(circle at top left, rgba(120, 124, 130, 0.18), transparent 28rem),
@@ -327,6 +338,19 @@ st.markdown(
             font-weight: 700 !important;
         }
         @media (max-width: 640px) {
+            [data-testid="stToolbar"],
+            [data-testid="stDecoration"],
+            [data-testid="stStatusWidget"],
+            [data-testid="stAppDeployButton"],
+            [data-testid="stHeaderActionElements"],
+            [data-testid="stMainMenu"],
+            div[class*="stActionButton"],
+            div[class*="viewerBadge"],
+            a[href*="streamlit.io"] {
+                display: none !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
+            }
             .brand-hero {
                 align-items: flex-start;
                 flex-direction: column;
@@ -341,6 +365,124 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+
+def ativar_wake_lock_audio_mobile() -> None:
+    components.html(
+        """
+        <script>
+        (() => {
+            let parentDoc;
+            let parentNav;
+            try {
+                parentDoc = window.parent.document || document;
+                parentNav = window.parent.navigator || navigator;
+            } catch (erro) {
+                parentDoc = document;
+                parentNav = navigator;
+            }
+
+            if (window.__agresWakeLockInstalled) {
+                return;
+            }
+            window.__agresWakeLockInstalled = true;
+
+            let wakeLock = null;
+            let manterAtivoAte = 0;
+            const QUATRO_HORAS = 4 * 60 * 60 * 1000;
+
+            function registrarEstado(valor) {
+                try {
+                    parentDoc.documentElement.setAttribute("data-agres-wake-lock", valor);
+                } catch (erro) {}
+            }
+
+            async function liberarWakeLock() {
+                if (!wakeLock) {
+                    return;
+                }
+                try {
+                    await wakeLock.release();
+                } catch (erro) {}
+                wakeLock = null;
+                registrarEstado("released");
+            }
+
+            async function solicitarWakeLock() {
+                if (!parentNav || !("wakeLock" in parentNav) || wakeLock) {
+                    if (!parentNav || !("wakeLock" in parentNav)) {
+                        registrarEstado("unsupported");
+                    }
+                    return;
+                }
+                if (parentDoc.visibilityState && parentDoc.visibilityState !== "visible") {
+                    return;
+                }
+                try {
+                    wakeLock = await parentNav.wakeLock.request("screen");
+                    registrarEstado("active");
+                    wakeLock.addEventListener("release", () => {
+                        wakeLock = null;
+                        registrarEstado("released");
+                    });
+                } catch (erro) {
+                    registrarEstado("blocked");
+                }
+            }
+
+            function textoDoAlvo(alvo) {
+                let texto = "";
+                let atual = alvo && alvo.nodeType === 1 ? alvo : alvo?.parentElement;
+                for (let i = 0; atual && i < 8; i += 1) {
+                    texto += " " + (atual.innerText || "");
+                    texto += " " + (atual.getAttribute?.("aria-label") || "");
+                    texto += " " + (atual.getAttribute?.("title") || "");
+                    texto += " " + (atual.getAttribute?.("data-testid") || "");
+                    atual = atual.parentElement;
+                }
+                return texto.toLowerCase();
+            }
+
+            function pareceControleDeAudio(alvo) {
+                const texto = textoDoAlvo(alvo);
+                return /audio|microfone|microphone|gravar|gravando|record|recording|trecho|parar|stop/.test(texto);
+            }
+
+            function marcarUsoDeAudio(evento) {
+                if (!pareceControleDeAudio(evento.target)) {
+                    return;
+                }
+                manterAtivoAte = Date.now() + QUATRO_HORAS;
+                solicitarWakeLock();
+            }
+
+            parentDoc.addEventListener("click", marcarUsoDeAudio, true);
+            parentDoc.addEventListener("touchstart", marcarUsoDeAudio, true);
+            parentDoc.addEventListener("pointerdown", marcarUsoDeAudio, true);
+            parentDoc.addEventListener("visibilitychange", () => {
+                if (parentDoc.visibilityState === "visible" && Date.now() < manterAtivoAte) {
+                    solicitarWakeLock();
+                } else {
+                    liberarWakeLock();
+                }
+            });
+
+            window.setInterval(() => {
+                if (Date.now() < manterAtivoAte && parentDoc.visibilityState === "visible") {
+                    solicitarWakeLock();
+                } else if (Date.now() >= manterAtivoAte) {
+                    liberarWakeLock();
+                }
+            }, 30000);
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
+
+ativar_wake_lock_audio_mobile()
 
 
 try:
