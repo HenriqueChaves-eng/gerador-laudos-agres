@@ -448,6 +448,59 @@ def ativar_wake_lock_audio_mobile() -> None:
                 return /audio|microfone|microphone|gravar|gravando|record|recording|trecho|parar|stop/.test(texto);
             }
 
+            function ocultarIconesStreamlitMobile() {
+                const largura = window.parent?.innerWidth || window.innerWidth || 0;
+                if (largura > 760) {
+                    return;
+                }
+
+                const seletores = [
+                    "[data-testid='stToolbar']",
+                    "[data-testid='stDecoration']",
+                    "[data-testid='stStatusWidget']",
+                    "[data-testid='stAppDeployButton']",
+                    "[data-testid='stHeaderActionElements']",
+                    "[data-testid='stMainMenu']",
+                    "div[class*='stActionButton']",
+                    "div[class*='viewerBadge']",
+                    "a[href*='streamlit.io']",
+                    "a[href*='share.streamlit.io']",
+                    "button[title*='Deploy']",
+                    "button[title*='Share']",
+                    "button[title*='Manage']",
+                    "button[aria-label*='Deploy']",
+                    "button[aria-label*='Share']",
+                    "button[aria-label*='Manage']"
+                ];
+
+                for (const seletor of seletores) {
+                    parentDoc.querySelectorAll(seletor).forEach((elemento) => {
+                        elemento.style.setProperty("display", "none", "important");
+                        elemento.style.setProperty("visibility", "hidden", "important");
+                        elemento.style.setProperty("pointer-events", "none", "important");
+                    });
+                }
+
+                const altura = window.parent?.innerHeight || window.innerHeight || 0;
+                parentDoc.querySelectorAll("button, a, [role='button']").forEach((elemento) => {
+                    const estilo = window.parent.getComputedStyle(elemento);
+                    const caixa = elemento.getBoundingClientRect();
+                    const texto = textoDoAlvo(elemento);
+                    const flutuanteInferior =
+                        (estilo.position === "fixed" || estilo.position === "sticky") &&
+                        caixa.bottom > altura - 150 &&
+                        caixa.right > largura - 180 &&
+                        caixa.width <= 120 &&
+                        caixa.height <= 120;
+                    const pareceStreamlit = /streamlit|deploy|toolbar|manage|rerun|running|settings|share|fork|github/.test(texto);
+                    if (flutuanteInferior || (pareceStreamlit && estilo.position === "fixed")) {
+                        elemento.style.setProperty("display", "none", "important");
+                        elemento.style.setProperty("visibility", "hidden", "important");
+                        elemento.style.setProperty("pointer-events", "none", "important");
+                    }
+                });
+            }
+
             function marcarUsoDeAudio(evento) {
                 if (!pareceControleDeAudio(evento.target)) {
                     return;
@@ -459,6 +512,8 @@ def ativar_wake_lock_audio_mobile() -> None:
             parentDoc.addEventListener("click", marcarUsoDeAudio, true);
             parentDoc.addEventListener("touchstart", marcarUsoDeAudio, true);
             parentDoc.addEventListener("pointerdown", marcarUsoDeAudio, true);
+            ocultarIconesStreamlitMobile();
+            window.setInterval(ocultarIconesStreamlitMobile, 1000);
             parentDoc.addEventListener("visibilitychange", () => {
                 if (parentDoc.visibilityState === "visible" && Date.now() < manterAtivoAte) {
                     solicitarWakeLock();
