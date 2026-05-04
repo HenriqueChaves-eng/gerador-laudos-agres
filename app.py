@@ -449,11 +449,6 @@ def ativar_wake_lock_audio_mobile() -> None:
             }
 
             function ocultarIconesStreamlitMobile() {
-                const largura = window.parent?.innerWidth || window.innerWidth || 0;
-                if (largura > 760) {
-                    return;
-                }
-
                 const seletores = [
                     "[data-testid='stToolbar']",
                     "[data-testid='stDecoration']",
@@ -473,32 +468,53 @@ def ativar_wake_lock_audio_mobile() -> None:
                     "button[aria-label*='Manage']"
                 ];
 
-                for (const seletor of seletores) {
-                    parentDoc.querySelectorAll(seletor).forEach((elemento) => {
+                const documentos = [parentDoc];
+                try {
+                    if (window.top?.document && window.top.document !== parentDoc) {
+                        documentos.push(window.top.document);
+                    }
+                } catch (erro) {}
+
+                for (const docAlvo of documentos) {
+                    const janela = docAlvo.defaultView || window.parent || window;
+                    const largura = janela.innerWidth || window.innerWidth || 0;
+                    const altura = janela.innerHeight || window.innerHeight || 0;
+                    if (largura > 760) {
+                        continue;
+                    }
+
+                    for (const seletor of seletores) {
+                        docAlvo.querySelectorAll(seletor).forEach((elemento) => {
+                            elemento.style.setProperty("display", "none", "important");
+                            elemento.style.setProperty("visibility", "hidden", "important");
+                            elemento.style.setProperty("pointer-events", "none", "important");
+                        });
+                    }
+
+                    docAlvo.querySelectorAll("a[href*='streamlit.io'], a[href*='share.streamlit.io']").forEach((elemento) => {
                         elemento.style.setProperty("display", "none", "important");
                         elemento.style.setProperty("visibility", "hidden", "important");
                         elemento.style.setProperty("pointer-events", "none", "important");
                     });
-                }
 
-                const altura = window.parent?.innerHeight || window.innerHeight || 0;
-                parentDoc.querySelectorAll("button, a, [role='button']").forEach((elemento) => {
-                    const estilo = window.parent.getComputedStyle(elemento);
-                    const caixa = elemento.getBoundingClientRect();
-                    const texto = textoDoAlvo(elemento);
-                    const flutuanteInferior =
-                        (estilo.position === "fixed" || estilo.position === "sticky") &&
-                        caixa.bottom > altura - 150 &&
-                        caixa.right > largura - 180 &&
-                        caixa.width <= 120 &&
-                        caixa.height <= 120;
-                    const pareceStreamlit = /streamlit|deploy|toolbar|manage|rerun|running|settings|share|fork|github/.test(texto);
-                    if (flutuanteInferior || (pareceStreamlit && estilo.position === "fixed")) {
-                        elemento.style.setProperty("display", "none", "important");
-                        elemento.style.setProperty("visibility", "hidden", "important");
-                        elemento.style.setProperty("pointer-events", "none", "important");
-                    }
-                });
+                    docAlvo.querySelectorAll("button, a, [role='button'], div").forEach((elemento) => {
+                        const estilo = janela.getComputedStyle(elemento);
+                        const caixa = elemento.getBoundingClientRect();
+                        const texto = textoDoAlvo(elemento);
+                        const flutuanteInferior =
+                            (estilo.position === "fixed" || estilo.position === "sticky") &&
+                            caixa.bottom > altura - 170 &&
+                            caixa.right > largura - 220 &&
+                            caixa.width <= 180 &&
+                            caixa.height <= 140;
+                        const pareceStreamlit = /hosted with streamlit|streamlit|deploy|toolbar|manage|rerun|running|settings|share|fork|github/.test(texto);
+                        if (flutuanteInferior && pareceStreamlit) {
+                            elemento.style.setProperty("display", "none", "important");
+                            elemento.style.setProperty("visibility", "hidden", "important");
+                            elemento.style.setProperty("pointer-events", "none", "important");
+                        }
+                    });
+                }
             }
 
             function marcarUsoDeAudio(evento) {
