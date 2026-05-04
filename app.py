@@ -1966,8 +1966,12 @@ if st.session_state.pop("importacao_offline_ok", False):
 
 with st.container(border=True):
     st.markdown(
-        "<p class='section-title'>Coleta offline</p><p class='section-caption'>Preencha no celular sem internet e sincronize o pacote quando voltar a conexão.</p>",
+        "<p class='section-title'>Coleta offline</p><p class='section-caption'>Use no iPad pela versão HTTPS publicada no Streamlit Cloud, instale na Tela de Início e depois trabalhe sem internet.</p>",
         unsafe_allow_html=True,
+    )
+    st.info(
+        "No iPad, não use arquivo HTML baixado nem link local por IP para gravar áudio. "
+        "O Safari libera o microfone apenas em página segura HTTPS/PWA instalada."
     )
     st.markdown(
         """
@@ -1987,16 +1991,7 @@ with st.container(border=True):
         """,
         unsafe_allow_html=True,
     )
-    arquivo_offline_autonomo = BASE_DIR / "static" / "offline" / "coleta_offline_agres.html"
-    if arquivo_offline_autonomo.exists():
-        st.download_button(
-            "Baixar coletor offline autônomo",
-            data=arquivo_offline_autonomo.read_bytes(),
-            file_name="coleta_offline_agres.html",
-            mime="text/html",
-            use_container_width=True,
-        )
-        st.caption("Para uso sem internet, abra/instale a coleta offline uma vez com internet ou deixe este arquivo HTML salvo no celular antes de ir a campo.")
+    st.caption("Antes de ir a campo: abra a coleta offline no Safari, toque em Compartilhar e escolha Adicionar à Tela de Início. Depois ela abre sem internet.")
     pacote_offline = st.file_uploader(
         "Sincronizar pacote offline",
         type=["json"],

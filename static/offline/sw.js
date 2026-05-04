@@ -1,7 +1,8 @@
-const CACHE_NAME = "agres-offline-v1";
+const CACHE_NAME = "agres-offline-v3";
 const ASSETS = [
   "./",
   "./index.html",
+  "./coleta_offline_agres.html",
   "./manifest.webmanifest",
   "./logo_agres.png"
 ];
