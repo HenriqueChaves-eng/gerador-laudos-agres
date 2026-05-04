@@ -1975,7 +1975,7 @@ with st.container(border=True):
     )
     st.markdown(
         """
-        <a href="/app/static/offline/index.html" target="_self" style="
+        <a href="http://localhost:8501/app/static/offline/index.html?v=5" target="_blank" rel="noopener" style="
             display:inline-flex;
             align-items:center;
             justify-content:center;
@@ -1991,7 +1991,7 @@ with st.container(border=True):
         """,
         unsafe_allow_html=True,
     )
-    st.caption("Link direto local: http://localhost:8501/app/static/offline/index.html")
+    st.caption("Se ficar carregando, copie e cole no navegador: http://localhost:8501/app/static/offline/index.html?v=5")
     st.caption("Antes de ir a campo: abra a coleta offline no Safari, toque em Compartilhar e escolha Adicionar à Tela de Início. Depois ela abre sem internet.")
     pacote_offline = st.file_uploader(
         "Sincronizar pacote offline",
