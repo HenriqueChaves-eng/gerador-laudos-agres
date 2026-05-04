@@ -18,10 +18,18 @@ import streamlit.components.v1 as components
 from docx import Document
 from docx.document import Document as DocumentClass
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
+from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from docx.shared import Mm, Pt
 from docx.table import _Cell, Table
 from docxtpl import DocxTemplate, InlineImage
 from PIL import Image, ImageOps, UnidentifiedImageError
+
+try:
+    from streamlit_drawable_canvas import st_canvas
+except Exception:
+    st_canvas = None
 
 
 # ==========================================
@@ -37,6 +45,7 @@ LOGO_PATH = BASE_DIR / "assets" / "logo_agres.png"
 TAM_PLAQUETA = 60
 TAM_MAQUINA = 32
 TAM_EVIDENCIA = 120
+TAM_ASSINATURA = 58
 FIGURA_CANVAS_PX = (1800, 1125)
 FIGURAS_POR_PAGINA = 2
 
@@ -53,6 +62,8 @@ CAMPOS_RELATORIO = (
     "configuracoes",
     "calibracoes",
     "acompanhantes",
+    "responsavel_revenda_fabrica",
+    "responsavel_fazenda",
     "nome_arquivo_sugerido",
     "relato",
 )
@@ -104,8 +115,19 @@ TERMOS_NAO_CALIBRACAO = TERMOS_INTERVENCAO_FISICA + (
     "recomendacao",
 )
 
-EXTENSOES_AUDIO = {"wav", "mp3", "m4a"}
+EXTENSOES_AUDIO = {"wav", "mp3", "m4a", "mp4", "aac", "ogg", "webm"}
 EXTENSOES_IMAGEM = {"jpg", "jpeg", "png"}
+
+EXTENSAO_POR_MIME = {
+    "audio/aac": "aac",
+    "audio/mp4": "m4a",
+    "audio/mpeg": "mp3",
+    "audio/ogg": "ogg",
+    "audio/wav": "wav",
+    "audio/webm": "webm",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+}
 
 CATEGORIAS_EVIDENCIAS = {
     "fotos_equipamento": {
@@ -127,6 +149,19 @@ CATEGORIAS_EVIDENCIAS = {
         "nome": "Atividades Adicionais",
         "titulo_padrao": "Registro complementar do atendimento",
         "legenda_padrao": "Registro fotográfico complementar relacionado ao atendimento técnico.",
+    },
+}
+
+ASSINATURAS_RESPONSAVEIS = {
+    "revenda_fabrica": {
+        "campo": "responsavel_revenda_fabrica",
+        "titulo": "Responsável da Revenda/Fábrica",
+        "label": "Responsável da revenda/fábrica",
+    },
+    "fazenda": {
+        "campo": "responsavel_fazenda",
+        "titulo": "Responsável da Fazenda",
+        "label": "Responsável da fazenda",
     },
 }
 
@@ -713,7 +748,15 @@ def normalizar_dados_relatorio(dados: dict) -> dict:
     dados_normalizados["data_visita"] = dados_normalizados["data_visita"] or data_atual_brasil().strftime("%d/%m/%Y")
     dados_normalizados["tecnicos"] = dados_normalizados["tecnicos"] or "Henrique Chaves"
 
-    for campo in ("cliente_local", "equipamentos", "maquinas", "objetivos", "acompanhantes"):
+    for campo in (
+        "cliente_local",
+        "equipamentos",
+        "maquinas",
+        "objetivos",
+        "acompanhantes",
+        "responsavel_revenda_fabrica",
+        "responsavel_fazenda",
+    ):
         dados_normalizados[campo] = texto_ou_padrao(dados_normalizados[campo])
 
     return dados_normalizados
@@ -745,8 +788,11 @@ REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 6. objetivos: escrever somente o objetivo principal do atendimento, em uma ou duas frases.
 7. configuracoes: incluir somente parâmetros de sistema, software, tela, ECU, controlador, seções, geometria, versões, módulos habilitados, ganhos ou ajustes feitos em menus. Quando houver valores, use o padrão "Parâmetro: valor".
 8. calibracoes: incluir somente calibrações, aferições e validações com valores, medidas, sensores, vazão, largura, offset, angulação ou parâmetros numéricos.
-9. relato: concentrar todo o detalhamento técnico e cronológico. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
-10. nome_arquivo_sugerido: montar no padrão "AAAAMMDD - CIDADE - UF - TIPO EQUIPAMENTO". Use a data inicial quando houver intervalo. Exemplos: "20250710 - SÃO JOSÉ DOS PINHAIS - PR - SUPORTE ISOBOX SPRAYER AGRONAVE 12" ou "20260119 - GUARANIAÇU - PR - SUPORTE AGRONAVE 7 ISOBOX SPRAYER".
+9. acompanhantes: informar técnicos, operadores, proprietários, consultores, representantes ou demais pessoas que acompanharam o atendimento.
+10. responsavel_revenda_fabrica: informar o nome do responsável da revenda, fábrica ou Agres que validou/acompanhou o atendimento, quando mencionado.
+11. responsavel_fazenda: informar o nome do responsável da fazenda, cliente, operador, encarregado ou proprietário que validou/acompanhou o atendimento, quando mencionado.
+12. relato: concentrar todo o detalhamento técnico e cronológico. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
+13. nome_arquivo_sugerido: montar no padrão "AAAAMMDD - CIDADE - UF - TIPO EQUIPAMENTO". Use a data inicial quando houver intervalo. Exemplos: "20250710 - SÃO JOSÉ DOS PINHAIS - PR - SUPORTE ISOBOX SPRAYER AGRONAVE 12" ou "20260119 - GUARANIAÇU - PR - SUPORTE AGRONAVE 7 ISOBOX SPRAYER".
 
 PADRÃO DO RELATO:
 - Escrever em terceira pessoa.
@@ -769,6 +815,8 @@ Retorne apenas um JSON válido, sem markdown e sem comentários, com exatamente 
     "configuracoes": "",
     "calibracoes": "",
     "acompanhantes": "",
+    "responsavel_revenda_fabrica": "",
+    "responsavel_fazenda": "",
     "nome_arquivo_sugerido": "",
     "relato": ""
 }}
@@ -980,7 +1028,7 @@ def montar_metadados_figura(categoria: str, indice_foto: int, numero_figura: int
         titulo_manual, legenda_manual, fonte_manual = separar_metadados_figura(linhas_categoria[indice_foto])
 
     titulo_base = finalizar_frase(titulo_manual or configuracao["titulo_padrao"])
-    if normalizar_busca(titulo_base).startswith("figura"):
+    if re.match(r"^figura\s+\d+\b", normalizar_busca(titulo_base)):
         titulo = titulo_base
     else:
         titulo = f"Figura {numero_figura} – {titulo_base}"
@@ -994,12 +1042,124 @@ def montar_metadados_figura(categoria: str, indice_foto: int, numero_figura: int
     return {"titulo": titulo, "legenda": legenda, "fonte": fonte}
 
 
+def nome_assinatura_para_exibicao(texto: str) -> str:
+    texto = limpar_texto(texto)
+    if not texto or normalizar_busca(texto) == "nao informado":
+        return "Nome: ______________________________________"
+    return f"Nome: {texto}"
+
+
+def formatar_run_assinatura(run, tamanho: int = 10, bold: bool = False) -> None:
+    run.font.name = "Arial"
+    run.font.size = Pt(tamanho)
+    run.font.bold = bold
+
+
+def formatar_paragrafo_assinatura(paragraph, space_after: int = 0) -> None:
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    paragraph.paragraph_format.line_spacing = 1
+    paragraph.paragraph_format.space_before = Pt(0)
+    paragraph.paragraph_format.space_after = Pt(space_after)
+    paragraph.paragraph_format.keep_together = True
+
+
+def remover_bordas_tabela(table) -> None:
+    tbl_pr = table._tbl.tblPr
+    if tbl_pr is None:
+        tbl_pr = OxmlElement("w:tblPr")
+        table._tbl.insert(0, tbl_pr)
+
+    for borda_existente in tbl_pr.xpath("./w:tblBorders"):
+        tbl_pr.remove(borda_existente)
+
+    bordas = OxmlElement("w:tblBorders")
+    for nome_borda in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        borda = OxmlElement(f"w:{nome_borda}")
+        borda.set(qn("w:val"), "nil")
+        bordas.append(borda)
+    tbl_pr.append(bordas)
+
+
+def preencher_celula_assinatura(cell, titulo: str, nome: str, caminho_assinatura: Path | None) -> None:
+    cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+    cell.text = ""
+
+    paragrafo_imagem = cell.paragraphs[0]
+    formatar_paragrafo_assinatura(paragrafo_imagem, space_after=1)
+    assinatura_inserida = False
+    if caminho_assinatura and Path(caminho_assinatura).exists():
+        try:
+            paragrafo_imagem.add_run().add_picture(str(caminho_assinatura), width=Mm(TAM_ASSINATURA))
+            assinatura_inserida = True
+        except Exception:
+            assinatura_inserida = False
+
+    if not assinatura_inserida:
+        run_espaco = paragrafo_imagem.add_run("\n\n")
+        formatar_run_assinatura(run_espaco, tamanho=10)
+
+    paragrafo_linha = cell.add_paragraph()
+    formatar_paragrafo_assinatura(paragrafo_linha, space_after=1)
+    formatar_run_assinatura(paragrafo_linha.add_run("______________________________________"), tamanho=10)
+
+    paragrafo_titulo = cell.add_paragraph()
+    formatar_paragrafo_assinatura(paragrafo_titulo, space_after=1)
+    formatar_run_assinatura(paragrafo_titulo.add_run(titulo), tamanho=10, bold=True)
+
+    paragrafo_nome = cell.add_paragraph()
+    formatar_paragrafo_assinatura(paragrafo_nome)
+    formatar_run_assinatura(paragrafo_nome.add_run(nome_assinatura_para_exibicao(nome)), tamanho=9)
+
+
+def inserir_elemento_antes_paragrafo(elemento, paragraph) -> None:
+    parent = paragraph._p.getparent()
+    elemento_parent = elemento.getparent()
+    if elemento_parent is not None:
+        elemento_parent.remove(elemento)
+    parent.insert(parent.index(paragraph._p), elemento)
+
+
+def inserir_assinaturas_docx(caminho_docx: Path, dados: dict, caminhos_assinaturas: dict | None = None) -> None:
+    documento = Document(str(caminho_docx))
+    caminhos_assinaturas = caminhos_assinaturas or {}
+
+    titulo = documento.add_paragraph()
+    titulo.paragraph_format.keep_with_next = True
+    titulo.paragraph_format.space_before = Pt(8)
+    titulo.paragraph_format.space_after = Pt(6)
+    run_titulo = titulo.add_run("Assinaturas:")
+    run_titulo.font.name = "Arial"
+    run_titulo.font.size = Pt(11)
+    run_titulo.font.bold = True
+
+    tabela = documento.add_table(rows=1, cols=2)
+    tabela.alignment = WD_TABLE_ALIGNMENT.CENTER
+    remover_bordas_tabela(tabela)
+
+    for indice, (chave, configuracao) in enumerate(ASSINATURAS_RESPONSAVEIS.items()):
+        preencher_celula_assinatura(
+            tabela.cell(0, indice),
+            configuracao["titulo"],
+            dados.get(configuracao["campo"], ""),
+            caminhos_assinaturas.get(chave),
+        )
+
+    for paragraph in documento.paragraphs:
+        if limpar_texto(paragraph.text).startswith("Fotos"):
+            inserir_elemento_antes_paragrafo(titulo._p, paragraph)
+            inserir_elemento_antes_paragrafo(tabela._tbl, paragraph)
+            break
+
+    documento.save(str(caminho_docx))
+
+
 def gerar_docx(
     dados_json: dict,
     dicionario_evidencias: dict,
     caminhos_cabecalho: dict,
     pasta_saida: Path,
     legendas_evidencias: dict | None = None,
+    caminhos_assinaturas: dict | None = None,
 ) -> Path:
     if not TEMPLATE_PATH.exists():
         raise FileNotFoundError(f"Modelo não encontrado: {TEMPLATE_PATH.name}")
@@ -1031,6 +1191,7 @@ def gerar_docx(
     caminho_saida = pasta_saida / nome_arquivo
     doc.render(dados_render)
     doc.save(str(caminho_saida))
+    inserir_assinaturas_docx(caminho_saida, dados_render, caminhos_assinaturas)
     aplicar_paginacao_abnt_figuras(caminho_saida)
     return caminho_saida
 
@@ -1359,6 +1520,8 @@ def novo_manifesto_rascunho() -> dict:
         "evidencias": {categoria: [] for categoria in CATEGORIAS_EVIDENCIAS},
         "observacoes": "",
         "legendas_evidencias": {categoria: "" for categoria in CATEGORIAS_EVIDENCIAS},
+        "responsaveis": {chave: "" for chave in ASSINATURAS_RESPONSAVEIS},
+        "assinaturas": {chave: None for chave in ASSINATURAS_RESPONSAVEIS},
     }
 
 
@@ -1402,6 +1565,14 @@ def carregar_manifesto(draft_dir: Path) -> dict:
                 manifesto["legendas_evidencias"] = {
                     **novo_manifesto_rascunho()["legendas_evidencias"],
                     **manifesto.get("legendas_evidencias", {}),
+                }
+                manifesto["responsaveis"] = {
+                    **novo_manifesto_rascunho()["responsaveis"],
+                    **manifesto.get("responsaveis", {}),
+                }
+                manifesto["assinaturas"] = {
+                    **novo_manifesto_rascunho()["assinaturas"],
+                    **manifesto.get("assinaturas", {}),
                 }
         except (OSError, json.JSONDecodeError):
             pass
@@ -1469,6 +1640,135 @@ def salvar_arquivo_rascunho(
     }
 
 
+def decodificar_data_url(data_url: str) -> tuple[bytes, str]:
+    match = re.match(r"^data:([^;,]+)?(?:;[^,]*)?;base64,(.*)$", str(data_url or ""), flags=re.DOTALL)
+    if not match:
+        raise ValueError("Arquivo offline inválido: conteúdo em base64 não encontrado.")
+    mime_type = (match.group(1) or "application/octet-stream").lower()
+    return base64.b64decode(match.group(2)), mime_type
+
+
+def extensao_item_offline(item: dict, mime_type: str, extensoes_permitidas: set[str], extensao_padrao: str) -> str:
+    nome_original = str(item.get("name") or "")
+    extensao = Path(nome_original).suffix.lower().lstrip(".")
+    if not extensao:
+        extensao = EXTENSAO_POR_MIME.get(mime_type, extensao_padrao)
+    if extensao == "jpeg":
+        extensao = "jpg"
+    return extensao if extensao in extensoes_permitidas else extensao_padrao
+
+
+def salvar_item_offline_rascunho(
+    item: dict | None,
+    draft_dir: Path,
+    subpasta: str,
+    prefixo: str,
+    extensoes_permitidas: set[str],
+    extensao_padrao: str,
+    padronizar_figura: bool = False,
+) -> dict | None:
+    if not isinstance(item, dict) or not item.get("dataUrl"):
+        return None
+
+    conteudo, mime_type = decodificar_data_url(item["dataUrl"])
+    if not conteudo:
+        return None
+
+    extensao = extensao_item_offline(item, mime_type, extensoes_permitidas, extensao_padrao)
+    nome_original = item.get("name") or f"{prefixo}.{extensao}"
+    pasta = draft_dir / subpasta
+    pasta.mkdir(parents=True, exist_ok=True)
+    digest = sha1(conteudo).hexdigest()[:12]
+    caminho = pasta / f"{prefixo}_{digest}.{extensao}"
+
+    if extensoes_permitidas == EXTENSOES_IMAGEM:
+        caminho = normalizar_imagem_para_docx(conteudo, caminho, padronizar_figura)
+    elif not caminho.exists():
+        caminho.write_bytes(conteudo)
+
+    return {
+        "name": nome_original,
+        "path": str(caminho.relative_to(draft_dir)),
+        "size": len(conteudo),
+    }
+
+
+def importar_pacote_offline(uploaded_file, draft_dir: Path, manifesto: dict) -> dict:
+    try:
+        pacote = json.loads(uploaded_file.getvalue().decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as erro:
+        raise ValueError("Não foi possível ler o pacote offline. Exporte novamente pelo modo offline.") from erro
+
+    if not isinstance(pacote, dict) or pacote.get("version") != 1:
+        raise ValueError("Pacote offline incompatível com esta versão do aplicativo.")
+
+    manifesto["observacoes"] = limpar_texto(pacote.get("observacoes", ""))
+
+    for categoria, texto in (pacote.get("legendas_evidencias") or {}).items():
+        if categoria in CATEGORIAS_EVIDENCIAS:
+            manifesto["legendas_evidencias"][categoria] = texto or ""
+
+    for chave, texto in (pacote.get("responsaveis") or {}).items():
+        if chave in ASSINATURAS_RESPONSAVEIS:
+            manifesto["responsaveis"][chave] = texto or ""
+
+    audios = []
+    for indice, item in enumerate(pacote.get("audios") or []):
+        audio = salvar_item_offline_rascunho(
+            item,
+            draft_dir,
+            "audios",
+            f"offline_audio_{indice}",
+            EXTENSOES_AUDIO,
+            "m4a",
+        )
+        if audio:
+            audios.append(audio)
+    if audios or "audios" in pacote:
+        manifesto["audios"] = audios
+
+    for chave, item in (pacote.get("cabecalho") or {}).items():
+        if chave in manifesto["cabecalho"]:
+            arquivo = salvar_item_offline_rascunho(item, draft_dir, "cabecalho", chave, EXTENSOES_IMAGEM, "jpg")
+            if arquivo:
+                manifesto["cabecalho"][chave] = arquivo
+
+    for categoria, itens in (pacote.get("evidencias") or {}).items():
+        if categoria not in CATEGORIAS_EVIDENCIAS:
+            continue
+        evidencias = []
+        for indice, item in enumerate(itens or []):
+            arquivo = salvar_item_offline_rascunho(
+                item,
+                draft_dir,
+                categoria,
+                f"offline_{categoria}_{indice}",
+                EXTENSOES_IMAGEM,
+                "jpg",
+                padronizar_figura=True,
+            )
+            if arquivo:
+                evidencias.append(arquivo)
+        manifesto["evidencias"][categoria] = evidencias
+
+    for chave, item in (pacote.get("assinaturas") or {}).items():
+        if chave in ASSINATURAS_RESPONSAVEIS:
+            assinatura = salvar_item_offline_rascunho(item, draft_dir, "assinaturas", chave, EXTENSOES_IMAGEM, "png")
+            if assinatura:
+                manifesto["assinaturas"][chave] = assinatura
+
+    salvar_manifesto(draft_dir, manifesto)
+    return manifesto
+
+
+def aplicar_manifesto_na_sessao(manifesto: dict) -> None:
+    st.session_state.observacoes_texto = manifesto.get("observacoes", "")
+    for categoria in CATEGORIAS_EVIDENCIAS:
+        st.session_state[f"legenda_{categoria}"] = manifesto.get("legendas_evidencias", {}).get(categoria, "")
+    for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
+        st.session_state[configuracao["campo"]] = manifesto.get("responsaveis", {}).get(chave, "")
+
+
 def atualizar_lista_rascunho(manifesto: dict, chave: str, arquivos, draft_dir: Path, subpasta: str, extensoes: set[str], extensao_padrao: str) -> None:
     if not arquivos:
         return
@@ -1483,6 +1783,40 @@ def atualizar_lista_rascunho(manifesto: dict, chave: str, arquivos, draft_dir: P
         manifesto[chave] = itens
 
 
+def salvar_assinatura_canvas(canvas_result, draft_dir: Path, chave: str) -> dict | None:
+    dados = getattr(canvas_result, "image_data", None)
+    if dados is None:
+        return None
+
+    try:
+        imagem_rgba = Image.fromarray(dados.astype("uint8"), "RGBA")
+    except Exception:
+        return None
+
+    pixels_assinatura = 0
+    for vermelho, verde, azul, alfa in imagem_rgba.getdata():
+        if alfa > 0 and min(vermelho, verde, azul) < 245:
+            pixels_assinatura += 1
+            if pixels_assinatura >= 50:
+                break
+
+    if pixels_assinatura < 50:
+        return None
+
+    pasta = draft_dir / "assinaturas"
+    pasta.mkdir(parents=True, exist_ok=True)
+    caminho = pasta / f"{chave}.png"
+    fundo = Image.new("RGB", imagem_rgba.size, "white")
+    fundo.paste(imagem_rgba, mask=imagem_rgba.getchannel("A"))
+    fundo.save(caminho, format="PNG")
+
+    return {
+        "name": caminho.name,
+        "path": str(caminho.relative_to(draft_dir)),
+        "size": caminho.stat().st_size,
+    }
+
+
 def atualizar_rascunho_atual(
     draft_dir: Path,
     manifesto: dict,
@@ -1491,6 +1825,9 @@ def atualizar_rascunho_atual(
     evidencias_upload: dict,
     observacoes: str,
     legendas: dict,
+    responsaveis: dict | None = None,
+    assinaturas_canvas: dict | None = None,
+    assinaturas_upload: dict | None = None,
 ) -> dict:
     if audios:
         manifesto["audios"] = [
@@ -1528,11 +1865,27 @@ def atualizar_rascunho_atual(
         if categoria in CATEGORIAS_EVIDENCIAS:
             manifesto["legendas_evidencias"][categoria] = texto or ""
 
+    for chave, texto in (responsaveis or {}).items():
+        if chave in ASSINATURAS_RESPONSAVEIS:
+            manifesto["responsaveis"][chave] = texto or ""
+
+    for chave, resultado in (assinaturas_canvas or {}).items():
+        if chave in ASSINATURAS_RESPONSAVEIS:
+            item = salvar_assinatura_canvas(resultado, draft_dir, chave)
+            if item:
+                manifesto["assinaturas"][chave] = item
+
+    for chave, arquivo in (assinaturas_upload or {}).items():
+        if chave in ASSINATURAS_RESPONSAVEIS:
+            item = salvar_arquivo_rascunho(arquivo, draft_dir, "assinaturas", chave, EXTENSOES_IMAGEM, "png")
+            if item:
+                manifesto["assinaturas"][chave] = item
+
     salvar_manifesto(draft_dir, manifesto)
     return manifesto
 
 
-def caminhos_salvos_rascunho(draft_dir: Path, manifesto: dict) -> tuple[list[Path], dict, dict]:
+def caminhos_salvos_rascunho(draft_dir: Path, manifesto: dict) -> tuple[list[Path], dict, dict, dict]:
     audios = [caminho for item in manifesto.get("audios", []) if (caminho := resolver_arquivo_rascunho(draft_dir, item))]
     cabecalho = {
         chave: resolver_arquivo_rascunho(draft_dir, item)
@@ -1546,7 +1899,11 @@ def caminhos_salvos_rascunho(draft_dir: Path, manifesto: dict) -> tuple[list[Pat
         ]
         for categoria in CATEGORIAS_EVIDENCIAS
     }
-    return audios, cabecalho, evidencias
+    assinaturas = {
+        chave: resolver_arquivo_rascunho(draft_dir, item)
+        for chave, item in manifesto.get("assinaturas", {}).items()
+    }
+    return audios, cabecalho, evidencias, assinaturas
 
 
 def contar_evidencias(manifesto: dict) -> int:
@@ -1559,7 +1916,11 @@ def limpar_rascunho_atual() -> None:
         shutil.rmtree(draft_dir)
     st.session_state.draft_id = uuid.uuid4().hex[:12]
     st.query_params["draft"] = st.session_state.draft_id
-    for chave in ("observacoes_texto", *[f"legenda_{categoria}" for categoria in CATEGORIAS_EVIDENCIAS]):
+    for chave in (
+        "observacoes_texto",
+        *[f"legenda_{categoria}" for categoria in CATEGORIAS_EVIDENCIAS],
+        *[configuracao["campo"] for configuracao in ASSINATURAS_RESPONSAVEIS.values()],
+    ):
         st.session_state.pop(chave, None)
     st.session_state.relatorio_pronto = None
     st.session_state.nome_arquivo_pronto = None
@@ -1579,6 +1940,11 @@ for categoria in CATEGORIAS_EVIDENCIAS:
     if chave_legenda not in st.session_state:
         st.session_state[chave_legenda] = manifesto_rascunho.get("legendas_evidencias", {}).get(categoria, "")
 
+for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
+    campo = configuracao["campo"]
+    if campo not in st.session_state:
+        st.session_state[campo] = manifesto_rascunho.get("responsaveis", {}).get(chave, "")
+
 logo_uri = imagem_data_uri(LOGO_PATH)
 logo_html = f'<img class="brand-logo" src="{logo_uri}" alt="Agres">' if logo_uri else ""
 st.markdown(
@@ -1594,6 +1960,47 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+if st.session_state.pop("importacao_offline_ok", False):
+    st.success("Pacote offline sincronizado com o rascunho atual.")
+
+with st.container(border=True):
+    st.markdown(
+        "<p class='section-title'>Coleta offline</p><p class='section-caption'>Preencha no celular sem internet e sincronize o pacote quando voltar a conexão.</p>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        """
+        <a href="app/static/offline/index.html" target="_blank" style="
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            min-height:44px;
+            padding:0 1rem;
+            border-radius:8px;
+            background:#3f4247;
+            color:#ffffff;
+            font-weight:800;
+            text-decoration:none;
+            border:1px solid #3f4247;
+        ">Abrir coleta offline</a>
+        """,
+        unsafe_allow_html=True,
+    )
+    pacote_offline = st.file_uploader(
+        "Sincronizar pacote offline",
+        type=["json"],
+        key="pacote_offline",
+        help="Importe o arquivo exportado pelo modo de coleta offline.",
+    )
+    if pacote_offline and st.button("Importar pacote para este rascunho", use_container_width=True):
+        try:
+            manifesto_rascunho = importar_pacote_offline(pacote_offline, draft_dir, manifesto_rascunho)
+            aplicar_manifesto_na_sessao(manifesto_rascunho)
+            st.session_state.importacao_offline_ok = True
+            st.rerun()
+        except Exception as erro:
+            st.error(f"Erro ao sincronizar pacote offline: {erro}")
 
 with st.container(border=True):
     st.markdown(
@@ -1689,6 +2096,59 @@ with st.container(border=True):
         }
 
 
+with st.container(border=True):
+    st.markdown(
+        "<p class='section-title'>4. Assinaturas</p><p class='section-caption'>Responsáveis que validam o atendimento em campo.</p>",
+        unsafe_allow_html=True,
+    )
+    col_nome_revenda, col_nome_fazenda = st.columns(2)
+    responsaveis_assinaturas = {
+        "revenda_fabrica": col_nome_revenda.text_input(
+            ASSINATURAS_RESPONSAVEIS["revenda_fabrica"]["label"],
+            placeholder="Nome do responsável",
+            key=ASSINATURAS_RESPONSAVEIS["revenda_fabrica"]["campo"],
+        ),
+        "fazenda": col_nome_fazenda.text_input(
+            ASSINATURAS_RESPONSAVEIS["fazenda"]["label"],
+            placeholder="Nome do responsável",
+            key=ASSINATURAS_RESPONSAVEIS["fazenda"]["campo"],
+        ),
+    }
+
+    st.caption("Assine diretamente na tela do celular ou iPad. Se precisar refazer, use a borracha/limpeza do quadro.")
+    assinaturas_canvas = {}
+    assinaturas_upload = {}
+    col_assinatura_revenda, col_assinatura_fazenda = st.columns(2)
+    for (chave, configuracao), coluna in zip(
+        ASSINATURAS_RESPONSAVEIS.items(),
+        (col_assinatura_revenda, col_assinatura_fazenda),
+    ):
+        with coluna:
+            st.markdown(f"**{configuracao['titulo']}**")
+            if manifesto_rascunho.get("assinaturas", {}).get(chave):
+                st.caption("Assinatura salva no rascunho.")
+
+            if st_canvas is not None:
+                assinaturas_canvas[chave] = st_canvas(
+                    fill_color="rgba(255, 255, 255, 0)",
+                    stroke_width=3,
+                    stroke_color="#25272b",
+                    background_color="#ffffff",
+                    height=150,
+                    width=320,
+                    drawing_mode="freedraw",
+                    display_toolbar=True,
+                    key=f"canvas_{chave}",
+                )
+            else:
+                st.info("Para assinar na tela, adicione streamlit-drawable-canvas ao requirements.txt. Enquanto isso, envie uma imagem da assinatura.")
+                assinaturas_upload[chave] = st.file_uploader(
+                    f"Imagem da assinatura - {configuracao['titulo']}",
+                    type=list(EXTENSOES_IMAGEM),
+                    key=f"upload_assinatura_{chave}",
+                )
+
+
 # ==========================================
 # 6. Execução
 # ==========================================
@@ -1713,8 +2173,11 @@ manifesto_rascunho = atualizar_rascunho_atual(
     uploads_evidencias,
     observacoes_texto,
     legendas_evidencias,
+    responsaveis_assinaturas,
+    assinaturas_canvas,
+    assinaturas_upload,
 )
-caminhos_audio_salvos, caminhos_cabecalho_salvos, evidencias_salvas = caminhos_salvos_rascunho(
+caminhos_audio_salvos, caminhos_cabecalho_salvos, evidencias_salvas, assinaturas_salvas = caminhos_salvos_rascunho(
     draft_dir,
     manifesto_rascunho,
 )
@@ -1724,12 +2187,17 @@ legendas_salvas = {
     or manifesto_rascunho.get("legendas_evidencias", {}).get(categoria, "")
     for categoria in CATEGORIAS_EVIDENCIAS
 }
+responsaveis_salvos = {
+    chave: limpar_texto(responsaveis_assinaturas.get(chave, ""))
+    or manifesto_rascunho.get("responsaveis", {}).get(chave, "")
+    for chave in ASSINATURAS_RESPONSAVEIS
+}
 
 entrada_disponivel = bool(caminhos_audio_salvos) or bool(limpar_texto(observacoes_salvas))
 
 with st.container(border=True):
     st.markdown(
-        "<p class='section-title'>4. Gerar relatório</p><p class='section-caption'>O Word será gerado com nomenclatura técnica, arquivos preservados e evidências em padrão ABNT.</p>",
+        "<p class='section-title'>5. Gerar relatório</p><p class='section-caption'>O Word será gerado com nomenclatura técnica, arquivos preservados e evidências em padrão ABNT.</p>",
         unsafe_allow_html=True,
     )
     st.caption("Salvamento automático ativo durante o preenchimento.")
@@ -1746,6 +2214,10 @@ with st.container(border=True):
                     st.write("Usando arquivos salvos automaticamente.")
                     st.write("Extraindo e organizando informações técnicas.")
                     dados = processar_atendimento_completo(caminhos_audio_salvos, observacoes_salvas)
+                    for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
+                        responsavel = limpar_texto(responsaveis_salvos.get(chave, ""))
+                        if responsavel:
+                            dados[configuracao["campo"]] = responsavel
 
                     st.write("Renderizando relatório Word.")
                     arquivo_final = gerar_docx(
@@ -1754,6 +2226,7 @@ with st.container(border=True):
                         caminhos_cabecalho_salvos,
                         pasta_temp,
                         legendas_salvas,
+                        assinaturas_salvas,
                     )
                     st.session_state.relatorio_pronto = arquivo_final.read_bytes()
                     st.session_state.nome_arquivo_pronto = arquivo_final.name
