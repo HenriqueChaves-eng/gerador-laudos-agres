@@ -1,0 +1,768 @@
+﻿<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#3f4247">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Agres | Coleta Offline</title>
+  <!-- Standalone offline file: manifest disabled. -->
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #e7e9ec;
+      --panel: #ffffff;
+      --ink: #272a2f;
+      --muted: #62676e;
+      --line: #d3d6da;
+      --brand: #3f4247;
+      --brand-2: #5d6065;
+      --ok: #176b43;
+      --warn: #985d00;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(120, 124, 130, 0.18), transparent 22rem),
+        linear-gradient(180deg, #e6e8eb 0%, #f2f3f5 48%, #e3e5e8 100%);
+      color: var(--ink);
+    }
+    main {
+      width: min(960px, 100%);
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .hero {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      padding: 18px;
+      border-radius: 16px;
+      color: #fff;
+      background: linear-gradient(135deg, #242528 0%, #4f5054 58%, #6b6c70 100%);
+      box-shadow: 0 18px 44px rgba(32, 37, 41, 0.22);
+    }
+    .hero img {
+      width: 168px;
+      max-width: 42vw;
+      filter: brightness(0) invert(1);
+    }
+    .kicker {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #f2f3f5;
+    }
+    h1 {
+      margin: 4px 0 6px;
+      font-size: clamp(28px, 6vw, 44px);
+      line-height: 1.04;
+    }
+    .hero p {
+      margin: 0;
+      color: #f5f6f7;
+      line-height: 1.45;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 14px 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.92);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 10px;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--brand);
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .badge.online { background: var(--ok); }
+    .badge.offline { background: var(--warn); }
+    section {
+      margin-top: 14px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 19px;
+      line-height: 1.2;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    label {
+      display: block;
+      margin: 0 0 6px;
+      color: var(--ink);
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    textarea,
+    input[type="text"] {
+      width: 100%;
+      min-height: 46px;
+      padding: 12px;
+      border: 1px solid #c9ccd1;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+    textarea {
+      min-height: 128px;
+      resize: vertical;
+    }
+    input[type="file"] {
+      width: 100%;
+      padding: 12px;
+      border: 1px dashed #b7bbc1;
+      border-radius: 10px;
+      background: #f7f8f9;
+      color: var(--ink);
+      font: inherit;
+    }
+    .field { margin-bottom: 12px; }
+    .hint {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    button,
+    .button {
+      min-height: 46px;
+      padding: 0 14px;
+      border: 1px solid #c8cbd0;
+      border-radius: 9px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    button.primary,
+    .button.primary {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+    button.danger {
+      color: #8d2424;
+      border-color: #e2b7b7;
+    }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+    .list {
+      display: grid;
+      gap: 8px;
+      margin: 8px 0 0;
+    }
+    .item {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      padding: 9px 10px;
+      border-radius: 9px;
+      background: #f3f4f6;
+      color: var(--ink);
+      font-size: 14px;
+      word-break: break-word;
+    }
+    .item button {
+      min-height: 34px;
+      padding: 0 10px;
+      font-size: 13px;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 160px;
+      border: 1px solid #c9ccd1;
+      border-radius: 10px;
+      background: #fff;
+      touch-action: none;
+    }
+    .footer-actions {
+      position: sticky;
+      bottom: 0;
+      z-index: 5;
+      margin: 16px -16px -16px;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      border-top: 1px solid rgba(195, 199, 204, 0.85);
+      background: rgba(239, 241, 243, 0.96);
+      backdrop-filter: blur(12px);
+    }
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    @media (max-width: 680px) {
+      main { padding: 12px; }
+      .hero {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 16px;
+      }
+      .hero img { width: 150px; max-width: 74vw; }
+      .grid,
+      .actions {
+        grid-template-columns: 1fr;
+      }
+      section { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="hero">
+      <img src="data:image/png;base64,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" alt="Agres">
+      <div>
+        <div class="kicker">Coleta offline</div>
+        <h1>Relatório Técnico Agres</h1>
+        <p>Preenchimento local para campo, com exportação do pacote para geração posterior no Streamlit.</p>
+      </div>
+    </div>
+
+    <div class="status">
+      <div>
+        <strong id="saveStatus">Rascunho salvo no aparelho.</strong>
+        <div class="small" id="storageStatus">Armazenamento local ativo.</div>
+      </div>
+      <span class="badge" id="networkStatus">Verificando</span>
+    </div>
+
+    <section>
+      <h2>1. Relato técnico</h2>
+      <div class="field">
+        <label for="observacoes">Complemento técnico</label>
+        <textarea id="observacoes" placeholder="Cliente, local, máquina, equipamento, versões, falhas, parâmetros, calibrações, pendências e conclusão do atendimento."></textarea>
+      </div>
+      <div class="actions">
+        <button type="button" class="primary" id="recordBtn">Gravar áudio</button>
+        <button type="button" id="stopBtn" disabled>Parar gravação</button>
+      </div>
+      <p class="hint" id="recordHint">Os áudios gravados ficam salvos neste aparelho até a exportação do pacote.</p>
+      <div class="field">
+        <label for="audioFiles">Áudios do celular</label>
+        <input id="audioFiles" type="file" accept="audio/*" multiple>
+      </div>
+      <div class="list" id="audiosList"></div>
+    </section>
+
+    <section>
+      <h2>2. Cabeçalho do relatório</h2>
+      <div class="grid">
+        <div class="field">
+          <label for="info_equip">Informações do equipamento</label>
+          <input id="info_equip" type="file" accept="image/*" capture="environment">
+          <p class="hint" id="info_equip_status">Nenhum arquivo selecionado.</p>
+        </div>
+        <div class="field">
+          <label for="maquina">Máquina</label>
+          <input id="maquina" type="file" accept="image/*" capture="environment">
+          <p class="hint" id="maquina_status">Nenhum arquivo selecionado.</p>
+        </div>
+        <div class="field">
+          <label for="implemento">Implemento</label>
+          <input id="implemento" type="file" accept="image/*" capture="environment">
+          <p class="hint" id="implemento_status">Nenhum arquivo selecionado.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Evidências fotográficas</h2>
+      <div class="grid">
+        <div class="field">
+          <label for="fotos_equipamento">Equipamento Agres</label>
+          <input id="fotos_equipamento" type="file" accept="image/*" capture="environment" multiple>
+          <p class="hint" id="fotos_equipamento_status">0 imagens.</p>
+        </div>
+        <div class="field">
+          <label for="fotos_instalacao">Instalação</label>
+          <input id="fotos_instalacao" type="file" accept="image/*" capture="environment" multiple>
+          <p class="hint" id="fotos_instalacao_status">0 imagens.</p>
+        </div>
+        <div class="field">
+          <label for="fotos_configuracao">Configurações</label>
+          <input id="fotos_configuracao" type="file" accept="image/*" capture="environment" multiple>
+          <p class="hint" id="fotos_configuracao_status">0 imagens.</p>
+        </div>
+        <div class="field">
+          <label for="fotos_outros">Outros registros</label>
+          <input id="fotos_outros" type="file" accept="image/*" capture="environment" multiple>
+          <p class="hint" id="fotos_outros_status">0 imagens.</p>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="field">
+          <label for="legenda_fotos_equipamento">Títulos e legendas - Equipamento</label>
+          <textarea id="legenda_fotos_equipamento" placeholder="Uma linha por foto: Título | legenda | fonte"></textarea>
+        </div>
+        <div class="field">
+          <label for="legenda_fotos_instalacao">Títulos e legendas - Instalação</label>
+          <textarea id="legenda_fotos_instalacao" placeholder="Uma linha por foto: Título | legenda | fonte"></textarea>
+        </div>
+        <div class="field">
+          <label for="legenda_fotos_configuracao">Títulos e legendas - Configurações</label>
+          <textarea id="legenda_fotos_configuracao" placeholder="Uma linha por foto: Título | legenda | fonte"></textarea>
+        </div>
+        <div class="field">
+          <label for="legenda_fotos_outros">Títulos e legendas - Outros</label>
+          <textarea id="legenda_fotos_outros" placeholder="Uma linha por foto: Título | legenda | fonte"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>4. Assinaturas</h2>
+      <div class="grid">
+        <div class="field">
+          <label for="responsavel_revenda_fabrica">Responsável da revenda/fábrica</label>
+          <input id="responsavel_revenda_fabrica" type="text" placeholder="Nome do responsável">
+          <canvas id="assinatura_revenda_fabrica"></canvas>
+          <button type="button" data-clear-signature="revenda_fabrica">Limpar assinatura</button>
+        </div>
+        <div class="field">
+          <label for="responsavel_fazenda">Responsável da fazenda</label>
+          <input id="responsavel_fazenda" type="text" placeholder="Nome do responsável">
+          <canvas id="assinatura_fazenda"></canvas>
+          <button type="button" data-clear-signature="fazenda">Limpar assinatura</button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>5. Sincronização</h2>
+      <p class="hint">O pacote exportado deve ser importado no aplicativo Streamlit quando a internet voltar.</p>
+      <div class="footer-actions">
+        <div class="actions">
+          <button type="button" class="primary" id="exportBtn">Exportar pacote offline</button>
+          <button type="button" class="danger" id="clearBtn">Apagar rascunho local</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const DB_NAME = "agres-offline";
+    const STORE = "drafts";
+    const DRAFT_KEY = "current";
+    const HEADERS = ["info_equip", "maquina", "implemento"];
+    const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
+    const SIGNATURES = ["revenda_fabrica", "fazenda"];
+
+    let db;
+    let draft = defaultDraft();
+    let recorder;
+    let audioChunks = [];
+    let wakeLock;
+    let saveTimer;
+
+    function defaultDraft() {
+      return {
+        version: 1,
+        updated_at: new Date().toISOString(),
+        observacoes: "",
+        audios: [],
+        cabecalho: { info_equip: null, maquina: null, implemento: null },
+        evidencias: {
+          fotos_equipamento: [],
+          fotos_instalacao: [],
+          fotos_configuracao: [],
+          fotos_outros: []
+        },
+        legendas_evidencias: {
+          fotos_equipamento: "",
+          fotos_instalacao: "",
+          fotos_configuracao: "",
+          fotos_outros: ""
+        },
+        responsaveis: { revenda_fabrica: "", fazenda: "" },
+        assinaturas: { revenda_fabrica: null, fazenda: null }
+      };
+    }
+
+    function openDb() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = () => request.result.createObjectStore(STORE);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function getDraft() {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readonly");
+        const request = tx.objectStore(STORE).get(DRAFT_KEY);
+        request.onsuccess = () => resolve(request.result || defaultDraft());
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function putDraft() {
+      draft.updated_at = new Date().toISOString();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).put(draft, DRAFT_KEY);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    function scheduleSave() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        await putDraft();
+        document.getElementById("saveStatus").textContent = "Rascunho salvo no aparelho.";
+      }, 250);
+      document.getElementById("saveStatus").textContent = "Salvando rascunho...";
+    }
+
+    function readFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({
+          name: file.name,
+          type: file.type || "application/octet-stream",
+          size: file.size,
+          dataUrl: reader.result
+        });
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function blobToItem(blob, name) {
+      const file = new File([blob], name, { type: blob.type || "audio/mp4" });
+      return readFile(file);
+    }
+
+    function updateNetwork() {
+      const badge = document.getElementById("networkStatus");
+      if (navigator.onLine) {
+        badge.textContent = "Online";
+        badge.className = "badge online";
+      } else {
+        badge.textContent = "Offline";
+        badge.className = "badge offline";
+      }
+    }
+
+    function updateCounts() {
+      HEADERS.forEach((key) => {
+        const item = draft.cabecalho[key];
+        document.getElementById(`${key}_status`).textContent = item ? item.name : "Nenhum arquivo selecionado.";
+      });
+      CATEGORIES.forEach((key) => {
+        document.getElementById(`${key}_status`).textContent = `${draft.evidencias[key].length} imagens.`;
+      });
+      renderAudios();
+    }
+
+    function renderAudios() {
+      const list = document.getElementById("audiosList");
+      list.innerHTML = "";
+      draft.audios.forEach((audio, index) => {
+        const row = document.createElement("div");
+        row.className = "item";
+        row.innerHTML = `<span>${index + 1}. ${audio.name}</span>`;
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "Remover";
+        remove.addEventListener("click", () => {
+          draft.audios.splice(index, 1);
+          scheduleSave();
+          renderAudios();
+        });
+        row.appendChild(remove);
+        list.appendChild(row);
+      });
+    }
+
+    async function requestWakeLock() {
+      if (!("wakeLock" in navigator)) return;
+      try {
+        wakeLock = await navigator.wakeLock.request("screen");
+      } catch (error) {}
+    }
+
+    async function releaseWakeLock() {
+      if (!wakeLock) return;
+      try {
+        await wakeLock.release();
+      } catch (error) {}
+      wakeLock = null;
+    }
+
+    function supportedAudioMime() {
+      const options = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/aac", "audio/wav"];
+      if (!window.MediaRecorder) return "";
+      return options.find((mime) => MediaRecorder.isTypeSupported(mime)) || "";
+    }
+
+    async function startRecording() {
+      if (!navigator.mediaDevices || !window.MediaRecorder) {
+        document.getElementById("recordHint").textContent = "Gravação indisponível neste navegador. Use o envio de arquivo de áudio.";
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = supportedAudioMime();
+      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      audioChunks = [];
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size) audioChunks.push(event.data);
+      };
+      recorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: recorder.mimeType || "audio/mp4" });
+        const extension = blob.type.includes("webm") ? "webm" : blob.type.includes("wav") ? "wav" : "m4a";
+        const item = await blobToItem(blob, `audio_offline_${new Date().toISOString().replace(/[:.]/g, "-")}.${extension}`);
+        draft.audios.push(item);
+        stream.getTracks().forEach((track) => track.stop());
+        await releaseWakeLock();
+        scheduleSave();
+        renderAudios();
+      };
+      recorder.start();
+      await requestWakeLock();
+      document.getElementById("recordBtn").disabled = true;
+      document.getElementById("stopBtn").disabled = false;
+      document.getElementById("recordHint").textContent = "Gravando áudio...";
+    }
+
+    function stopRecording() {
+      if (recorder && recorder.state !== "inactive") recorder.stop();
+      document.getElementById("recordBtn").disabled = false;
+      document.getElementById("stopBtn").disabled = true;
+      document.getElementById("recordHint").textContent = "Áudio salvo no rascunho local.";
+    }
+
+    function setupCanvas(canvas, key) {
+      const ctx = canvas.getContext("2d");
+      let drawing = false;
+      let dirty = false;
+
+      function resize() {
+        const ratio = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = Math.round(rect.width * ratio);
+        canvas.height = Math.round(rect.height * ratio);
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, rect.width, rect.height);
+        if (draft.assinaturas[key]?.dataUrl) {
+          const img = new Image();
+          img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
+          img.src = draft.assinaturas[key].dataUrl;
+        }
+      }
+
+      function point(event) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      }
+
+      function saveSignature() {
+        if (!dirty) return;
+        draft.assinaturas[key] = {
+          name: `assinatura_${key}.png`,
+          type: "image/png",
+          size: 0,
+          dataUrl: canvas.toDataURL("image/png")
+        };
+        scheduleSave();
+      }
+
+      canvas.addEventListener("pointerdown", (event) => {
+        drawing = true;
+        dirty = true;
+        canvas.setPointerCapture(event.pointerId);
+        const p = point(event);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+      });
+      canvas.addEventListener("pointermove", (event) => {
+        if (!drawing) return;
+        const p = point(event);
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "#25272b";
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      });
+      canvas.addEventListener("pointerup", () => {
+        drawing = false;
+        saveSignature();
+      });
+      canvas.addEventListener("pointercancel", () => {
+        drawing = false;
+        saveSignature();
+      });
+
+      resize();
+      window.addEventListener("resize", resize);
+      return () => {
+        const rect = canvas.getBoundingClientRect();
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, rect.width, rect.height);
+        draft.assinaturas[key] = null;
+        dirty = false;
+        scheduleSave();
+      };
+    }
+
+    function hydrateFields() {
+      document.getElementById("observacoes").value = draft.observacoes || "";
+      CATEGORIES.forEach((key) => {
+        document.getElementById(`legenda_${key}`).value = draft.legendas_evidencias[key] || "";
+      });
+      document.getElementById("responsavel_revenda_fabrica").value = draft.responsaveis.revenda_fabrica || "";
+      document.getElementById("responsavel_fazenda").value = draft.responsaveis.fazenda || "";
+      updateCounts();
+    }
+
+    function wireFields() {
+      document.getElementById("observacoes").addEventListener("input", (event) => {
+        draft.observacoes = event.target.value;
+        scheduleSave();
+      });
+
+      CATEGORIES.forEach((key) => {
+        document.getElementById(`legenda_${key}`).addEventListener("input", (event) => {
+          draft.legendas_evidencias[key] = event.target.value;
+          scheduleSave();
+        });
+        document.getElementById(key).addEventListener("change", async (event) => {
+          const arquivos = await Promise.all([...event.target.files].map(readFile));
+          draft.evidencias[key].push(...arquivos);
+          event.target.value = "";
+          updateCounts();
+          scheduleSave();
+        });
+      });
+
+      HEADERS.forEach((key) => {
+        document.getElementById(key).addEventListener("change", async (event) => {
+          const file = event.target.files[0];
+          draft.cabecalho[key] = file ? await readFile(file) : null;
+          event.target.value = "";
+          updateCounts();
+          scheduleSave();
+        });
+      });
+
+      document.getElementById("responsavel_revenda_fabrica").addEventListener("input", (event) => {
+        draft.responsaveis.revenda_fabrica = event.target.value;
+        scheduleSave();
+      });
+      document.getElementById("responsavel_fazenda").addEventListener("input", (event) => {
+        draft.responsaveis.fazenda = event.target.value;
+        scheduleSave();
+      });
+
+      document.getElementById("audioFiles").addEventListener("change", async (event) => {
+        const arquivos = await Promise.all([...event.target.files].map(readFile));
+        draft.audios.push(...arquivos);
+        event.target.value = "";
+        renderAudios();
+        scheduleSave();
+      });
+
+      document.getElementById("recordBtn").addEventListener("click", () => startRecording().catch((error) => {
+        document.getElementById("recordHint").textContent = `Erro na gravação: ${error.message}`;
+        document.getElementById("recordBtn").disabled = false;
+        document.getElementById("stopBtn").disabled = true;
+      }));
+      document.getElementById("stopBtn").addEventListener("click", stopRecording);
+
+      const clearRevenda = setupCanvas(document.getElementById("assinatura_revenda_fabrica"), "revenda_fabrica");
+      const clearFazenda = setupCanvas(document.getElementById("assinatura_fazenda"), "fazenda");
+      document.querySelector("[data-clear-signature='revenda_fabrica']").addEventListener("click", clearRevenda);
+      document.querySelector("[data-clear-signature='fazenda']").addEventListener("click", clearFazenda);
+
+      document.getElementById("exportBtn").addEventListener("click", exportDraft);
+      document.getElementById("clearBtn").addEventListener("click", clearDraft);
+    }
+
+    async function exportDraft() {
+      await putDraft();
+      const pacote = { ...draft, exported_at: new Date().toISOString() };
+      const blob = new Blob([JSON.stringify(pacote)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
+      link.href = url;
+      link.download = `agres_coleta_offline_${stamp}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    async function clearDraft() {
+      if (!confirm("Apagar todo o rascunho offline deste aparelho?")) return;
+      draft = defaultDraft();
+      await putDraft();
+      location.reload();
+    }
+
+    async function init() {
+      updateNetwork();
+      window.addEventListener("online", updateNetwork);
+      window.addEventListener("offline", updateNetwork);
+      /* Standalone offline file: service worker disabled. */
+      if (navigator.storage?.persist) {
+        const persisted = await navigator.storage.persist();
+        document.getElementById("storageStatus").textContent = persisted
+          ? "Armazenamento local protegido."
+          : "Armazenamento local ativo.";
+      }
+      db = await openDb();
+      draft = { ...defaultDraft(), ...(await getDraft()) };
+      draft.cabecalho = { ...defaultDraft().cabecalho, ...(draft.cabecalho || {}) };
+      draft.evidencias = { ...defaultDraft().evidencias, ...(draft.evidencias || {}) };
+      draft.legendas_evidencias = { ...defaultDraft().legendas_evidencias, ...(draft.legendas_evidencias || {}) };
+      draft.responsaveis = { ...defaultDraft().responsaveis, ...(draft.responsaveis || {}) };
+      draft.assinaturas = { ...defaultDraft().assinaturas, ...(draft.assinaturas || {}) };
+      hydrateFields();
+      wireFields();
+      await putDraft();
+    }
+
+    init().catch((error) => {
+      document.getElementById("saveStatus").textContent = `Erro no modo offline: ${error.message}`;
+    });
+  </script>
+</body>
+</html>
+

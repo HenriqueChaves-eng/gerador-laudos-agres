@@ -1987,6 +1987,16 @@ with st.container(border=True):
         """,
         unsafe_allow_html=True,
     )
+    arquivo_offline_autonomo = BASE_DIR / "static" / "offline" / "coleta_offline_agres.html"
+    if arquivo_offline_autonomo.exists():
+        st.download_button(
+            "Baixar coletor offline autônomo",
+            data=arquivo_offline_autonomo.read_bytes(),
+            file_name="coleta_offline_agres.html",
+            mime="text/html",
+            use_container_width=True,
+        )
+        st.caption("Para uso sem internet, abra/instale a coleta offline uma vez com internet ou deixe este arquivo HTML salvo no celular antes de ir a campo.")
     pacote_offline = st.file_uploader(
         "Sincronizar pacote offline",
         type=["json"],
