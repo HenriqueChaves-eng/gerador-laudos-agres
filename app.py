@@ -1,10 +1,12 @@
 import base64
+import html
 import json
 import re
 import shutil
 import tempfile
 import unicodedata
 import uuid
+import zipfile
 from copy import deepcopy
 from datetime import date, datetime
 from hashlib import sha1
@@ -25,6 +27,20 @@ from docx.shared import Mm, Pt
 from docx.table import _Cell, Table
 from docxtpl import DocxTemplate, InlineImage
 from PIL import Image, ImageOps, UnidentifiedImageError
+
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm as rl_mm
+    from reportlab.platypus import Image as PdfImage
+    from reportlab.platypus import KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table as PdfTable
+    from reportlab.platypus import TableStyle
+    REPORTLAB_DISPONIVEL = True
+except Exception:
+    REPORTLAB_DISPONIVEL = False
+    rl_mm = 2.834645669
 
 try:
     from streamlit_drawable_canvas import st_canvas
@@ -183,7 +199,9 @@ for chave, valor_inicial in {
     "proximo_id": 1,
     "reset_audio": 0,
     "relatorio_pronto": None,
+    "pacote_zip_pronto": None,
     "nome_arquivo_pronto": None,
+    "nome_pacote_zip_pronto": None,
 }.items():
     if chave not in st.session_state:
         st.session_state[chave] = valor_inicial.copy() if isinstance(valor_inicial, list) else valor_inicial
@@ -741,6 +759,26 @@ def dividir_itens(texto: str) -> list[str]:
     return itens
 
 
+def dividir_frases_tecnicas(texto: str) -> list[str]:
+    itens = []
+    for item in dividir_itens(texto):
+        partes = re.split(r"(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9])", item)
+        itens.extend(parte.strip(" -–—\t") for parte in partes if parte.strip(" -–—\t"))
+    return itens
+
+
+def formatar_topicos_tecnicos(texto: str) -> str:
+    topicos = []
+    vistos = set()
+    for item in dividir_frases_tecnicas(texto):
+        item = finalizar_frase(item)
+        chave = normalizar_busca(item)
+        if item and chave not in vistos:
+            topicos.append(f"• {item}")
+            vistos.add(chave)
+    return "\n".join(topicos)
+
+
 def contem_termo(texto: str, termos: tuple[str, ...]) -> bool:
     texto_normalizado = normalizar_busca(texto)
     return any(termo in texto_normalizado for termo in termos)
@@ -869,8 +907,8 @@ def normalizar_dados_relatorio(dados: dict) -> dict:
         TERMOS_NAO_CALIBRACAO,
     )
 
-    dados_normalizados["configuracoes"] = configuracoes or "Não informado"
-    dados_normalizados["calibracoes"] = calibracoes or "Não informado"
+    dados_normalizados["configuracoes"] = formatar_topicos_tecnicos(configuracoes) or "Não informado"
+    dados_normalizados["calibracoes"] = formatar_topicos_tecnicos(calibracoes) or "Não informado"
     dados_normalizados["relato"] = adicionar_ao_relato(
         dados_normalizados["relato"],
         itens_config_relato + itens_calibracao_relato + detalhes_para_relato,
@@ -934,8 +972,8 @@ REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 6. equipamentos: organizar em linhas com modelo, série, versões de aplicação/sistema/carga, ECU, compensador, GPS e identificadores.
 7. maquinas: organizar em linhas com fabricante, modelo, implemento, comando de válvulas e características relevantes.
 8. objetivos: escrever somente o objetivo principal do atendimento, em uma ou duas frases.
-9. configuracoes: incluir somente parâmetros de sistema, software, tela, ECU, controlador, seções, geometria, versões, módulos habilitados, ganhos ou ajustes feitos em menus. Quando houver valores, use o padrão "Parâmetro: valor".
-10. calibracoes: incluir somente calibrações, aferições e validações com valores, medidas, sensores, vazão, largura, offset, angulação ou parâmetros numéricos.
+9. configuracoes: incluir somente parâmetros de sistema, software, tela, ECU, controlador, seções, geometria, versões, módulos habilitados, ganhos ou ajustes feitos em menus. Retornar em tópicos objetivos, uma linha por item, sem texto corrido. Quando houver valores, use o padrão "Parâmetro: valor".
+10. calibracoes: incluir somente calibrações, aferições e validações com valores, medidas, sensores, vazão, largura, offset, angulação ou parâmetros numéricos. Retornar em tópicos objetivos, uma linha por item, sem texto corrido.
 11. acompanhantes: informar técnicos, operadores, proprietários, consultores, representantes ou demais pessoas que acompanharam o atendimento.
 12. responsavel_revenda_fabrica: informar o nome do responsável da revenda, fábrica ou Agres que validou/acompanhou o atendimento, quando mencionado.
 13. documento_revenda_fabrica: informar CPF, RG ou documento do responsável da revenda/fábrica quando mencionado; caso contrário, retornar "".
@@ -1359,6 +1397,315 @@ def gerar_docx(
     return caminho_saida
 
 
+def nome_arquivo_seguro(texto: str, padrao: str = "arquivo") -> str:
+    nome = normalizar_busca(texto).replace(" ", "_")
+    nome = re.sub(r"[^a-z0-9_.-]+", "_", nome).strip("._-")
+    return nome[:90] or padrao
+
+
+def arcname_unico(arcname: str, usados: set[str]) -> str:
+    if arcname not in usados:
+        usados.add(arcname)
+        return arcname
+
+    caminho = Path(arcname)
+    base = str(caminho.with_suffix(""))
+    sufixo = caminho.suffix
+    contador = 2
+    while True:
+        candidato = f"{base}_{contador}{sufixo}"
+        if candidato not in usados:
+            usados.add(candidato)
+            return candidato
+        contador += 1
+
+
+def adicionar_arquivo_zip(zip_out: zipfile.ZipFile, caminho: Path | None, arcname: str, usados: set[str]) -> None:
+    if not caminho:
+        return
+    caminho = Path(caminho)
+    if caminho.exists() and caminho.is_file():
+        zip_out.write(caminho, arcname_unico(arcname.replace("\\", "/"), usados))
+
+
+def texto_pdf(valor) -> str:
+    texto = limpar_texto(valor)
+    return html.escape(texto).replace("\n", "<br/>") if texto else "Não informado"
+
+
+def dimensoes_imagem_pdf(caminho: Path, largura_max: float, altura_max: float) -> tuple[float, float]:
+    with Image.open(caminho) as imagem:
+        largura, altura = imagem.size
+    proporcao = min(largura_max / largura, altura_max / altura, 1)
+    return largura * proporcao, altura * proporcao
+
+
+def bloco_imagem_pdf(caminho: Path, titulo: str, fonte: str = "", legenda: str = "", largura_max: float = 160 * rl_mm, altura_max: float = 95 * rl_mm):
+    largura, altura = dimensoes_imagem_pdf(caminho, largura_max, altura_max)
+    estilo_figura = ParagraphStyle(
+        "FiguraTitulo",
+        fontName="Helvetica",
+        fontSize=10,
+        leading=12,
+        alignment=TA_CENTER,
+        spaceAfter=3,
+    )
+    estilo_fonte = ParagraphStyle(
+        "FiguraFonte",
+        fontName="Helvetica",
+        fontSize=8,
+        leading=9,
+        alignment=TA_CENTER,
+        spaceAfter=1,
+    )
+    estilo_legenda = ParagraphStyle(
+        "FiguraLegenda",
+        fontName="Helvetica",
+        fontSize=8,
+        leading=9,
+        alignment=TA_CENTER,
+        spaceAfter=8,
+    )
+    elementos = [Paragraph(html.escape(titulo), estilo_figura), PdfImage(str(caminho), width=largura, height=altura)]
+    if fonte:
+        elementos.append(Paragraph(html.escape(fonte), estilo_fonte))
+    if legenda:
+        elementos.append(Paragraph(html.escape(legenda), estilo_legenda))
+    return KeepTogether(elementos)
+
+
+def gerar_pdf_relatorio(
+    dados: dict,
+    dicionario_evidencias: dict,
+    caminhos_cabecalho: dict,
+    pasta_saida: Path,
+    legendas_evidencias: dict | None = None,
+    caminhos_assinaturas: dict | None = None,
+    nome_base: str = "relatorio",
+) -> Path | None:
+    if not REPORTLAB_DISPONIVEL:
+        return None
+
+    caminho_pdf = pasta_saida / f"{nome_base}.pdf"
+    doc = SimpleDocTemplate(
+        str(caminho_pdf),
+        pagesize=A4,
+        rightMargin=18 * rl_mm,
+        leftMargin=18 * rl_mm,
+        topMargin=16 * rl_mm,
+        bottomMargin=16 * rl_mm,
+    )
+    estilos = getSampleStyleSheet()
+    titulo = ParagraphStyle("TituloAgres", parent=estilos["Title"], fontName="Helvetica-Bold", fontSize=15, leading=18, alignment=TA_CENTER, spaceAfter=10)
+    secao = ParagraphStyle("SecaoAgres", parent=estilos["Heading2"], fontName="Helvetica-Bold", fontSize=11, leading=13, spaceBefore=8, spaceAfter=5)
+    texto = ParagraphStyle("TextoAgres", parent=estilos["BodyText"], fontName="Helvetica", fontSize=10, leading=14, alignment=TA_JUSTIFY, spaceAfter=6)
+    rotulo = ParagraphStyle("RotuloAgres", parent=estilos["BodyText"], fontName="Helvetica-Bold", fontSize=9, leading=12)
+    celula = ParagraphStyle("CelulaAgres", parent=estilos["BodyText"], fontName="Helvetica", fontSize=9, leading=12)
+    central = ParagraphStyle("CentralAgres", parent=estilos["BodyText"], fontName="Helvetica", fontSize=9, leading=11, alignment=TA_CENTER)
+
+    story = []
+    if LOGO_PATH.exists():
+        try:
+            largura_logo, altura_logo = dimensoes_imagem_pdf(LOGO_PATH, 42 * rl_mm, 18 * rl_mm)
+            story.append(PdfImage(str(LOGO_PATH), width=largura_logo, height=altura_logo))
+            story.append(Spacer(1, 4))
+        except Exception:
+            pass
+    story.append(Paragraph("RELATÓRIO DE ATENDIMENTO/ATIVIDADES", titulo))
+
+    tipo_tabela = PdfTable(
+        [[
+            Paragraph(f"SUPORTE {'X' if dados.get('suporte') == 'X' else ''}", central),
+            Paragraph(f"INSTALAÇÃO {'X' if dados.get('instalacao') == 'X' else ''}", central),
+            Paragraph(f"TREINAMENTO {'X' if dados.get('treinamento') == 'X' else ''}", central),
+        ]],
+        colWidths=[55 * rl_mm, 55 * rl_mm, 55 * rl_mm],
+    )
+    tipo_tabela.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.4, colors.black),
+        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.black),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BACKGROUND", (0, 0), (-1, -1), colors.whitesmoke),
+    ]))
+    story.extend([tipo_tabela, Spacer(1, 8)])
+
+    linhas = [
+        ("Data da visita", dados.get("data_visita")),
+        ("Técnico(s)", dados.get("tecnicos")),
+        ("Cliente e local", dados.get("cliente_local")),
+        ("Localização Maps", dados.get("localizacao_maps")),
+        ("Equipamento(s)", dados.get("equipamentos")),
+        ("Máquina/implemento", dados.get("maquinas")),
+        ("Objetivo", dados.get("objetivos")),
+        ("Configurações", dados.get("configuracoes")),
+        ("Calibrações", dados.get("calibracoes")),
+        ("Acompanhantes", dados.get("acompanhantes")),
+    ]
+    tabela_dados = PdfTable(
+        [[Paragraph(html.escape(rot), rotulo), Paragraph(texto_pdf(valor), celula)] for rot, valor in linhas],
+        colWidths=[38 * rl_mm, 128 * rl_mm],
+    )
+    tabela_dados.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.4, colors.black),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.grey),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.extend([tabela_dados, Paragraph("Relato", secao)])
+    for paragrafo in limpar_relato_narrativo(dados.get("relato", "")).split("\n\n"):
+        if limpar_texto(paragrafo):
+            story.append(Paragraph(texto_pdf(paragrafo), texto))
+
+    fotos_cabecalho = [
+        ("Informações do equipamento", caminhos_cabecalho.get("info_equip")),
+        ("Máquina", caminhos_cabecalho.get("maquina")),
+        ("Implemento", caminhos_cabecalho.get("implemento")),
+    ]
+    fotos_cabecalho = [(titulo_foto, Path(caminho)) for titulo_foto, caminho in fotos_cabecalho if caminho and Path(caminho).exists()]
+    if fotos_cabecalho:
+        story.append(Paragraph("Fotos de identificação", secao))
+        for titulo_foto, caminho in fotos_cabecalho:
+            story.append(bloco_imagem_pdf(caminho, titulo_foto, largura_max=90 * rl_mm, altura_max=55 * rl_mm))
+
+    contador_figura = 1
+    total_pagina = 0
+    if any(dicionario_evidencias.get(categoria) for categoria in CATEGORIAS_EVIDENCIAS):
+        story.append(PageBreak())
+        story.append(Paragraph("Evidências fotográficas", secao))
+    for categoria in CATEGORIAS_EVIDENCIAS:
+        for indice, caminho in enumerate(dicionario_evidencias.get(categoria, [])):
+            caminho = Path(caminho)
+            if not caminho.exists():
+                continue
+            metadados = montar_metadados_figura(categoria, indice, contador_figura, legendas_evidencias or {})
+            story.append(bloco_imagem_pdf(
+                caminho,
+                f"Figura {contador_figura} - {metadados['titulo']}",
+                metadados["fonte"],
+                metadados["legenda"],
+            ))
+            contador_figura += 1
+            total_pagina += 1
+            if total_pagina == 2:
+                story.append(PageBreak())
+                total_pagina = 0
+
+    if caminhos_assinaturas or any(dados.get(cfg["campo"]) for cfg in ASSINATURAS_RESPONSAVEIS.values()):
+        story.append(Paragraph("Assinaturas", secao))
+        linhas_assinatura = []
+        for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
+            partes = [Paragraph(f"<b>{html.escape(configuracao['titulo'])}</b>", central)]
+            caminho_assinatura = caminhos_assinaturas.get(chave) if caminhos_assinaturas else None
+            if caminho_assinatura and Path(caminho_assinatura).exists():
+                largura, altura = dimensoes_imagem_pdf(Path(caminho_assinatura), 50 * rl_mm, 22 * rl_mm)
+                partes.append(PdfImage(str(caminho_assinatura), width=largura, height=altura))
+            partes.append(Paragraph(texto_pdf(dados.get(configuracao["campo"], "")), central))
+            partes.append(Paragraph(f"CPF/RG: {texto_pdf(dados.get(configuracao['campo_documento'], ''))}", central))
+            linhas_assinatura.append(partes)
+        tabela_assinaturas = PdfTable([linhas_assinatura], colWidths=[82 * rl_mm, 82 * rl_mm])
+        tabela_assinaturas.setStyle(TableStyle([
+            ("BOX", (0, 0), (-1, -1), 0.4, colors.black),
+            ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.grey),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.append(tabela_assinaturas)
+
+    doc.build(story)
+    return caminho_pdf
+
+
+def adicionar_fotos_atendimento_zip(
+    zip_out: zipfile.ZipFile,
+    caminhos_cabecalho: dict,
+    dicionario_evidencias: dict,
+    legendas_evidencias: dict | None,
+    caminhos_assinaturas: dict | None,
+    usados: set[str],
+) -> None:
+    cabecalho_nomes = {
+        "info_equip": "informacoes_equipamento",
+        "maquina": "maquina",
+        "implemento": "implemento",
+    }
+    for indice, (chave, nome) in enumerate(cabecalho_nomes.items(), start=1):
+        caminho = caminhos_cabecalho.get(chave)
+        if caminho and Path(caminho).exists():
+            extensao = Path(caminho).suffix.lower() or ".jpg"
+            adicionar_arquivo_zip(zip_out, caminho, f"fotos_atendimento/01_cabecalho/{indice:02d}_{nome}{extensao}", usados)
+
+    contador = 1
+    for categoria, configuracao in CATEGORIAS_EVIDENCIAS.items():
+        pasta_categoria = nome_arquivo_seguro(configuracao["nome"], categoria)
+        for indice, caminho in enumerate(dicionario_evidencias.get(categoria, [])):
+            caminho = Path(caminho)
+            if not caminho.exists():
+                continue
+            metadados = montar_metadados_figura(categoria, indice, contador, legendas_evidencias or {})
+            extensao = caminho.suffix.lower() or ".jpg"
+            nome = nome_arquivo_seguro(metadados["titulo"], f"figura_{contador:02d}")
+            adicionar_arquivo_zip(
+                zip_out,
+                caminho,
+                f"fotos_atendimento/02_evidencias/{pasta_categoria}/figura_{contador:02d}_{nome}{extensao}",
+                usados,
+            )
+            contador += 1
+
+    for chave, caminho in (caminhos_assinaturas or {}).items():
+        if caminho and Path(caminho).exists():
+            extensao = Path(caminho).suffix.lower() or ".png"
+            adicionar_arquivo_zip(zip_out, caminho, f"fotos_atendimento/03_assinaturas/{chave}{extensao}", usados)
+
+
+def gerar_pacote_relatorio(
+    arquivo_docx: Path,
+    dados: dict,
+    dicionario_evidencias: dict,
+    caminhos_cabecalho: dict,
+    pasta_saida: Path,
+    legendas_evidencias: dict | None,
+    caminhos_assinaturas: dict | None,
+) -> Path:
+    nome_base = arquivo_docx.stem
+    caminho_pdf = gerar_pdf_relatorio(
+        dados,
+        dicionario_evidencias,
+        caminhos_cabecalho,
+        pasta_saida,
+        legendas_evidencias,
+        caminhos_assinaturas,
+        nome_base,
+    )
+    caminho_zip = pasta_saida / f"{nome_base} - PACOTE COMPLETO.zip"
+    usados = set()
+
+    with zipfile.ZipFile(caminho_zip, "w", compression=zipfile.ZIP_DEFLATED) as zip_out:
+        adicionar_arquivo_zip(zip_out, arquivo_docx, arquivo_docx.name, usados)
+        if caminho_pdf and caminho_pdf.exists():
+            adicionar_arquivo_zip(zip_out, caminho_pdf, caminho_pdf.name, usados)
+        else:
+            zip_out.writestr(
+                arcname_unico("PDF_NAO_GERADO.txt", usados),
+                "O relatório Word foi gerado normalmente, mas o PDF não foi criado porque a biblioteca reportlab não está instalada neste ambiente.\n",
+            )
+        adicionar_fotos_atendimento_zip(
+            zip_out,
+            caminhos_cabecalho,
+            dicionario_evidencias,
+            legendas_evidencias,
+            caminhos_assinaturas,
+            usados,
+        )
+
+    return caminho_zip
+
+
 def chave_paragrafo(paragraph) -> str:
     return paragraph._p.getroottree().getpath(paragraph._p)
 
@@ -1488,24 +1835,20 @@ def consolidar_bloco_figura(
     ]
 
     limpar_paragrafo_word(titulo_paragraph)
-    adicionar_run_formatado(titulo_paragraph, titulo)
-    formatar_paragrafo_figura(titulo_paragraph, keep_with_next=True)
-    titulo_paragraph.paragraph_format.space_before = Pt(6)
-    titulo_paragraph.paragraph_format.space_after = Pt(0)
-
-    limpar_paragrafo_word(imagem_paragraph)
+    adicionar_run_formatado(titulo_paragraph, titulo, tamanho_fonte=10)
+    titulo_paragraph.add_run().add_break()
     for imagem_run in imagem_runs:
-        imagem_paragraph._p.append(imagem_run)
-    imagem_paragraph.add_run().add_break()
-    adicionar_run_formatado(imagem_paragraph, fonte)
-    imagem_paragraph.add_run().add_break()
-    adicionar_run_formatado(imagem_paragraph, legenda)
+        titulo_paragraph._p.append(imagem_run)
+    titulo_paragraph.add_run().add_break()
+    adicionar_run_formatado(titulo_paragraph, fonte, tamanho_fonte=8)
+    titulo_paragraph.add_run().add_break()
+    adicionar_run_formatado(titulo_paragraph, legenda, tamanho_fonte=8)
     if inserir_quebra_pagina:
-        imagem_paragraph.add_run().add_break(WD_BREAK.PAGE)
+        titulo_paragraph.add_run().add_break(WD_BREAK.PAGE)
 
-    formatar_paragrafo_figura(imagem_paragraph, keep_with_next=False, tamanho_fonte=None)
-    imagem_paragraph.paragraph_format.space_before = Pt(0)
-    imagem_paragraph.paragraph_format.space_after = Pt(14)
+    formatar_paragrafo_figura(titulo_paragraph, keep_with_next=False, tamanho_fonte=None)
+    titulo_paragraph.paragraph_format.space_before = Pt(6)
+    titulo_paragraph.paragraph_format.space_after = Pt(14)
 
 
 def consolidar_figuras_em_blocos_unicos(paragrafos: list) -> None:
@@ -1562,8 +1905,6 @@ def consolidar_figuras_em_blocos_unicos(paragrafos: list) -> None:
         )
 
         for paragrafo_remover in paragrafos_para_remover:
-            if paragrafo_remover is imagem_paragraph:
-                continue
             removidos.add(id(paragrafo_remover))
             remover_paragrafo_word(paragrafo_remover)
 
@@ -1574,6 +1915,14 @@ def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
     consolidar_figuras_em_blocos_unicos(paragrafos)
 
     paragrafos = list(iterar_paragrafos_word(documento))
+    for paragraph in paragrafos:
+        texto = limpar_texto(paragraph.text).rstrip(":")
+        if texto == "Fotos":
+            paragraph.paragraph_format.page_break_before = True
+            paragraph.paragraph_format.keep_with_next = True
+            paragraph.paragraph_format.widow_control = True
+            paragraph.paragraph_format.space_after = Pt(8)
+
     dentro_bloco_figura = False
     numero_figura = 0
     for paragraph in paragrafos:
@@ -2725,7 +3074,9 @@ with st.container(border=True):
 
     if entrada_disponivel and st.button("Gerar relatório técnico", type="primary", use_container_width=True):
         st.session_state.relatorio_pronto = None
+        st.session_state.pacote_zip_pronto = None
         st.session_state.nome_arquivo_pronto = None
+        st.session_state.nome_pacote_zip_pronto = None
 
         try:
             with tempfile.TemporaryDirectory() as pasta_temp_raw:
@@ -2751,8 +3102,19 @@ with st.container(border=True):
                         legendas_salvas,
                         assinaturas_salvas,
                     )
+                    pacote_final = gerar_pacote_relatorio(
+                        arquivo_final,
+                        dados,
+                        evidencias_salvas,
+                        caminhos_cabecalho_salvos,
+                        pasta_temp,
+                        legendas_salvas,
+                        assinaturas_salvas,
+                    )
                     st.session_state.relatorio_pronto = arquivo_final.read_bytes()
                     st.session_state.nome_arquivo_pronto = arquivo_final.name
+                    st.session_state.pacote_zip_pronto = pacote_final.read_bytes()
+                    st.session_state.nome_pacote_zip_pronto = pacote_final.name
 
                     status.update(label="Relatório finalizado!", state="complete", expanded=False)
 
@@ -2764,11 +3126,19 @@ with st.container(border=True):
 
     if st.session_state.relatorio_pronto:
         st.success("✅ O laudo está pronto para download!")
+        if st.session_state.pacote_zip_pronto:
+            st.download_button(
+                label="Baixar pacote completo (.zip)",
+                data=st.session_state.pacote_zip_pronto,
+                file_name=st.session_state.nome_pacote_zip_pronto,
+                mime="application/zip",
+                type="primary",
+                use_container_width=True,
+            )
         st.download_button(
-            label="📥 Baixar relatório (Word)",
+            label="Baixar somente Word",
             data=st.session_state.relatorio_pronto,
             file_name=st.session_state.nome_arquivo_pronto,
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            type="primary",
             use_container_width=True,
         )

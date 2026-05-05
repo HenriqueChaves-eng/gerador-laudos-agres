@@ -4,3 +4,4 @@ docxtpl
 python-docx
 pillow
 streamlit-drawable-canvas
+reportlab
