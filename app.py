@@ -1693,10 +1693,10 @@ def salvar_item_offline_rascunho(
     }
 
 
-def importar_pacote_offline(uploaded_file, draft_dir: Path, manifesto: dict) -> dict:
+def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: dict) -> dict:
     try:
-        pacote = json.loads(uploaded_file.getvalue().decode("utf-8-sig"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as erro:
+        pacote = json.loads(texto_pacote)
+    except json.JSONDecodeError as erro:
         raise ValueError("Não foi possível ler o pacote offline. Exporte novamente pelo modo offline.") from erro
 
     if not isinstance(pacote, dict) or pacote.get("version") != 1:
@@ -1759,6 +1759,14 @@ def importar_pacote_offline(uploaded_file, draft_dir: Path, manifesto: dict) -> 
 
     salvar_manifesto(draft_dir, manifesto)
     return manifesto
+
+
+def importar_pacote_offline(uploaded_file, draft_dir: Path, manifesto: dict) -> dict:
+    try:
+        texto_pacote = uploaded_file.getvalue().decode("utf-8-sig")
+    except UnicodeDecodeError as erro:
+        raise ValueError("Não foi possível ler o pacote offline. Exporte novamente pelo modo offline.") from erro
+    return importar_pacote_offline_json(texto_pacote, draft_dir, manifesto)
 
 
 def aplicar_manifesto_na_sessao(manifesto: dict) -> None:
@@ -1975,7 +1983,7 @@ with st.container(border=True):
     )
     st.markdown(
         """
-        <a href="http://localhost:8501/app/static/offline/index.html?v=5" target="_blank" rel="noopener" style="
+        <a href="app/static/offline/index.html?v=7" target="_blank" rel="noopener" style="
             display:inline-flex;
             align-items:center;
             justify-content:center;
@@ -1991,17 +1999,30 @@ with st.container(border=True):
         """,
         unsafe_allow_html=True,
     )
-    st.caption("Se ficar carregando, copie e cole no navegador: http://localhost:8501/app/static/offline/index.html?v=5")
+    st.caption("No iPad, o link deve começar com https:// e com o mesmo domínio do app publicado. Se abrir localhost ou 192.168..., o microfone pode falhar.")
+    st.markdown(
+        "[Abrir coleta offline pelo link relativo](app/static/offline/index.html?v=7)",
+        unsafe_allow_html=False,
+    )
     st.caption("Antes de ir a campo: abra a coleta offline no Safari, toque em Compartilhar e escolha Adicionar à Tela de Início. Depois ela abre sem internet.")
     pacote_offline = st.file_uploader(
-        "Sincronizar pacote offline",
+        "Sincronizar pacote offline por arquivo JSON",
         type=["json"],
         key="pacote_offline",
         help="Importe o arquivo exportado pelo modo de coleta offline.",
     )
-    if pacote_offline and st.button("Importar pacote para este rascunho", use_container_width=True):
+    pacote_offline_texto = st.text_area(
+        "Ou cole aqui o pacote copiado no modo offline",
+        placeholder="Cole aqui o texto JSON copiado pelo botão 'Copiar pacote' da coleta offline.",
+        height=110,
+        key="pacote_offline_texto",
+    )
+    if (pacote_offline or limpar_texto(pacote_offline_texto)) and st.button("Importar pacote para este rascunho", use_container_width=True):
         try:
-            manifesto_rascunho = importar_pacote_offline(pacote_offline, draft_dir, manifesto_rascunho)
+            if pacote_offline:
+                manifesto_rascunho = importar_pacote_offline(pacote_offline, draft_dir, manifesto_rascunho)
+            else:
+                manifesto_rascunho = importar_pacote_offline_json(pacote_offline_texto, draft_dir, manifesto_rascunho)
             aplicar_manifesto_na_sessao(manifesto_rascunho)
             st.session_state.importacao_offline_ok = True
             st.rerun()

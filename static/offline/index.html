@@ -322,6 +322,32 @@
       gap: 10px;
       margin-top: 10px;
     }
+    .sync-panel {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .sync-output {
+      display: none;
+      width: 100%;
+      min-height: 150px;
+      max-height: 34vh;
+      padding: 10px;
+      border: 1px solid #c9ccd1;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+      font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .sync-output.visible {
+      display: block;
+    }
+    .sync-message {
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
     body.signature-open {
       overflow: hidden;
     }
@@ -506,7 +532,14 @@
 
     <section>
       <h2>5. Sincronização</h2>
-      <p class="hint">O pacote exportado deve ser importado no aplicativo Streamlit quando a internet voltar.</p>
+      <p class="hint">Quando a internet voltar, envie o pacote para o app online. No iPad, o jeito mais fácil costuma ser copiar o pacote e colar no campo de sincronização do Streamlit.</p>
+      <div class="sync-panel">
+        <button type="button" id="copyPackageBtn">Copiar pacote para colar no app online</button>
+        <button type="button" id="sharePackageBtn">Compartilhar pacote JSON</button>
+        <button type="button" id="openOnlineBtn">Abrir app online</button>
+        <textarea class="sync-output" id="packageText" readonly aria-label="Pacote offline para copiar"></textarea>
+        <div class="sync-message" id="syncMessage"></div>
+      </div>
       <div class="footer-actions">
         <div class="actions">
           <button type="button" class="primary" id="exportBtn">Exportar pacote offline</button>
@@ -1161,23 +1194,91 @@
         }
       });
 
+      document.getElementById("copyPackageBtn").addEventListener("click", copyPackage);
+      document.getElementById("sharePackageBtn").addEventListener("click", sharePackage);
+      document.getElementById("openOnlineBtn").addEventListener("click", openOnlineApp);
       document.getElementById("exportBtn").addEventListener("click", exportDraft);
       document.getElementById("clearBtn").addEventListener("click", clearDraft);
     }
 
-    async function exportDraft() {
+    function packageFileName() {
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
+      return `agres_coleta_offline_${stamp}.json`;
+    }
+
+    async function packageText() {
       await putDraft();
       const pacote = { ...draft, exported_at: new Date().toISOString() };
-      const blob = new Blob([JSON.stringify(pacote)], { type: "application/json" });
+      return JSON.stringify(pacote);
+    }
+
+    async function packageBlob() {
+      return new Blob([await packageText()], { type: "application/json" });
+    }
+
+    function setSyncMessage(texto) {
+      document.getElementById("syncMessage").textContent = texto || "";
+    }
+
+    async function exportDraft() {
+      const blob = await packageBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
       link.href = url;
-      link.download = `agres_coleta_offline_${stamp}.json`;
+      link.download = packageFileName();
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
+      setSyncMessage("Pacote exportado. No iPad ele normalmente fica em Arquivos > Downloads.");
+    }
+
+    async function copyPackage() {
+      const text = await packageText();
+      const output = document.getElementById("packageText");
+      output.value = text;
+      output.classList.add("visible");
+
+      try {
+        if (!navigator.clipboard?.writeText) {
+          throw new Error("Clipboard indisponível");
+        }
+        await navigator.clipboard.writeText(text);
+        setSyncMessage("Pacote copiado. Volte ao app online e cole no campo de sincronização.");
+      } catch (error) {
+        output.focus();
+        output.select();
+        setSyncMessage("Não foi possível copiar automaticamente. Selecione o texto exibido, copie e cole no app online.");
+      }
+    }
+
+    async function sharePackage() {
+      const blob = await packageBlob();
+      const file = new File([blob], packageFileName(), { type: "application/json" });
+      try {
+        if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+          await navigator.share({
+            title: "Pacote offline Agres",
+            text: "Pacote offline para sincronizar no app Agres.",
+            files: [file]
+          });
+          setSyncMessage("Pacote compartilhado. Salve em Arquivos ou envie para onde preferir.");
+        } else if (navigator.share) {
+          await navigator.share({
+            title: "Pacote offline Agres",
+            text: await packageText()
+          });
+          setSyncMessage("Pacote compartilhado como texto.");
+        } else {
+          await copyPackage();
+        }
+      } catch (error) {
+        setSyncMessage("Compartilhamento cancelado ou indisponível. Use Copiar pacote ou Exportar pacote offline.");
+      }
+    }
+
+    function openOnlineApp() {
+      window.open("/", "_blank", "noopener");
     }
 
     async function clearDraft() {
