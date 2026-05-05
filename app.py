@@ -50,12 +50,14 @@ FIGURA_CANVAS_PX = (1800, 1125)
 FIGURAS_POR_PAGINA = 2
 
 CAMPOS_RELATORIO = (
+    "tipo_atendimento",
     "suporte",
     "instalacao",
     "treinamento",
     "data_visita",
     "tecnicos",
     "cliente_local",
+    "localizacao_maps",
     "equipamentos",
     "maquinas",
     "objetivos",
@@ -69,6 +71,12 @@ CAMPOS_RELATORIO = (
 )
 
 CAMPOS_SERVICO = ("suporte", "instalacao", "treinamento")
+
+TIPOS_ATENDIMENTO = {
+    "suporte": "Suporte",
+    "instalacao": "Instalação",
+    "treinamento": "Treinamento",
+}
 
 ROTULOS_CAMPOS = {
     "suporte": "Suporte",
@@ -689,6 +697,63 @@ def normalizar_marcador_servico(valor) -> tuple[str, list[str]]:
     return marcador, detalhes
 
 
+def normalizar_tipo_atendimento(valor, padrao: str = "") -> str:
+    texto = normalizar_busca(valor)
+    if not texto:
+        return padrao
+    if texto in TIPOS_ATENDIMENTO:
+        return texto
+    if "instal" in texto:
+        return "instalacao"
+    if "trein" in texto:
+        return "treinamento"
+    if "suporte" in texto or "assist" in texto or "diagnost" in texto:
+        return "suporte"
+    return padrao
+
+
+def escolher_tipo_atendimento_unico(dados: dict, marcadores: dict | None = None) -> str:
+    tipo = normalizar_tipo_atendimento(dados.get("tipo_atendimento"))
+    if tipo:
+        return tipo
+
+    marcadores = marcadores or {}
+    marcados = [campo for campo in CAMPOS_SERVICO if marcadores.get(campo) == "X" or dados.get(campo) == "X"]
+    if len(marcados) == 1:
+        return marcados[0]
+
+    texto = normalizar_busca(
+        "\n".join(
+            limpar_texto(dados.get(campo, ""))
+            for campo in ("objetivos", "relato", "equipamentos", "maquinas", "configuracoes")
+        )
+    )
+    if re.search(r"\b(instalacao|instalar|instalado|montagem|chicote|fixacao)\b", texto):
+        return "instalacao"
+    if re.search(r"\b(treinamento|treinar|orientacao operacional|capacitacao)\b", texto):
+        return "treinamento"
+    if re.search(r"\b(suporte|falha|diagnostico|correcao|ajuste|manutencao)\b", texto):
+        return "suporte"
+    return marcados[0] if marcados else "suporte"
+
+
+def aplicar_tipo_atendimento_unico(dados: dict, tipo_preferido: str = "") -> dict:
+    tipo = normalizar_tipo_atendimento(tipo_preferido) or escolher_tipo_atendimento_unico(dados)
+    dados["tipo_atendimento"] = tipo
+    for campo in CAMPOS_SERVICO:
+        dados[campo] = "X" if campo == tipo else ""
+    return dados
+
+
+def extrair_link_localizacao(texto: str) -> str:
+    match = re.search(
+        r"https?://[^\s<>()\"]*(?:maps\.app\.goo\.gl|goo\.gl/maps|google\.[^\s<>()\"]*/maps|maps\.google\.[^\s<>()\"]*)[^\s<>()\"]*",
+        limpar_texto(texto),
+        flags=re.I,
+    )
+    return match.group(0).rstrip(".,;") if match else ""
+
+
 def filtrar_campo_curto(texto: str, termos_bloqueados: tuple[str, ...]) -> tuple[str, list[str]]:
     itens_validos = []
     itens_para_relato = []
@@ -719,11 +784,14 @@ def adicionar_ao_relato(relato: str, titulo: str, itens: list[str]) -> str:
 def normalizar_dados_relatorio(dados: dict) -> dict:
     dados_normalizados = {campo: limpar_texto(dados.get(campo, "")) for campo in CAMPOS_RELATORIO}
     detalhes_para_relato = []
+    marcadores_servico = {}
 
     for campo in CAMPOS_SERVICO:
         marcador, detalhes = normalizar_marcador_servico(dados_normalizados[campo])
-        dados_normalizados[campo] = marcador
+        marcadores_servico[campo] = marcador
         detalhes_para_relato.extend(f"{ROTULOS_CAMPOS[campo]}: {detalhe}" for detalhe in detalhes)
+
+    aplicar_tipo_atendimento_unico(dados_normalizados, dados_normalizados.get("tipo_atendimento") or escolher_tipo_atendimento_unico(dados_normalizados, marcadores_servico))
 
     configuracoes, itens_config_relato = filtrar_campo_curto(
         dados_normalizados["configuracoes"],
@@ -745,11 +813,20 @@ def normalizar_dados_relatorio(dados: dict) -> dict:
     if not dados_normalizados["relato"]:
         dados_normalizados["relato"] = "Não informado nos áudios ou observações encaminhadas."
 
+    if not dados_normalizados["localizacao_maps"]:
+        dados_normalizados["localizacao_maps"] = extrair_link_localizacao(
+            "\n".join(
+                dados_normalizados.get(campo, "")
+                for campo in ("cliente_local", "objetivos", "relato")
+            )
+        )
+
     dados_normalizados["data_visita"] = dados_normalizados["data_visita"] or data_atual_brasil().strftime("%d/%m/%Y")
     dados_normalizados["tecnicos"] = dados_normalizados["tecnicos"] or "Henrique Chaves"
 
     for campo in (
         "cliente_local",
+        "localizacao_maps",
         "equipamentos",
         "maquinas",
         "objetivos",
@@ -780,19 +857,21 @@ Você é redator técnico da Agres e deve transformar áudios/anotações de ate
 Use português técnico, claro e objetivo. Reescreva falas informais em linguagem profissional, sem inventar dados, versões, medidas, peças ou conclusões que não estejam no material recebido.
 {bloco_contexto}
 REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
-1. suporte, instalacao e treinamento: retornar somente "X" quando o serviço tiver ocorrido; caso contrário, retornar "".
-2. data_visita: preserve intervalo de datas quando o atendimento ocorrer em mais de um dia, por exemplo "19 a 21/01/2026".
-3. cliente_local: informar cliente, cidade/UF, revenda, fábrica, propriedade, coordenadas ou link de localização quando existirem.
-4. equipamentos: organizar em linhas com modelo, série, versões de aplicação/sistema/carga, ECU, compensador, GPS e identificadores.
-5. maquinas: organizar em linhas com fabricante, modelo, implemento, comando de válvulas e características relevantes.
-6. objetivos: escrever somente o objetivo principal do atendimento, em uma ou duas frases.
-7. configuracoes: incluir somente parâmetros de sistema, software, tela, ECU, controlador, seções, geometria, versões, módulos habilitados, ganhos ou ajustes feitos em menus. Quando houver valores, use o padrão "Parâmetro: valor".
-8. calibracoes: incluir somente calibrações, aferições e validações com valores, medidas, sensores, vazão, largura, offset, angulação ou parâmetros numéricos.
-9. acompanhantes: informar técnicos, operadores, proprietários, consultores, representantes ou demais pessoas que acompanharam o atendimento.
-10. responsavel_revenda_fabrica: informar o nome do responsável da revenda, fábrica ou Agres que validou/acompanhou o atendimento, quando mencionado.
-11. responsavel_fazenda: informar o nome do responsável da fazenda, cliente, operador, encarregado ou proprietário que validou/acompanhou o atendimento, quando mencionado.
-12. relato: concentrar todo o detalhamento técnico e cronológico. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
-13. nome_arquivo_sugerido: montar no padrão "AAAAMMDD - CIDADE - UF - TIPO EQUIPAMENTO". Use a data inicial quando houver intervalo. Exemplos: "20250710 - SÃO JOSÉ DOS PINHAIS - PR - SUPORTE ISOBOX SPRAYER AGRONAVE 12" ou "20260119 - GUARANIAÇU - PR - SUPORTE AGRONAVE 7 ISOBOX SPRAYER".
+1. tipo_atendimento: retornar apenas uma opção entre "suporte", "instalacao" ou "treinamento". Nunca marcar mais de um tipo no relatório.
+2. suporte, instalacao e treinamento: retornar "X" somente no tipo principal do atendimento e retornar "" nos demais campos.
+3. data_visita: preserve intervalo de datas quando o atendimento ocorrer em mais de um dia, por exemplo "19 a 21/01/2026".
+4. cliente_local: informar cliente, cidade/UF, revenda, fábrica e propriedade quando existirem.
+5. localizacao_maps: informar somente o link do Google Maps, Maps ou coordenadas da fazenda quando existirem; caso contrário, retornar "".
+6. equipamentos: organizar em linhas com modelo, série, versões de aplicação/sistema/carga, ECU, compensador, GPS e identificadores.
+7. maquinas: organizar em linhas com fabricante, modelo, implemento, comando de válvulas e características relevantes.
+8. objetivos: escrever somente o objetivo principal do atendimento, em uma ou duas frases.
+9. configuracoes: incluir somente parâmetros de sistema, software, tela, ECU, controlador, seções, geometria, versões, módulos habilitados, ganhos ou ajustes feitos em menus. Quando houver valores, use o padrão "Parâmetro: valor".
+10. calibracoes: incluir somente calibrações, aferições e validações com valores, medidas, sensores, vazão, largura, offset, angulação ou parâmetros numéricos.
+11. acompanhantes: informar técnicos, operadores, proprietários, consultores, representantes ou demais pessoas que acompanharam o atendimento.
+12. responsavel_revenda_fabrica: informar o nome do responsável da revenda, fábrica ou Agres que validou/acompanhou o atendimento, quando mencionado.
+13. responsavel_fazenda: informar o nome do responsável da fazenda, cliente, operador, encarregado ou proprietário que validou/acompanhou o atendimento, quando mencionado.
+14. relato: concentrar todo o detalhamento técnico e cronológico. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
+15. nome_arquivo_sugerido: montar no padrão "AAAAMMDD - CIDADE - UF - TIPO EQUIPAMENTO". Use a data inicial quando houver intervalo. Exemplos: "20250710 - SÃO JOSÉ DOS PINHAIS - PR - SUPORTE ISOBOX SPRAYER AGRONAVE 12" ou "20260119 - GUARANIAÇU - PR - SUPORTE AGRONAVE 7 ISOBOX SPRAYER".
 
 PADRÃO DO RELATO:
 - Escrever em terceira pessoa.
@@ -803,12 +882,14 @@ PADRÃO DO RELATO:
 
 Retorne apenas um JSON válido, sem markdown e sem comentários, com exatamente esta estrutura:
 {{
+    "tipo_atendimento": "",
     "suporte": "",
     "instalacao": "",
     "treinamento": "",
     "data_visita": "{hoje}",
     "tecnicos": "Henrique Chaves",
     "cliente_local": "",
+    "localizacao_maps": "",
     "equipamentos": "",
     "maquinas": "",
     "objetivos": "",
@@ -951,14 +1032,8 @@ def extrair_cidade_uf(cliente_local: str) -> tuple[str, str]:
 
 
 def tipo_atendimento_para_nome(dados: dict) -> str:
-    tipos = []
-    if dados.get("suporte") == "X":
-        tipos.append("SUPORTE")
-    if dados.get("instalacao") == "X":
-        tipos.append("INSTALAÇÃO")
-    if dados.get("treinamento") == "X":
-        tipos.append("TREINAMENTO")
-    return " + ".join(tipos) if tipos else "ATENDIMENTO"
+    tipo = normalizar_tipo_atendimento(dados.get("tipo_atendimento")) or escolher_tipo_atendimento_unico(dados)
+    return TIPOS_ATENDIMENTO.get(tipo, "Atendimento").upper()
 
 
 def equipamento_para_nome(dados: dict) -> str:
@@ -986,7 +1061,14 @@ def equipamento_para_nome(dados: dict) -> str:
 
 def gerar_nome_arquivo_relatorio(dados: dict) -> str:
     sugerido = limpar_nome_relatorio(dados.get("nome_arquivo_sugerido", ""))
-    if re.match(r"^\d{8}\s+-\s+", sugerido):
+    tipo_nome = tipo_atendimento_para_nome(dados)
+    outros_tipos = [nome.upper() for chave, nome in TIPOS_ATENDIMENTO.items() if chave != normalizar_tipo_atendimento(dados.get("tipo_atendimento"))]
+    sugerido_valido = (
+        re.match(r"^\d{8}\s+-\s+", sugerido)
+        and tipo_nome in sugerido.upper()
+        and not any(outro in sugerido.upper() for outro in outros_tipos)
+    )
+    if sugerido_valido:
         return sugerido.upper()
 
     data_nome = data_para_nome_arquivo(dados.get("data_visita", ""))
@@ -995,7 +1077,7 @@ def gerar_nome_arquivo_relatorio(dados: dict) -> str:
         data_nome,
         cidade.upper(),
         uf.upper(),
-        f"{tipo_atendimento_para_nome(dados)} {equipamento_para_nome(dados)}".strip().upper(),
+        f"{tipo_nome} {equipamento_para_nome(dados)}".strip().upper(),
     ]
     return limpar_nome_relatorio(" - ".join(partes)).upper()
 
@@ -1192,6 +1274,7 @@ def gerar_docx(
     doc.render(dados_render)
     doc.save(str(caminho_saida))
     inserir_assinaturas_docx(caminho_saida, dados_render, caminhos_assinaturas)
+    aplicar_formatacao_texto_tecnico(caminho_saida)
     aplicar_paginacao_abnt_figuras(caminho_saida)
     return caminho_saida
 
@@ -1228,6 +1311,36 @@ def iterar_paragrafos_word(parent, vistos=None):
 
 def paragrafo_tem_imagem(paragraph) -> bool:
     return paragraph._p.xpath(".//*[local-name()='drawing' or local-name()='pict']")
+
+
+def aplicar_formatacao_texto_tecnico(caminho_docx: Path) -> None:
+    documento = Document(caminho_docx)
+    preservar_centralizado = {
+        "RELATÓRIO DE ATENDIMENTO/ATIVIDADES",
+        "SUPORTE",
+        "INSTALAÇÃO",
+        "TREINAMENTO",
+        "X",
+    }
+
+    for paragraph in iterar_paragrafos_word(documento):
+        texto = limpar_texto(paragraph.text)
+        if not texto or paragrafo_tem_imagem(paragraph):
+            continue
+        texto_superior = texto.upper()
+        if (
+            texto_superior in preservar_centralizado
+            or texto.startswith("Figura ")
+            or texto.startswith("Fonte:")
+            or texto.startswith("Legenda:")
+        ):
+            continue
+
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        paragraph.paragraph_format.line_spacing = 1.15
+        paragraph.paragraph_format.widow_control = True
+
+    documento.save(caminho_docx)
 
 
 def formatar_paragrafo_figura(paragraph, keep_with_next: bool, tamanho_fonte: int | None = 10) -> None:
@@ -1515,6 +1628,8 @@ def salvar_upload(
 
 def novo_manifesto_rascunho() -> dict:
     return {
+        "tipo_atendimento": "suporte",
+        "localizacao_maps": "",
         "audios": [],
         "cabecalho": {"info_equip": None, "maquina": None, "implemento": None},
         "evidencias": {categoria: [] for categoria in CATEGORIAS_EVIDENCIAS},
@@ -1702,6 +1817,8 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
     if not isinstance(pacote, dict) or pacote.get("version") != 1:
         raise ValueError("Pacote offline incompatível com esta versão do aplicativo.")
 
+    manifesto["tipo_atendimento"] = normalizar_tipo_atendimento(pacote.get("tipo_atendimento"), manifesto.get("tipo_atendimento", "suporte"))
+    manifesto["localizacao_maps"] = limpar_texto(pacote.get("localizacao_maps", ""))
     manifesto["observacoes"] = limpar_texto(pacote.get("observacoes", ""))
 
     for categoria, texto in (pacote.get("legendas_evidencias") or {}).items():
@@ -1770,6 +1887,8 @@ def importar_pacote_offline(uploaded_file, draft_dir: Path, manifesto: dict) -> 
 
 
 def aplicar_manifesto_na_sessao(manifesto: dict) -> None:
+    st.session_state.tipo_atendimento = normalizar_tipo_atendimento(manifesto.get("tipo_atendimento"), "suporte")
+    st.session_state.localizacao_maps = manifesto.get("localizacao_maps", "")
     st.session_state.observacoes_texto = manifesto.get("observacoes", "")
     for categoria in CATEGORIAS_EVIDENCIAS:
         st.session_state[f"legenda_{categoria}"] = manifesto.get("legendas_evidencias", {}).get(categoria, "")
@@ -1834,6 +1953,18 @@ def renderizar_coleta_streamlit() -> None:
 
     with st.container(border=True):
         st.markdown("### 1. Relato técnico")
+        coleta_tipo_atendimento = st.radio(
+            "Tipo de atendimento",
+            options=list(TIPOS_ATENDIMENTO),
+            format_func=lambda chave: TIPOS_ATENDIMENTO[chave],
+            horizontal=True,
+            key="coleta_tipo_atendimento",
+        )
+        coleta_localizacao_maps = st.text_input(
+            "Link de localização da fazenda no Maps",
+            placeholder="Cole aqui o link compartilhado pelo Google Maps/Apple Maps ou as coordenadas.",
+            key="coleta_localizacao_maps",
+        )
         coleta_observacoes = st.text_area(
             "Complemento técnico",
             placeholder="Cliente, local, máquina, equipamento, versões, falhas, parâmetros, calibrações, pendências e conclusão.",
@@ -1880,33 +2011,36 @@ def renderizar_coleta_streamlit() -> None:
         }
         assinaturas = {"revenda_fabrica": None, "fazenda": None}
         if st_canvas is not None:
-            col_ass1, col_ass2 = st.columns(2)
-            with col_ass1:
-                st.markdown("**Assinatura revenda/fábrica**")
-                assinaturas["revenda_fabrica"] = st_canvas(
-                    fill_color="rgba(255, 255, 255, 0)",
-                    stroke_width=3,
-                    stroke_color="#25272b",
-                    background_color="#ffffff",
-                    height=180,
-                    width=330,
-                    drawing_mode="freedraw",
-                    display_toolbar=True,
-                    key="coleta_ass_revenda",
-                )
-            with col_ass2:
-                st.markdown("**Assinatura fazenda**")
-                assinaturas["fazenda"] = st_canvas(
-                    fill_color="rgba(255, 255, 255, 0)",
-                    stroke_width=3,
-                    stroke_color="#25272b",
-                    background_color="#ffffff",
-                    height=180,
-                    width=330,
-                    drawing_mode="freedraw",
-                    display_toolbar=True,
-                    key="coleta_ass_fazenda",
-                )
+            usar_coleta_ampliada = st.toggle(
+                "Usar área de assinatura ampliada",
+                value=False,
+                key="coleta_usar_assinatura_ampliada",
+            )
+            largura_coleta = 760 if usar_coleta_ampliada else 330
+            altura_coleta = 360 if usar_coleta_ampliada else 180
+            sufixo_coleta = "ampliada" if usar_coleta_ampliada else "normal"
+            colunas_coleta = (
+                [st.container(border=True), st.container(border=True)]
+                if usar_coleta_ampliada
+                else list(st.columns(2))
+            )
+            for chave, titulo, coluna in (
+                ("revenda_fabrica", "Assinatura revenda/fábrica", colunas_coleta[0]),
+                ("fazenda", "Assinatura fazenda", colunas_coleta[1]),
+            ):
+                with coluna:
+                    st.markdown(f"**{titulo}**")
+                    assinaturas[chave] = st_canvas(
+                        fill_color="rgba(255, 255, 255, 0)",
+                        stroke_width=3,
+                        stroke_color="#25272b",
+                        background_color="#ffffff",
+                        height=altura_coleta,
+                        width=largura_coleta,
+                        drawing_mode="freedraw",
+                        display_toolbar=True,
+                        key=f"coleta_ass_{chave}_{sufixo_coleta}",
+                    )
         else:
             st.info("Assinatura na tela indisponível neste ambiente. Envie imagens das assinaturas.")
             assinaturas_upload = {
@@ -1927,6 +2061,8 @@ def renderizar_coleta_streamlit() -> None:
 
     pacote = {
         "version": 1,
+        "tipo_atendimento": coleta_tipo_atendimento,
+        "localizacao_maps": coleta_localizacao_maps or "",
         "observacoes": coleta_observacoes or "",
         "audios": audios,
         "cabecalho": {
@@ -2024,6 +2160,8 @@ def salvar_assinatura_canvas(canvas_result, draft_dir: Path, chave: str) -> dict
 def atualizar_rascunho_atual(
     draft_dir: Path,
     manifesto: dict,
+    tipo_atendimento: str,
+    localizacao_maps: str,
     audios,
     cabecalho: dict,
     evidencias_upload: dict,
@@ -2033,6 +2171,9 @@ def atualizar_rascunho_atual(
     assinaturas_canvas: dict | None = None,
     assinaturas_upload: dict | None = None,
 ) -> dict:
+    manifesto["tipo_atendimento"] = normalizar_tipo_atendimento(tipo_atendimento, "suporte")
+    manifesto["localizacao_maps"] = limpar_texto(localizacao_maps)
+
     if audios:
         manifesto["audios"] = [
             item
@@ -2121,6 +2262,8 @@ def limpar_rascunho_atual() -> None:
     st.session_state.draft_id = uuid.uuid4().hex[:12]
     st.query_params["draft"] = st.session_state.draft_id
     for chave in (
+        "tipo_atendimento",
+        "localizacao_maps",
         "observacoes_texto",
         *[f"legenda_{categoria}" for categoria in CATEGORIAS_EVIDENCIAS],
         *[configuracao["campo"] for configuracao in ASSINATURAS_RESPONSAVEIS.values()],
@@ -2128,6 +2271,12 @@ def limpar_rascunho_atual() -> None:
         st.session_state.pop(chave, None)
     st.session_state.relatorio_pronto = None
     st.session_state.nome_arquivo_pronto = None
+
+
+def finalizar_importacao_offline(manifesto: dict) -> None:
+    aplicar_manifesto_na_sessao(manifesto)
+    st.session_state.importacao_offline_ok = True
+    st.rerun()
 
 
 # ==========================================
@@ -2142,6 +2291,10 @@ if st.query_params.get("coleta") == "1":
 
 if "observacoes_texto" not in st.session_state:
     st.session_state.observacoes_texto = manifesto_rascunho.get("observacoes", "")
+if "tipo_atendimento" not in st.session_state:
+    st.session_state.tipo_atendimento = normalizar_tipo_atendimento(manifesto_rascunho.get("tipo_atendimento"), "suporte")
+if "localizacao_maps" not in st.session_state:
+    st.session_state.localizacao_maps = manifesto_rascunho.get("localizacao_maps", "")
 
 for categoria in CATEGORIAS_EVIDENCIAS:
     chave_legenda = f"legenda_{categoria}"
@@ -2198,35 +2351,59 @@ with st.container(border=True):
         """,
         unsafe_allow_html=True,
     )
-    st.caption("Depois de preencher, baixe o pacote JSON ou copie o pacote em texto e importe nesta mesma seção.")
-    pacote_offline = st.file_uploader(
-        "Sincronizar pacote offline por arquivo JSON",
-        type=["json"],
-        key="pacote_offline",
-        help="Importe o arquivo exportado pelo modo de coleta offline.",
-    )
-    pacote_offline_texto = st.text_area(
-        "Ou cole aqui o pacote copiado no modo offline",
-        placeholder="Cole aqui o texto JSON copiado pelo botão 'Copiar pacote' da coleta offline.",
-        height=110,
-        key="pacote_offline_texto",
-    )
-    if (pacote_offline or limpar_texto(pacote_offline_texto)) and st.button("Importar pacote para este rascunho", use_container_width=True):
-        try:
-            if pacote_offline:
-                manifesto_rascunho = importar_pacote_offline(pacote_offline, draft_dir, manifesto_rascunho)
+    st.caption("Depois de preencher, use uma das opções abaixo para sincronizar o pacote offline com este rascunho.")
+    aba_pacote_arquivo, aba_pacote_texto = st.tabs(["Carregar arquivo JSON", "Colar pacote copiado"])
+
+    with aba_pacote_arquivo:
+        pacote_offline = st.file_uploader(
+            "Selecione o arquivo JSON exportado pela coleta offline",
+            type=["json", "txt"],
+            key="pacote_offline",
+            help="No iPad, normalmente fica em Arquivos > Downloads ou no local escolhido ao compartilhar/exportar.",
+        )
+        if st.button("Carregar arquivo JSON no rascunho", use_container_width=True, key="btn_importar_pacote_arquivo"):
+            if not pacote_offline:
+                st.warning("Selecione o arquivo JSON da coleta offline antes de carregar.")
             else:
-                manifesto_rascunho = importar_pacote_offline_json(pacote_offline_texto, draft_dir, manifesto_rascunho)
-            aplicar_manifesto_na_sessao(manifesto_rascunho)
-            st.session_state.importacao_offline_ok = True
-            st.rerun()
-        except Exception as erro:
-            st.error(f"Erro ao sincronizar pacote offline: {erro}")
+                try:
+                    manifesto_rascunho = importar_pacote_offline(pacote_offline, draft_dir, manifesto_rascunho)
+                    finalizar_importacao_offline(manifesto_rascunho)
+                except Exception as erro:
+                    st.error(f"Erro ao sincronizar pacote offline: {erro}")
+
+    with aba_pacote_texto:
+        pacote_offline_texto = st.text_area(
+            "Cole aqui o pacote copiado no modo offline",
+            placeholder="Cole aqui o texto JSON copiado pelo botão 'Copiar pacote' da coleta offline.",
+            height=150,
+            key="pacote_offline_texto",
+        )
+        if st.button("Importar texto copiado no rascunho", use_container_width=True, key="btn_importar_pacote_texto"):
+            if not limpar_texto(pacote_offline_texto):
+                st.warning("Cole o pacote copiado pela coleta offline antes de importar.")
+            else:
+                try:
+                    manifesto_rascunho = importar_pacote_offline_json(pacote_offline_texto, draft_dir, manifesto_rascunho)
+                    finalizar_importacao_offline(manifesto_rascunho)
+                except Exception as erro:
+                    st.error(f"Erro ao sincronizar pacote offline: {erro}")
 
 with st.container(border=True):
     st.markdown(
         "<p class='section-title'>1. Relato técnico</p><p class='section-caption'>Áudio, arquivos gravados e complemento escrito do atendimento.</p>",
         unsafe_allow_html=True,
+    )
+    tipo_atendimento = st.radio(
+        "Tipo de atendimento",
+        options=list(TIPOS_ATENDIMENTO),
+        format_func=lambda chave: TIPOS_ATENDIMENTO[chave],
+        horizontal=True,
+        key="tipo_atendimento",
+    )
+    localizacao_maps = st.text_input(
+        "Link de localização da fazenda no Maps",
+        placeholder="Cole aqui o link compartilhado pelo Google Maps/Apple Maps ou as coordenadas da fazenda.",
+        key="localizacao_maps",
     )
     aba1, aba2 = st.tabs(["🔴 Gravar agora", "📁 Arquivos do celular"])
 
@@ -2336,14 +2513,24 @@ with st.container(border=True):
         ),
     }
 
-    st.caption("Assine diretamente na tela do celular ou iPad. Se precisar refazer, use a borracha/limpeza do quadro.")
+    st.caption("Assine diretamente na tela do celular ou iPad. Ative a área ampliada quando precisar de mais espaço para assinar.")
+    usar_assinatura_ampliada = st.toggle(
+        "Usar área de assinatura ampliada",
+        value=False,
+        key="usar_assinatura_ampliada",
+        help="No iPad, use esta opção em modo horizontal para ter uma área maior de assinatura.",
+    )
     assinaturas_canvas = {}
     assinaturas_upload = {}
-    col_assinatura_revenda, col_assinatura_fazenda = st.columns(2)
-    for (chave, configuracao), coluna in zip(
-        ASSINATURAS_RESPONSAVEIS.items(),
-        (col_assinatura_revenda, col_assinatura_fazenda),
-    ):
+    largura_assinatura = 760 if usar_assinatura_ampliada else 320
+    altura_assinatura = 360 if usar_assinatura_ampliada else 150
+    sufixo_assinatura = "ampliada" if usar_assinatura_ampliada else "normal"
+    colunas_assinatura = (
+        [st.container(border=True), st.container(border=True)]
+        if usar_assinatura_ampliada
+        else list(st.columns(2))
+    )
+    for (chave, configuracao), coluna in zip(ASSINATURAS_RESPONSAVEIS.items(), colunas_assinatura):
         with coluna:
             st.markdown(f"**{configuracao['titulo']}**")
             if manifesto_rascunho.get("assinaturas", {}).get(chave):
@@ -2355,11 +2542,11 @@ with st.container(border=True):
                     stroke_width=3,
                     stroke_color="#25272b",
                     background_color="#ffffff",
-                    height=150,
-                    width=320,
+                    height=altura_assinatura,
+                    width=largura_assinatura,
                     drawing_mode="freedraw",
                     display_toolbar=True,
-                    key=f"canvas_{chave}",
+                    key=f"canvas_{chave}_{sufixo_assinatura}",
                 )
             else:
                 st.info("Para assinar na tela, adicione streamlit-drawable-canvas ao requirements.txt. Enquanto isso, envie uma imagem da assinatura.")
@@ -2389,6 +2576,8 @@ uploads_evidencias = {
 manifesto_rascunho = atualizar_rascunho_atual(
     draft_dir,
     manifesto_rascunho,
+    tipo_atendimento,
+    localizacao_maps,
     audios_finais,
     uploads_cabecalho,
     uploads_evidencias,
@@ -2413,6 +2602,11 @@ responsaveis_salvos = {
     or manifesto_rascunho.get("responsaveis", {}).get(chave, "")
     for chave in ASSINATURAS_RESPONSAVEIS
 }
+tipo_atendimento_salvo = normalizar_tipo_atendimento(
+    tipo_atendimento or manifesto_rascunho.get("tipo_atendimento"),
+    "suporte",
+)
+localizacao_maps_salva = limpar_texto(localizacao_maps) or manifesto_rascunho.get("localizacao_maps", "")
 
 entrada_disponivel = bool(caminhos_audio_salvos) or bool(limpar_texto(observacoes_salvas))
 
@@ -2435,6 +2629,8 @@ with st.container(border=True):
                     st.write("Usando arquivos salvos automaticamente.")
                     st.write("Extraindo e organizando informações técnicas.")
                     dados = processar_atendimento_completo(caminhos_audio_salvos, observacoes_salvas)
+                    dados["localizacao_maps"] = localizacao_maps_salva or dados.get("localizacao_maps", "")
+                    aplicar_tipo_atendimento_unico(dados, tipo_atendimento_salvo)
                     for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
                         responsavel = limpar_texto(responsaveis_salvos.get(chave, ""))
                         if responsavel:

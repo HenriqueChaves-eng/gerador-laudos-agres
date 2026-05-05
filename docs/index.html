@@ -171,6 +171,23 @@
       gap: 10px;
       margin-top: 12px;
     }
+    .radio-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .radio-grid label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      margin: 0;
+      padding: 10px;
+      border: 1px solid #c9ccd1;
+      border-radius: 9px;
+      background: #f7f8f9;
+      font-weight: 800;
+    }
     button,
     .button {
       min-height: 46px;
@@ -374,7 +391,8 @@
       }
       .hero img { width: 150px; max-width: 74vw; }
       .grid,
-      .actions {
+      .actions,
+      .radio-grid {
         grid-template-columns: 1fr;
       }
       .signature-actions,
@@ -409,15 +427,32 @@
     </div>
     <div class="notice ok" id="installNotice">
       <strong>Modo correto no iPad</strong>
-      Abra esta página pela versão publicada em HTTPS do Streamlit, toque em Compartilhar e escolha Adicionar à Tela de Início. Depois disso, a coleta abre sem internet.
+      Abra esta página pelo link HTTPS do GitHub Pages, toque em Compartilhar e escolha Adicionar à Tela de Início. Depois disso, a coleta abre sem internet.
     </div>
     <div class="notice warning" id="secureNotice" hidden>
       <strong>Microfone bloqueado pelo Safari</strong>
-      Para gravar áudio no iPad, use o link HTTPS da versão publicada no Streamlit Cloud. Acesso por arquivo baixado ou por http://192... pode bloquear o microfone.
+      Para gravar áudio no iPad, use o link HTTPS do GitHub Pages. Acesso por arquivo baixado ou por http://192... pode bloquear o microfone.
     </div>
 
     <section>
       <h2>1. Relato técnico</h2>
+      <div class="field">
+        <label>Tipo de atendimento</label>
+        <div class="radio-grid">
+          <label><input type="radio" name="tipo_atendimento" value="suporte"> Suporte</label>
+          <label><input type="radio" name="tipo_atendimento" value="instalacao"> Instalação</label>
+          <label><input type="radio" name="tipo_atendimento" value="treinamento"> Treinamento</label>
+        </div>
+      </div>
+      <div class="field">
+        <label for="localizacao_maps">Link de localização da fazenda no Maps</label>
+        <input id="localizacao_maps" type="text" placeholder="Cole o link do Google Maps/Apple Maps ou as coordenadas">
+        <div class="actions">
+          <button type="button" id="currentLocationBtn">Usar localização atual</button>
+          <button type="button" id="openMapsBtn">Abrir Maps</button>
+        </div>
+        <p class="hint" id="locationHint">O link será enviado ao relatório no campo ao lado de Cliente e Local.</p>
+      </div>
       <div class="field">
         <label for="observacoes">Complemento técnico</label>
         <textarea id="observacoes" placeholder="Cliente, local, máquina, equipamento, versões, falhas, parâmetros, calibrações, pendências e conclusão do atendimento."></textarea>
@@ -537,6 +572,7 @@
         <label for="onlineAppUrl">Link do app online Streamlit</label>
         <input id="onlineAppUrl" type="text" placeholder="https://seu-app.streamlit.app">
         <button type="button" id="copyPackageBtn">Copiar pacote para colar no app online</button>
+        <button type="button" id="selectPackageBtn">Selecionar pacote manualmente</button>
         <button type="button" id="sharePackageBtn">Compartilhar pacote JSON</button>
         <button type="button" id="openOnlineBtn">Abrir app online</button>
         <textarea class="sync-output" id="packageText" readonly aria-label="Pacote offline para copiar"></textarea>
@@ -599,6 +635,8 @@
       return {
         version: 1,
         updated_at: new Date().toISOString(),
+        tipo_atendimento: "suporte",
+        localizacao_maps: "",
         observacoes: "",
         audios: [],
         cabecalho: { info_equip: null, maquina: null, implemento: null },
@@ -1095,6 +1133,10 @@
     }
 
     function hydrateFields() {
+      const tipo = draft.tipo_atendimento || "suporte";
+      const tipoInput = document.querySelector(`input[name="tipo_atendimento"][value="${tipo}"]`);
+      if (tipoInput) tipoInput.checked = true;
+      document.getElementById("localizacao_maps").value = draft.localizacao_maps || "";
       document.getElementById("observacoes").value = draft.observacoes || "";
       document.getElementById("onlineAppUrl").value = localStorage.getItem("agresOnlineAppUrl") || "";
       CATEGORIES.forEach((key) => {
@@ -1106,6 +1148,18 @@
     }
 
     function wireFields() {
+      document.querySelectorAll('input[name="tipo_atendimento"]').forEach((input) => {
+        input.addEventListener("change", (event) => {
+          if (event.target.checked) {
+            draft.tipo_atendimento = event.target.value;
+            scheduleSave();
+          }
+        });
+      });
+      document.getElementById("localizacao_maps").addEventListener("input", (event) => {
+        draft.localizacao_maps = event.target.value.trim();
+        scheduleSave();
+      });
       document.getElementById("observacoes").addEventListener("input", (event) => {
         draft.observacoes = event.target.value;
         scheduleSave();
@@ -1201,8 +1255,11 @@
       });
 
       document.getElementById("copyPackageBtn").addEventListener("click", copyPackage);
+      document.getElementById("selectPackageBtn").addEventListener("click", selectPackageText);
       document.getElementById("sharePackageBtn").addEventListener("click", sharePackage);
       document.getElementById("openOnlineBtn").addEventListener("click", openOnlineApp);
+      document.getElementById("currentLocationBtn").addEventListener("click", useCurrentLocation);
+      document.getElementById("openMapsBtn").addEventListener("click", openMaps);
       document.getElementById("exportBtn").addEventListener("click", exportDraft);
       document.getElementById("clearBtn").addEventListener("click", clearDraft);
     }
@@ -1212,10 +1269,14 @@
       return `agres_coleta_offline_${stamp}.json`;
     }
 
-    async function packageText() {
-      await putDraft();
+    function packageTextSync() {
       const pacote = { ...draft, exported_at: new Date().toISOString() };
       return JSON.stringify(pacote);
+    }
+
+    async function packageText() {
+      await putDraft();
+      return packageTextSync();
     }
 
     async function packageBlob() {
@@ -1224,6 +1285,73 @@
 
     function setSyncMessage(texto) {
       document.getElementById("syncMessage").textContent = texto || "";
+    }
+
+    function setLocationHint(texto) {
+      document.getElementById("locationHint").textContent = texto || "";
+    }
+
+    function useCurrentLocation() {
+      if (!navigator.geolocation) {
+        setLocationHint("Este navegador não liberou localização. Cole o link do Maps manualmente.");
+        return;
+      }
+      setLocationHint("Buscando localização atual...");
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude.toFixed(6);
+          const lng = position.coords.longitude.toFixed(6);
+          const link = `https://maps.google.com/?q=${lat},${lng}`;
+          draft.localizacao_maps = link;
+          document.getElementById("localizacao_maps").value = link;
+          scheduleSave();
+          setLocationHint("Localização atual adicionada ao rascunho.");
+        },
+        () => setLocationHint("Não foi possível obter a localização. Cole o link compartilhado pelo Maps."),
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+      );
+    }
+
+    function openMaps() {
+      const link = (draft.localizacao_maps || document.getElementById("localizacao_maps").value || "").trim();
+      if (link) {
+        window.open(link, "_blank", "noopener");
+      } else {
+        window.open("https://maps.google.com/", "_blank", "noopener");
+      }
+    }
+
+    function revealPackageText(text) {
+      const output = document.getElementById("packageText");
+      output.value = text || packageTextSync();
+      output.classList.add("visible");
+      return output;
+    }
+
+    function selectPackageText() {
+      const output = revealPackageText();
+      output.focus({ preventScroll: false });
+      output.select();
+      output.setSelectionRange(0, output.value.length);
+      setSyncMessage("Pacote selecionado. Toque em Copiar e depois cole no campo de sincronização do app online.");
+    }
+
+    function copyPackageWithLegacyFallback(output) {
+      const wasReadOnly = output.hasAttribute("readonly");
+      if (wasReadOnly) output.removeAttribute("readonly");
+      output.focus({ preventScroll: false });
+      output.select();
+      output.setSelectionRange(0, output.value.length);
+
+      let copied = false;
+      try {
+        copied = document.execCommand("copy");
+      } catch (error) {
+        copied = false;
+      }
+
+      if (wasReadOnly) output.setAttribute("readonly", "readonly");
+      return copied;
     }
 
     async function exportDraft() {
@@ -1240,10 +1368,9 @@
     }
 
     async function copyPackage() {
-      const text = await packageText();
-      const output = document.getElementById("packageText");
-      output.value = text;
-      output.classList.add("visible");
+      const text = packageTextSync();
+      const output = revealPackageText(text);
+      putDraft().catch(() => {});
 
       try {
         if (!navigator.clipboard?.writeText) {
@@ -1252,9 +1379,12 @@
         await navigator.clipboard.writeText(text);
         setSyncMessage("Pacote copiado. Volte ao app online e cole no campo de sincronização.");
       } catch (error) {
-        output.focus();
-        output.select();
-        setSyncMessage("Não foi possível copiar automaticamente. Selecione o texto exibido, copie e cole no app online.");
+        if (copyPackageWithLegacyFallback(output)) {
+          setSyncMessage("Pacote copiado pelo modo compatível. Volte ao app online e cole no campo de sincronização.");
+        } else {
+          selectPackageText();
+          setSyncMessage("O Safari bloqueou a cópia automática. O pacote ficou selecionado: toque em Copiar e cole no app online.");
+        }
       }
     }
 
@@ -1317,6 +1447,8 @@
       }
       db = await openDb();
       draft = { ...defaultDraft(), ...(await getDraft()) };
+      draft.tipo_atendimento = draft.tipo_atendimento || "suporte";
+      draft.localizacao_maps = draft.localizacao_maps || "";
       draft.cabecalho = { ...defaultDraft().cabecalho, ...(draft.cabecalho || {}) };
       draft.evidencias = { ...defaultDraft().evidencias, ...(draft.evidencias || {}) };
       draft.legendas_evidencias = { ...defaultDraft().legendas_evidencias, ...(draft.legendas_evidencias || {}) };
