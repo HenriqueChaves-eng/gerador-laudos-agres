@@ -1,0 +1,1335 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#3f4247">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Agres | Coleta Offline</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #e7e9ec;
+      --panel: #ffffff;
+      --ink: #272a2f;
+      --muted: #62676e;
+      --line: #d3d6da;
+      --brand: #3f4247;
+      --brand-2: #5d6065;
+      --ok: #176b43;
+      --warn: #985d00;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(120, 124, 130, 0.18), transparent 22rem),
+        linear-gradient(180deg, #e6e8eb 0%, #f2f3f5 48%, #e3e5e8 100%);
+      color: var(--ink);
+    }
+    main {
+      width: min(960px, 100%);
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .hero {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      padding: 18px;
+      border-radius: 16px;
+      color: #fff;
+      background: linear-gradient(135deg, #242528 0%, #4f5054 58%, #6b6c70 100%);
+      box-shadow: 0 18px 44px rgba(32, 37, 41, 0.22);
+    }
+    .hero img {
+      width: 168px;
+      max-width: 42vw;
+      filter: brightness(0) invert(1);
+    }
+    .kicker {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #f2f3f5;
+    }
+    h1 {
+      margin: 4px 0 6px;
+      font-size: clamp(28px, 6vw, 44px);
+      line-height: 1.04;
+    }
+    .hero p {
+      margin: 0;
+      color: #f5f6f7;
+      line-height: 1.45;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 14px 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.92);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 10px;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--brand);
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .badge.online { background: var(--ok); }
+    .badge.offline { background: var(--warn); }
+    .notice {
+      margin: 14px 0 0;
+      padding: 12px 14px;
+      border: 1px solid #c9ccd1;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.94);
+      color: var(--ink);
+      line-height: 1.4;
+    }
+    .notice strong { display: block; margin-bottom: 3px; }
+    .notice.warning {
+      border-color: #e7c47a;
+      background: #fff6de;
+    }
+    .notice.ok {
+      border-color: #9bc9b1;
+      background: #edf8f2;
+    }
+    section {
+      margin-top: 14px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 19px;
+      line-height: 1.2;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    label {
+      display: block;
+      margin: 0 0 6px;
+      color: var(--ink);
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    textarea,
+    input[type="text"] {
+      width: 100%;
+      min-height: 46px;
+      padding: 12px;
+      border: 1px solid #c9ccd1;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+    textarea {
+      min-height: 128px;
+      resize: vertical;
+    }
+    input[type="file"] {
+      width: 100%;
+      padding: 12px;
+      border: 1px dashed #b7bbc1;
+      border-radius: 10px;
+      background: #f7f8f9;
+      color: var(--ink);
+      font: inherit;
+    }
+    .field { margin-bottom: 12px; }
+    .hint {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    button,
+    .button {
+      min-height: 46px;
+      padding: 0 14px;
+      border: 1px solid #c8cbd0;
+      border-radius: 9px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    button.primary,
+    .button.primary {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+    button.danger {
+      color: #8d2424;
+      border-color: #e2b7b7;
+    }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+    .list {
+      display: grid;
+      gap: 8px;
+      margin: 8px 0 0;
+    }
+    .item {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      padding: 9px 10px;
+      border-radius: 9px;
+      background: #f3f4f6;
+      color: var(--ink);
+      font-size: 14px;
+      word-break: break-word;
+    }
+    .item button {
+      min-height: 34px;
+      padding: 0 10px;
+      font-size: 13px;
+    }
+    .item audio {
+      width: min(100%, 320px);
+      margin-top: 6px;
+    }
+    .item-main {
+      min-width: 0;
+      flex: 1;
+    }
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .thumb {
+      overflow: hidden;
+      border: 1px solid #d3d6da;
+      border-radius: 10px;
+      background: #f7f8f9;
+    }
+    .thumb img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      background: #fff;
+    }
+    .thumb-footer {
+      display: grid;
+      gap: 5px;
+      padding: 7px;
+    }
+    .thumb-name {
+      color: var(--ink);
+      font-size: 12px;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .thumb button {
+      min-height: 32px;
+      padding: 0 8px;
+      font-size: 12px;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 160px;
+      border: 1px solid #c9ccd1;
+      border-radius: 10px;
+      background: #fff;
+      touch-action: none;
+    }
+    .signature-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .signature-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      background: #e7e9ec;
+      padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+        max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    }
+    .signature-modal.open {
+      display: flex;
+      flex-direction: column;
+    }
+    .signature-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .signature-modal-title {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+    .signature-modal-subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .signature-modal canvas {
+      flex: 1;
+      min-height: 58vh;
+      height: calc(100dvh - 176px);
+      border: 2px solid #3f4247;
+      border-radius: 12px;
+      box-shadow: 0 12px 34px rgba(15, 23, 42, 0.12);
+    }
+    .signature-modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .sync-panel {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .sync-output {
+      display: none;
+      width: 100%;
+      min-height: 150px;
+      max-height: 34vh;
+      padding: 10px;
+      border: 1px solid #c9ccd1;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+      font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .sync-output.visible {
+      display: block;
+    }
+    .sync-message {
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    body.signature-open {
+      overflow: hidden;
+    }
+    .footer-actions {
+      position: sticky;
+      bottom: 0;
+      z-index: 5;
+      margin: 16px -16px -16px;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      border-top: 1px solid rgba(195, 199, 204, 0.85);
+      background: rgba(239, 241, 243, 0.96);
+      backdrop-filter: blur(12px);
+    }
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    @media (max-width: 680px) {
+      main { padding: 12px; }
+      .hero {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 16px;
+      }
+      .hero img { width: 150px; max-width: 74vw; }
+      .grid,
+      .actions {
+        grid-template-columns: 1fr;
+      }
+      .signature-actions,
+      .signature-modal-actions {
+        grid-template-columns: 1fr;
+      }
+      .signature-modal canvas {
+        min-height: 62vh;
+        height: calc(100dvh - 210px);
+      }
+      section { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="hero">
+      <img src="./logo_agres.png" alt="Agres">
+      <div>
+        <div class="kicker">Coleta offline</div>
+        <h1>Relatório Técnico Agres</h1>
+        <p>Preenchimento local para campo, com exportação do pacote para geração posterior no Streamlit.</p>
+      </div>
+    </div>
+
+    <div class="status">
+      <div>
+        <strong id="saveStatus">Rascunho salvo no aparelho.</strong>
+        <div class="small" id="storageStatus">Armazenamento local ativo.</div>
+      </div>
+      <span class="badge" id="networkStatus">Verificando</span>
+    </div>
+    <div class="notice ok" id="installNotice">
+      <strong>Modo correto no iPad</strong>
+      Abra esta página pela versão publicada em HTTPS do Streamlit, toque em Compartilhar e escolha Adicionar à Tela de Início. Depois disso, a coleta abre sem internet.
+    </div>
+    <div class="notice warning" id="secureNotice" hidden>
+      <strong>Microfone bloqueado pelo Safari</strong>
+      Para gravar áudio no iPad, use o link HTTPS da versão publicada no Streamlit Cloud. Acesso por arquivo baixado ou por http://192... pode bloquear o microfone.
+    </div>
+
+    <section>
+      <h2>1. Relato técnico</h2>
+      <div class="field">
+        <label for="observacoes">Complemento técnico</label>
+        <textarea id="observacoes" placeholder="Cliente, local, máquina, equipamento, versões, falhas, parâmetros, calibrações, pendências e conclusão do atendimento."></textarea>
+      </div>
+      <div class="actions">
+        <button type="button" class="primary" id="recordBtn">Gravar áudio</button>
+        <button type="button" id="stopBtn" disabled>Parar gravação</button>
+      </div>
+      <p class="hint" id="recordHint">Os áudios gravados ficam salvos neste aparelho até a exportação do pacote.</p>
+      <div class="field">
+        <label for="audioFiles">Áudios do celular</label>
+        <input id="audioFiles" type="file" accept="audio/*" multiple>
+      </div>
+      <div class="list" id="audiosList"></div>
+    </section>
+
+    <section>
+      <h2>2. Cabeçalho do relatório</h2>
+      <div class="grid">
+        <div class="field">
+          <label for="info_equip">Informações do equipamento</label>
+          <input id="info_equip" type="file" accept="image/*">
+          <p class="hint" id="info_equip_status">Nenhum arquivo selecionado.</p>
+          <div class="preview-grid" id="info_equip_preview"></div>
+        </div>
+        <div class="field">
+          <label for="maquina">Máquina</label>
+          <input id="maquina" type="file" accept="image/*">
+          <p class="hint" id="maquina_status">Nenhum arquivo selecionado.</p>
+          <div class="preview-grid" id="maquina_preview"></div>
+        </div>
+        <div class="field">
+          <label for="implemento">Implemento</label>
+          <input id="implemento" type="file" accept="image/*">
+          <p class="hint" id="implemento_status">Nenhum arquivo selecionado.</p>
+          <div class="preview-grid" id="implemento_preview"></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Evidências fotográficas</h2>
+      <div class="grid">
+        <div class="field">
+          <label for="fotos_equipamento">Equipamento Agres</label>
+          <input id="fotos_equipamento" type="file" accept="image/*" multiple>
+          <p class="hint" id="fotos_equipamento_status">0 imagens.</p>
+          <div class="preview-grid" id="fotos_equipamento_preview"></div>
+        </div>
+        <div class="field">
+          <label for="fotos_instalacao">Instalação</label>
+          <input id="fotos_instalacao" type="file" accept="image/*" multiple>
+          <p class="hint" id="fotos_instalacao_status">0 imagens.</p>
+          <div class="preview-grid" id="fotos_instalacao_preview"></div>
+        </div>
+        <div class="field">
+          <label for="fotos_configuracao">Configurações</label>
+          <input id="fotos_configuracao" type="file" accept="image/*" multiple>
+          <p class="hint" id="fotos_configuracao_status">0 imagens.</p>
+          <div class="preview-grid" id="fotos_configuracao_preview"></div>
+        </div>
+        <div class="field">
+          <label for="fotos_outros">Outros registros</label>
+          <input id="fotos_outros" type="file" accept="image/*" multiple>
+          <p class="hint" id="fotos_outros_status">0 imagens.</p>
+          <div class="preview-grid" id="fotos_outros_preview"></div>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="field">
+          <label for="legenda_fotos_equipamento">Títulos e legendas - Equipamento</label>
+          <textarea id="legenda_fotos_equipamento" placeholder="Uma linha por foto: Título | legenda | fonte"></textarea>
+        </div>
+        <div class="field">
+          <label for="legenda_fotos_instalacao">Títulos e legendas - Instalação</label>
+          <textarea id="legenda_fotos_instalacao" placeholder="Uma linha por foto: Título | legenda | fonte"></textarea>
+        </div>
+        <div class="field">
+          <label for="legenda_fotos_configuracao">Títulos e legendas - Configurações</label>
+          <textarea id="legenda_fotos_configuracao" placeholder="Uma linha por foto: Título | legenda | fonte"></textarea>
+        </div>
+        <div class="field">
+          <label for="legenda_fotos_outros">Títulos e legendas - Outros</label>
+          <textarea id="legenda_fotos_outros" placeholder="Uma linha por foto: Título | legenda | fonte"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>4. Assinaturas</h2>
+      <div class="grid">
+        <div class="field">
+          <label for="responsavel_revenda_fabrica">Responsável da revenda/fábrica</label>
+          <input id="responsavel_revenda_fabrica" type="text" placeholder="Nome do responsável">
+          <canvas id="assinatura_revenda_fabrica"></canvas>
+          <div class="signature-actions">
+            <button type="button" class="primary" data-open-signature="revenda_fabrica">Assinar em tela cheia</button>
+            <button type="button" data-clear-signature="revenda_fabrica">Limpar assinatura</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="responsavel_fazenda">Responsável da fazenda</label>
+          <input id="responsavel_fazenda" type="text" placeholder="Nome do responsável">
+          <canvas id="assinatura_fazenda"></canvas>
+          <div class="signature-actions">
+            <button type="button" class="primary" data-open-signature="fazenda">Assinar em tela cheia</button>
+            <button type="button" data-clear-signature="fazenda">Limpar assinatura</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>5. Sincronização</h2>
+      <p class="hint">Quando a internet voltar, envie o pacote para o app online. No iPad, o jeito mais fácil costuma ser copiar o pacote e colar no campo de sincronização do Streamlit.</p>
+      <div class="sync-panel">
+        <label for="onlineAppUrl">Link do app online Streamlit</label>
+        <input id="onlineAppUrl" type="text" placeholder="https://seu-app.streamlit.app">
+        <button type="button" id="copyPackageBtn">Copiar pacote para colar no app online</button>
+        <button type="button" id="sharePackageBtn">Compartilhar pacote JSON</button>
+        <button type="button" id="openOnlineBtn">Abrir app online</button>
+        <textarea class="sync-output" id="packageText" readonly aria-label="Pacote offline para copiar"></textarea>
+        <div class="sync-message" id="syncMessage"></div>
+      </div>
+      <div class="footer-actions">
+        <div class="actions">
+          <button type="button" class="primary" id="exportBtn">Exportar pacote offline</button>
+          <button type="button" class="danger" id="clearBtn">Apagar rascunho local</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="signature-modal" id="signatureModal" role="dialog" aria-modal="true" aria-labelledby="signatureModalTitle">
+    <div class="signature-modal-header">
+      <div>
+        <h2 class="signature-modal-title" id="signatureModalTitle">Assinatura</h2>
+        <p class="signature-modal-subtitle">Use o dedo ou Apple Pencil. Gire o iPad se quiser mais largura.</p>
+      </div>
+      <button type="button" id="closeSignatureModal">Fechar</button>
+    </div>
+    <canvas id="signatureModalCanvas"></canvas>
+    <div class="signature-modal-actions">
+      <button type="button" class="danger" id="clearSignatureModal">Limpar assinatura</button>
+      <button type="button" class="primary" id="finishSignatureModal">Concluir</button>
+    </div>
+  </div>
+
+  <script>
+    const DB_NAME = "agres-offline";
+    const STORE = "drafts";
+    const DRAFT_KEY = "current";
+    const HEADERS = ["info_equip", "maquina", "implemento"];
+    const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
+    const SIGNATURES = ["revenda_fabrica", "fazenda"];
+    const SIGNATURE_LABELS = {
+      revenda_fabrica: "Responsável da revenda/fábrica",
+      fazenda: "Responsável da fazenda"
+    };
+
+    let db;
+    let draft = defaultDraft();
+    let recorder;
+    let audioChunks = [];
+    let audioStream;
+    let recorderMode = "";
+    let audioContext;
+    let sourceNode;
+    let processorNode;
+    let wavChunks = [];
+    let wavSampleRate = 44100;
+    let activeSignatureKey = "";
+    let modalSignaturePad;
+    const mainSignaturePads = {};
+    let wakeLock;
+    let saveTimer;
+
+    function defaultDraft() {
+      return {
+        version: 1,
+        updated_at: new Date().toISOString(),
+        observacoes: "",
+        audios: [],
+        cabecalho: { info_equip: null, maquina: null, implemento: null },
+        evidencias: {
+          fotos_equipamento: [],
+          fotos_instalacao: [],
+          fotos_configuracao: [],
+          fotos_outros: []
+        },
+        legendas_evidencias: {
+          fotos_equipamento: "",
+          fotos_instalacao: "",
+          fotos_configuracao: "",
+          fotos_outros: ""
+        },
+        responsaveis: { revenda_fabrica: "", fazenda: "" },
+        assinaturas: { revenda_fabrica: null, fazenda: null }
+      };
+    }
+
+    function openDb() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = () => request.result.createObjectStore(STORE);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function getDraft() {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readonly");
+        const request = tx.objectStore(STORE).get(DRAFT_KEY);
+        request.onsuccess = () => resolve(request.result || defaultDraft());
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function putDraft() {
+      draft.updated_at = new Date().toISOString();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).put(draft, DRAFT_KEY);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    function scheduleSave() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        await putDraft();
+        document.getElementById("saveStatus").textContent = "Rascunho salvo no aparelho.";
+      }, 250);
+      document.getElementById("saveStatus").textContent = "Salvando rascunho...";
+    }
+
+    function readFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({
+          name: file.name,
+          type: file.type || "application/octet-stream",
+          size: file.size,
+          dataUrl: reader.result
+        });
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function blobToItem(blob, name) {
+      const file = new File([blob], name, { type: blob.type || "audio/mp4" });
+      return readFile(file);
+    }
+
+    function updateNetwork() {
+      const badge = document.getElementById("networkStatus");
+      if (navigator.onLine) {
+        badge.textContent = "Online";
+        badge.className = "badge online";
+      } else {
+        badge.textContent = "Offline";
+        badge.className = "badge offline";
+      }
+    }
+
+    function updateSecureNotice() {
+      const notice = document.getElementById("secureNotice");
+      if (!window.isSecureContext) {
+        notice.hidden = false;
+      } else {
+        notice.hidden = true;
+      }
+    }
+
+    function updateCounts() {
+      HEADERS.forEach((key) => {
+        const item = draft.cabecalho[key];
+        document.getElementById(`${key}_status`).textContent = item ? item.name : "Nenhum arquivo selecionado.";
+        renderImagePreview(`${key}_preview`, item ? [item] : [], (index) => {
+          draft.cabecalho[key] = null;
+          updateCounts();
+          scheduleSave();
+        });
+      });
+      CATEGORIES.forEach((key) => {
+        document.getElementById(`${key}_status`).textContent = `${draft.evidencias[key].length} imagens.`;
+        renderImagePreview(`${key}_preview`, draft.evidencias[key], (index) => {
+          draft.evidencias[key].splice(index, 1);
+          updateCounts();
+          scheduleSave();
+        });
+      });
+      renderAudios();
+    }
+
+    function renderImagePreview(containerId, items, onRemove) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.innerHTML = "";
+      items.forEach((item, index) => {
+        const card = document.createElement("div");
+        card.className = "thumb";
+
+        const img = document.createElement("img");
+        img.src = item.dataUrl;
+        img.alt = item.name || "Imagem selecionada";
+        card.appendChild(img);
+
+        const footer = document.createElement("div");
+        footer.className = "thumb-footer";
+        const name = document.createElement("div");
+        name.className = "thumb-name";
+        name.textContent = item.name || `Imagem ${index + 1}`;
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "Remover";
+        remove.addEventListener("click", () => onRemove(index));
+        footer.appendChild(name);
+        footer.appendChild(remove);
+        card.appendChild(footer);
+        container.appendChild(card);
+      });
+    }
+
+    function renderAudios() {
+      const list = document.getElementById("audiosList");
+      list.innerHTML = "";
+      draft.audios.forEach((audio, index) => {
+        const row = document.createElement("div");
+        row.className = "item";
+        const main = document.createElement("div");
+        main.className = "item-main";
+        const title = document.createElement("div");
+        title.textContent = `${index + 1}. ${audio.name}`;
+        main.appendChild(title);
+        if (audio.dataUrl) {
+          const player = document.createElement("audio");
+          player.controls = true;
+          player.src = audio.dataUrl;
+          main.appendChild(player);
+        }
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "Remover";
+        remove.addEventListener("click", () => {
+          draft.audios.splice(index, 1);
+          scheduleSave();
+          renderAudios();
+        });
+        row.appendChild(main);
+        row.appendChild(remove);
+        list.appendChild(row);
+      });
+    }
+
+    async function requestWakeLock() {
+      if (!("wakeLock" in navigator)) return;
+      try {
+        wakeLock = await navigator.wakeLock.request("screen");
+      } catch (error) {}
+    }
+
+    async function releaseWakeLock() {
+      if (!wakeLock) return;
+      try {
+        await wakeLock.release();
+      } catch (error) {}
+      wakeLock = null;
+    }
+
+    function supportedAudioMime() {
+      const options = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/aac", "audio/wav"];
+      if (!window.MediaRecorder) return "";
+      return options.find((mime) => MediaRecorder.isTypeSupported(mime)) || "";
+    }
+
+    function mergeFloat32(chunks) {
+      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const result = new Float32Array(totalLength);
+      let offset = 0;
+      chunks.forEach((chunk) => {
+        result.set(chunk, offset);
+        offset += chunk.length;
+      });
+      return result;
+    }
+
+    function writeAscii(view, offset, text) {
+      for (let i = 0; i < text.length; i += 1) {
+        view.setUint8(offset + i, text.charCodeAt(i));
+      }
+    }
+
+    function encodeWav(samples, sampleRate) {
+      const buffer = new ArrayBuffer(44 + samples.length * 2);
+      const view = new DataView(buffer);
+      writeAscii(view, 0, "RIFF");
+      view.setUint32(4, 36 + samples.length * 2, true);
+      writeAscii(view, 8, "WAVE");
+      writeAscii(view, 12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeAscii(view, 36, "data");
+      view.setUint32(40, samples.length * 2, true);
+
+      let offset = 44;
+      for (let i = 0; i < samples.length; i += 1, offset += 2) {
+        const sample = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      }
+      return new Blob([view], { type: "audio/wav" });
+    }
+
+    async function finishRecordedBlob(blob, extension) {
+      const item = await blobToItem(blob, `audio_offline_${new Date().toISOString().replace(/[:.]/g, "-")}.${extension}`);
+      draft.audios.push(item);
+      stopAudioStream();
+      await releaseWakeLock();
+      recorder = null;
+      recorderMode = "";
+      document.getElementById("recordBtn").disabled = false;
+      document.getElementById("stopBtn").disabled = true;
+      document.getElementById("recordHint").textContent = "Áudio salvo no rascunho local.";
+      scheduleSave();
+      renderAudios();
+    }
+
+    function stopAudioStream() {
+      if (audioStream) {
+        audioStream.getTracks().forEach((track) => track.stop());
+        audioStream = null;
+      }
+    }
+
+    function startMediaRecorder(stream) {
+      if (!window.MediaRecorder) return false;
+      try {
+        const mimeType = supportedAudioMime();
+        recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+        audioChunks = [];
+        recorder.ondataavailable = (event) => {
+          if (event.data && event.data.size) audioChunks.push(event.data);
+        };
+        recorder.onstop = async () => {
+          const blob = new Blob(audioChunks, { type: recorder.mimeType || "audio/mp4" });
+          const extension = blob.type.includes("webm") ? "webm" : blob.type.includes("wav") ? "wav" : "m4a";
+          await finishRecordedBlob(blob, extension);
+        };
+        recorder.start();
+        recorderMode = "media";
+        return true;
+      } catch (error) {
+        recorder = null;
+        recorderMode = "";
+        return false;
+      }
+    }
+
+    async function startWavRecorder(stream) {
+      const Context = window.AudioContext || window.webkitAudioContext;
+      if (!Context) {
+        throw new Error("Este Safari não liberou a gravação de áudio. Atualize o iPadOS ou use a versão HTTPS instalada na tela inicial.");
+      }
+
+      audioContext = new Context();
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+      wavSampleRate = audioContext.sampleRate;
+      wavChunks = [];
+      sourceNode = audioContext.createMediaStreamSource(stream);
+      processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+      processorNode.onaudioprocess = (event) => {
+        wavChunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+        event.outputBuffer.getChannelData(0).fill(0);
+      };
+      sourceNode.connect(processorNode);
+      processorNode.connect(audioContext.destination);
+      recorderMode = "wav";
+    }
+
+    async function stopWavRecorder() {
+      if (processorNode) {
+        processorNode.disconnect();
+        processorNode.onaudioprocess = null;
+        processorNode = null;
+      }
+      if (sourceNode) {
+        sourceNode.disconnect();
+        sourceNode = null;
+      }
+      if (audioContext) {
+        await audioContext.close().catch(() => {});
+        audioContext = null;
+      }
+      const blob = encodeWav(mergeFloat32(wavChunks), wavSampleRate);
+      wavChunks = [];
+      await finishRecordedBlob(blob, "wav");
+    }
+
+    async function startRecording() {
+      if (!window.isSecureContext) {
+        document.getElementById("recordHint").textContent = "O Safari bloqueia microfone em HTTP ou arquivo local. Abra pela URL HTTPS publicada no Streamlit e instale na Tela de Início.";
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        document.getElementById("recordHint").textContent = "Microfone indisponível neste navegador. Atualize o iPadOS/Safari ou envie um áudio gravado no app Gravador.";
+        return;
+      }
+
+      audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const started = startMediaRecorder(audioStream);
+      if (!started) {
+        await startWavRecorder(audioStream);
+      }
+      await requestWakeLock();
+      document.getElementById("recordBtn").disabled = true;
+      document.getElementById("stopBtn").disabled = false;
+      document.getElementById("recordHint").textContent = recorderMode === "wav" ? "Gravando áudio em WAV..." : "Gravando áudio...";
+    }
+
+    async function stopRecording() {
+      if (recorderMode === "media" && recorder && recorder.state !== "inactive") {
+        recorder.stop();
+        return;
+      }
+      if (recorderMode === "wav") {
+        await stopWavRecorder();
+        return;
+      }
+      stopAudioStream();
+      document.getElementById("recordBtn").disabled = false;
+      document.getElementById("stopBtn").disabled = true;
+    }
+
+    function clearCanvasSurface(canvas) {
+      const ctx = canvas.getContext("2d");
+      const rect = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.round(rect.width * ratio));
+      canvas.height = Math.max(1, Math.round(rect.height * ratio));
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, rect.width, rect.height);
+    }
+
+    function paintStoredSignature(canvas, key) {
+      if (!key) {
+        clearCanvasSurface(canvas);
+        return;
+      }
+      clearCanvasSurface(canvas);
+      if (draft.assinaturas[key]?.dataUrl) {
+        const rect = canvas.getBoundingClientRect();
+        const ctx = canvas.getContext("2d");
+        const img = new Image();
+        img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        img.src = draft.assinaturas[key].dataUrl;
+      }
+    }
+
+    function saveCanvasSignature(canvas, key) {
+      if (!key) return;
+      draft.assinaturas[key] = {
+        name: `assinatura_${key}.png`,
+        type: "image/png",
+        size: 0,
+        dataUrl: canvas.toDataURL("image/png")
+      };
+      scheduleSave();
+    }
+
+    function refreshSignatureCanvases(key, sourceCanvas) {
+      const mainPad = mainSignaturePads[key];
+      if (mainPad && mainPad.canvas !== sourceCanvas) {
+        mainPad.resize();
+      }
+      if (modalSignaturePad && activeSignatureKey === key && modalSignaturePad.canvas !== sourceCanvas) {
+        modalSignaturePad.resize();
+      }
+    }
+
+    function setupDrawingCanvas(canvas, getKey) {
+      const ctx = canvas.getContext("2d");
+      let drawing = false;
+      let dirty = false;
+
+      function resize() {
+        paintStoredSignature(canvas, getKey());
+      }
+
+      function point(event) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      }
+
+      function saveSignature() {
+        const key = getKey();
+        if (!dirty || !key) return;
+        saveCanvasSignature(canvas, key);
+        dirty = false;
+        refreshSignatureCanvases(key, canvas);
+      }
+
+      canvas.addEventListener("pointerdown", (event) => {
+        const key = getKey();
+        if (!key) return;
+        drawing = true;
+        dirty = true;
+        canvas.setPointerCapture(event.pointerId);
+        const p = point(event);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+      });
+      canvas.addEventListener("pointermove", (event) => {
+        if (!drawing) return;
+        const p = point(event);
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "#25272b";
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      });
+      canvas.addEventListener("pointerup", () => {
+        drawing = false;
+        saveSignature();
+      });
+      canvas.addEventListener("pointercancel", () => {
+        drawing = false;
+        saveSignature();
+      });
+
+      resize();
+      window.addEventListener("resize", resize);
+      return {
+        canvas,
+        resize,
+        clear() {
+          const key = getKey();
+          clearCanvasSurface(canvas);
+          if (key) {
+            draft.assinaturas[key] = null;
+            scheduleSave();
+            refreshSignatureCanvases(key, canvas);
+          }
+          dirty = false;
+        }
+      };
+    }
+
+    function openSignatureModal(key) {
+      activeSignatureKey = key;
+      document.getElementById("signatureModalTitle").textContent = SIGNATURE_LABELS[key] || "Assinatura";
+      document.getElementById("signatureModal").classList.add("open");
+      document.body.classList.add("signature-open");
+      window.setTimeout(() => modalSignaturePad.resize(), 60);
+    }
+
+    function closeSignatureModal() {
+      document.getElementById("signatureModal").classList.remove("open");
+      document.body.classList.remove("signature-open");
+      if (activeSignatureKey) {
+        refreshSignatureCanvases(activeSignatureKey, null);
+      }
+      activeSignatureKey = "";
+    }
+
+    function hydrateFields() {
+      document.getElementById("observacoes").value = draft.observacoes || "";
+      document.getElementById("onlineAppUrl").value = localStorage.getItem("agresOnlineAppUrl") || "";
+      CATEGORIES.forEach((key) => {
+        document.getElementById(`legenda_${key}`).value = draft.legendas_evidencias[key] || "";
+      });
+      document.getElementById("responsavel_revenda_fabrica").value = draft.responsaveis.revenda_fabrica || "";
+      document.getElementById("responsavel_fazenda").value = draft.responsaveis.fazenda || "";
+      updateCounts();
+    }
+
+    function wireFields() {
+      document.getElementById("observacoes").addEventListener("input", (event) => {
+        draft.observacoes = event.target.value;
+        scheduleSave();
+      });
+      document.getElementById("onlineAppUrl").addEventListener("input", (event) => {
+        localStorage.setItem("agresOnlineAppUrl", event.target.value.trim());
+      });
+
+      CATEGORIES.forEach((key) => {
+        document.getElementById(`legenda_${key}`).addEventListener("input", (event) => {
+          draft.legendas_evidencias[key] = event.target.value;
+          scheduleSave();
+        });
+        document.getElementById(key).addEventListener("change", async (event) => {
+          const arquivos = await Promise.all([...event.target.files].map(readFile));
+          draft.evidencias[key].push(...arquivos);
+          event.target.value = "";
+          updateCounts();
+          scheduleSave();
+        });
+      });
+
+      HEADERS.forEach((key) => {
+        document.getElementById(key).addEventListener("change", async (event) => {
+          const file = event.target.files[0];
+          draft.cabecalho[key] = file ? await readFile(file) : null;
+          event.target.value = "";
+          updateCounts();
+          scheduleSave();
+        });
+      });
+
+      document.getElementById("responsavel_revenda_fabrica").addEventListener("input", (event) => {
+        draft.responsaveis.revenda_fabrica = event.target.value;
+        scheduleSave();
+      });
+      document.getElementById("responsavel_fazenda").addEventListener("input", (event) => {
+        draft.responsaveis.fazenda = event.target.value;
+        scheduleSave();
+      });
+
+      document.getElementById("audioFiles").addEventListener("change", async (event) => {
+        const arquivos = await Promise.all([...event.target.files].map(readFile));
+        draft.audios.push(...arquivos);
+        event.target.value = "";
+        renderAudios();
+        scheduleSave();
+      });
+
+      document.getElementById("recordBtn").addEventListener("click", () => startRecording().catch((error) => {
+        document.getElementById("recordHint").textContent = `Erro na gravação: ${error.message}`;
+        stopAudioStream();
+        releaseWakeLock();
+        recorder = null;
+        recorderMode = "";
+        document.getElementById("recordBtn").disabled = false;
+        document.getElementById("stopBtn").disabled = true;
+      }));
+      document.getElementById("stopBtn").addEventListener("click", () => stopRecording().catch((error) => {
+        document.getElementById("recordHint").textContent = `Erro ao salvar áudio: ${error.message}`;
+        stopAudioStream();
+        releaseWakeLock();
+        recorder = null;
+        recorderMode = "";
+        document.getElementById("recordBtn").disabled = false;
+        document.getElementById("stopBtn").disabled = true;
+      }));
+
+      mainSignaturePads.revenda_fabrica = setupDrawingCanvas(
+        document.getElementById("assinatura_revenda_fabrica"),
+        () => "revenda_fabrica"
+      );
+      mainSignaturePads.fazenda = setupDrawingCanvas(
+        document.getElementById("assinatura_fazenda"),
+        () => "fazenda"
+      );
+      modalSignaturePad = setupDrawingCanvas(
+        document.getElementById("signatureModalCanvas"),
+        () => activeSignatureKey
+      );
+
+      document.querySelector("[data-clear-signature='revenda_fabrica']").addEventListener("click", () => mainSignaturePads.revenda_fabrica.clear());
+      document.querySelector("[data-clear-signature='fazenda']").addEventListener("click", () => mainSignaturePads.fazenda.clear());
+      document.querySelector("[data-open-signature='revenda_fabrica']").addEventListener("click", () => openSignatureModal("revenda_fabrica"));
+      document.querySelector("[data-open-signature='fazenda']").addEventListener("click", () => openSignatureModal("fazenda"));
+      document.getElementById("clearSignatureModal").addEventListener("click", () => modalSignaturePad.clear());
+      document.getElementById("closeSignatureModal").addEventListener("click", closeSignatureModal);
+      document.getElementById("finishSignatureModal").addEventListener("click", closeSignatureModal);
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && activeSignatureKey) {
+          closeSignatureModal();
+        }
+      });
+
+      document.getElementById("copyPackageBtn").addEventListener("click", copyPackage);
+      document.getElementById("sharePackageBtn").addEventListener("click", sharePackage);
+      document.getElementById("openOnlineBtn").addEventListener("click", openOnlineApp);
+      document.getElementById("exportBtn").addEventListener("click", exportDraft);
+      document.getElementById("clearBtn").addEventListener("click", clearDraft);
+    }
+
+    function packageFileName() {
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
+      return `agres_coleta_offline_${stamp}.json`;
+    }
+
+    async function packageText() {
+      await putDraft();
+      const pacote = { ...draft, exported_at: new Date().toISOString() };
+      return JSON.stringify(pacote);
+    }
+
+    async function packageBlob() {
+      return new Blob([await packageText()], { type: "application/json" });
+    }
+
+    function setSyncMessage(texto) {
+      document.getElementById("syncMessage").textContent = texto || "";
+    }
+
+    async function exportDraft() {
+      const blob = await packageBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = packageFileName();
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setSyncMessage("Pacote exportado. No iPad ele normalmente fica em Arquivos > Downloads.");
+    }
+
+    async function copyPackage() {
+      const text = await packageText();
+      const output = document.getElementById("packageText");
+      output.value = text;
+      output.classList.add("visible");
+
+      try {
+        if (!navigator.clipboard?.writeText) {
+          throw new Error("Clipboard indisponível");
+        }
+        await navigator.clipboard.writeText(text);
+        setSyncMessage("Pacote copiado. Volte ao app online e cole no campo de sincronização.");
+      } catch (error) {
+        output.focus();
+        output.select();
+        setSyncMessage("Não foi possível copiar automaticamente. Selecione o texto exibido, copie e cole no app online.");
+      }
+    }
+
+    async function sharePackage() {
+      const blob = await packageBlob();
+      const file = new File([blob], packageFileName(), { type: "application/json" });
+      try {
+        if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+          await navigator.share({
+            title: "Pacote offline Agres",
+            text: "Pacote offline para sincronizar no app Agres.",
+            files: [file]
+          });
+          setSyncMessage("Pacote compartilhado. Salve em Arquivos ou envie para onde preferir.");
+        } else if (navigator.share) {
+          await navigator.share({
+            title: "Pacote offline Agres",
+            text: await packageText()
+          });
+          setSyncMessage("Pacote compartilhado como texto.");
+        } else {
+          await copyPackage();
+        }
+      } catch (error) {
+        setSyncMessage("Compartilhamento cancelado ou indisponível. Use Copiar pacote ou Exportar pacote offline.");
+      }
+    }
+
+    function openOnlineApp() {
+      const url = (document.getElementById("onlineAppUrl").value || localStorage.getItem("agresOnlineAppUrl") || "").trim();
+      if (!url || !/^https:\/\//i.test(url)) {
+        setSyncMessage("Informe o link HTTPS do app Streamlit antes de abrir o app online.");
+        document.getElementById("onlineAppUrl").focus();
+        return;
+      }
+      localStorage.setItem("agresOnlineAppUrl", url);
+      window.open(url, "_blank", "noopener");
+    }
+
+    async function clearDraft() {
+      if (!confirm("Apagar todo o rascunho offline deste aparelho?")) return;
+      draft = defaultDraft();
+      await putDraft();
+      location.reload();
+    }
+
+    async function init() {
+      updateNetwork();
+      updateSecureNotice();
+      window.addEventListener("online", updateNetwork);
+      window.addEventListener("offline", updateNetwork);
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
+      }
+      if (navigator.storage?.persist) {
+        const persisted = await navigator.storage.persist();
+        document.getElementById("storageStatus").textContent = persisted
+          ? "Armazenamento local protegido."
+          : "Armazenamento local ativo.";
+      }
+      db = await openDb();
+      draft = { ...defaultDraft(), ...(await getDraft()) };
+      draft.cabecalho = { ...defaultDraft().cabecalho, ...(draft.cabecalho || {}) };
+      draft.evidencias = { ...defaultDraft().evidencias, ...(draft.evidencias || {}) };
+      draft.legendas_evidencias = { ...defaultDraft().legendas_evidencias, ...(draft.legendas_evidencias || {}) };
+      draft.responsaveis = { ...defaultDraft().responsaveis, ...(draft.responsaveis || {}) };
+      draft.assinaturas = { ...defaultDraft().assinaturas, ...(draft.assinaturas || {}) };
+      hydrateFields();
+      wireFields();
+      await putDraft();
+    }
+
+    init().catch((error) => {
+      document.getElementById("saveStatus").textContent = `Erro no modo offline: ${error.message}`;
+    });
+  </script>
+</body>
+</html>
