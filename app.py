@@ -1777,6 +1777,202 @@ def aplicar_manifesto_na_sessao(manifesto: dict) -> None:
         st.session_state[configuracao["campo"]] = manifesto.get("responsaveis", {}).get(chave, "")
 
 
+def uploaded_file_para_item_pacote(uploaded_file) -> dict | None:
+    if uploaded_file is None:
+        return None
+    conteudo = uploaded_file.getvalue()
+    if not conteudo:
+        return None
+    mime_type = getattr(uploaded_file, "type", None) or "application/octet-stream"
+    return {
+        "name": getattr(uploaded_file, "name", "arquivo"),
+        "type": mime_type,
+        "size": len(conteudo),
+        "dataUrl": f"data:{mime_type};base64,{base64.b64encode(conteudo).decode('ascii')}",
+    }
+
+
+def canvas_para_item_pacote(canvas_result, nome: str) -> dict | None:
+    dados = getattr(canvas_result, "image_data", None)
+    if dados is None:
+        return None
+
+    try:
+        imagem_rgba = Image.fromarray(dados.astype("uint8"), "RGBA")
+    except Exception:
+        return None
+
+    pixels_assinatura = 0
+    for vermelho, verde, azul, alfa in imagem_rgba.getdata():
+        if alfa > 0 and min(vermelho, verde, azul) < 245:
+            pixels_assinatura += 1
+            if pixels_assinatura >= 50:
+                break
+
+    if pixels_assinatura < 50:
+        return None
+
+    fundo = Image.new("RGB", imagem_rgba.size, "white")
+    fundo.paste(imagem_rgba, mask=imagem_rgba.getchannel("A"))
+    buffer = BytesIO()
+    fundo.save(buffer, format="PNG")
+    conteudo = buffer.getvalue()
+    return {
+        "name": nome,
+        "type": "image/png",
+        "size": len(conteudo),
+        "dataUrl": f"data:image/png;base64,{base64.b64encode(conteudo).decode('ascii')}",
+    }
+
+
+def renderizar_coleta_streamlit() -> None:
+    st.markdown(
+        "<p class='section-title'>Coleta de campo</p><p class='section-caption'>Use esta tela no iPad quando a coleta offline estática não abrir. Ela gera o mesmo pacote para sincronização.</p>",
+        unsafe_allow_html=True,
+    )
+    st.warning("Mantenha esta aba aberta durante o preenchimento. Esta coleta funciona dentro do Streamlit e evita a tela branca da página estática.")
+
+    with st.container(border=True):
+        st.markdown("### 1. Relato técnico")
+        coleta_observacoes = st.text_area(
+            "Complemento técnico",
+            placeholder="Cliente, local, máquina, equipamento, versões, falhas, parâmetros, calibrações, pendências e conclusão.",
+            height=150,
+            key="coleta_observacoes",
+        )
+        coleta_audio = st.audio_input("Gravar áudio", key="coleta_audio")
+        coleta_audios_upload = st.file_uploader(
+            "Ou enviar áudios",
+            type=list(EXTENSOES_AUDIO),
+            accept_multiple_files=True,
+            key="coleta_audios_upload",
+        )
+
+    with st.container(border=True):
+        st.markdown("### 2. Cabeçalho")
+        col1, col2, col3 = st.columns(3)
+        coleta_info = col1.file_uploader("Informações do equipamento", type=list(EXTENSOES_IMAGEM), key="coleta_info")
+        coleta_maquina = col2.file_uploader("Máquina", type=list(EXTENSOES_IMAGEM), key="coleta_maquina")
+        coleta_implemento = col3.file_uploader("Implemento", type=list(EXTENSOES_IMAGEM), key="coleta_implemento")
+
+    with st.container(border=True):
+        st.markdown("### 3. Evidências fotográficas")
+        col_e1, col_e2 = st.columns(2)
+        coleta_equipamento = col_e1.file_uploader("Equipamento Agres", type=list(EXTENSOES_IMAGEM), accept_multiple_files=True, key="coleta_equipamento")
+        coleta_instalacao = col_e1.file_uploader("Instalação", type=list(EXTENSOES_IMAGEM), accept_multiple_files=True, key="coleta_instalacao")
+        coleta_configuracao = col_e2.file_uploader("Configurações", type=list(EXTENSOES_IMAGEM), accept_multiple_files=True, key="coleta_configuracao")
+        coleta_outros = col_e2.file_uploader("Outros registros", type=list(EXTENSOES_IMAGEM), accept_multiple_files=True, key="coleta_outros")
+
+        st.caption("Uma linha por foto, na ordem do upload. Formato: Título | legenda | fonte.")
+        coleta_legendas = {
+            "fotos_equipamento": st.text_area("Legendas - Equipamento", height=80, key="coleta_leg_equipamento"),
+            "fotos_instalacao": st.text_area("Legendas - Instalação", height=80, key="coleta_leg_instalacao"),
+            "fotos_configuracao": st.text_area("Legendas - Configurações", height=80, key="coleta_leg_configuracao"),
+            "fotos_outros": st.text_area("Legendas - Outros", height=80, key="coleta_leg_outros"),
+        }
+
+    with st.container(border=True):
+        st.markdown("### 4. Assinaturas")
+        col_nome1, col_nome2 = st.columns(2)
+        responsaveis = {
+            "revenda_fabrica": col_nome1.text_input("Responsável da revenda/fábrica", key="coleta_resp_revenda"),
+            "fazenda": col_nome2.text_input("Responsável da fazenda", key="coleta_resp_fazenda"),
+        }
+        assinaturas = {"revenda_fabrica": None, "fazenda": None}
+        if st_canvas is not None:
+            col_ass1, col_ass2 = st.columns(2)
+            with col_ass1:
+                st.markdown("**Assinatura revenda/fábrica**")
+                assinaturas["revenda_fabrica"] = st_canvas(
+                    fill_color="rgba(255, 255, 255, 0)",
+                    stroke_width=3,
+                    stroke_color="#25272b",
+                    background_color="#ffffff",
+                    height=180,
+                    width=330,
+                    drawing_mode="freedraw",
+                    display_toolbar=True,
+                    key="coleta_ass_revenda",
+                )
+            with col_ass2:
+                st.markdown("**Assinatura fazenda**")
+                assinaturas["fazenda"] = st_canvas(
+                    fill_color="rgba(255, 255, 255, 0)",
+                    stroke_width=3,
+                    stroke_color="#25272b",
+                    background_color="#ffffff",
+                    height=180,
+                    width=330,
+                    drawing_mode="freedraw",
+                    display_toolbar=True,
+                    key="coleta_ass_fazenda",
+                )
+        else:
+            st.info("Assinatura na tela indisponível neste ambiente. Envie imagens das assinaturas.")
+            assinaturas_upload = {
+                "revenda_fabrica": st.file_uploader("Imagem assinatura revenda/fábrica", type=list(EXTENSOES_IMAGEM), key="coleta_ass_upload_revenda"),
+                "fazenda": st.file_uploader("Imagem assinatura fazenda", type=list(EXTENSOES_IMAGEM), key="coleta_ass_upload_fazenda"),
+            }
+
+    audios = []
+    if coleta_audio:
+        item = uploaded_file_para_item_pacote(coleta_audio)
+        if item:
+            audios.append(item)
+    audios.extend(
+        item
+        for arquivo in (coleta_audios_upload or [])
+        if (item := uploaded_file_para_item_pacote(arquivo))
+    )
+
+    pacote = {
+        "version": 1,
+        "observacoes": coleta_observacoes or "",
+        "audios": audios,
+        "cabecalho": {
+            "info_equip": uploaded_file_para_item_pacote(coleta_info),
+            "maquina": uploaded_file_para_item_pacote(coleta_maquina),
+            "implemento": uploaded_file_para_item_pacote(coleta_implemento),
+        },
+        "evidencias": {
+            "fotos_equipamento": [item for arquivo in (coleta_equipamento or []) if (item := uploaded_file_para_item_pacote(arquivo))],
+            "fotos_instalacao": [item for arquivo in (coleta_instalacao or []) if (item := uploaded_file_para_item_pacote(arquivo))],
+            "fotos_configuracao": [item for arquivo in (coleta_configuracao or []) if (item := uploaded_file_para_item_pacote(arquivo))],
+            "fotos_outros": [item for arquivo in (coleta_outros or []) if (item := uploaded_file_para_item_pacote(arquivo))],
+        },
+        "legendas_evidencias": coleta_legendas,
+        "responsaveis": responsaveis,
+        "assinaturas": {},
+    }
+
+    if st_canvas is not None:
+        pacote["assinaturas"] = {
+            "revenda_fabrica": canvas_para_item_pacote(assinaturas["revenda_fabrica"], "assinatura_revenda_fabrica.png"),
+            "fazenda": canvas_para_item_pacote(assinaturas["fazenda"], "assinatura_fazenda.png"),
+        }
+    else:
+        pacote["assinaturas"] = {
+            "revenda_fabrica": uploaded_file_para_item_pacote(assinaturas_upload.get("revenda_fabrica")),
+            "fazenda": uploaded_file_para_item_pacote(assinaturas_upload.get("fazenda")),
+        }
+
+    pacote_texto = json.dumps(pacote, ensure_ascii=False)
+    st.download_button(
+        "Baixar pacote da coleta",
+        data=pacote_texto.encode("utf-8"),
+        file_name=f"agres_coleta_{data_atual_brasil().strftime('%Y%m%d')}.json",
+        mime="application/json",
+        type="primary",
+        use_container_width=True,
+    )
+    with st.expander("Copiar pacote em texto"):
+        st.text_area("Pacote para colar no app principal", value=pacote_texto, height=180)
+
+    if st.button("Voltar ao app principal", use_container_width=True):
+        st.query_params.clear()
+        st.rerun()
+
+
 def atualizar_lista_rascunho(manifesto: dict, chave: str, arquivos, draft_dir: Path, subpasta: str, extensoes: set[str], extensao_padrao: str) -> None:
     if not arquivos:
         return
@@ -1940,6 +2136,10 @@ def limpar_rascunho_atual() -> None:
 draft_dir = pasta_rascunho_atual()
 manifesto_rascunho = carregar_manifesto(draft_dir)
 
+if st.query_params.get("coleta") == "1":
+    renderizar_coleta_streamlit()
+    st.stop()
+
 if "observacoes_texto" not in st.session_state:
     st.session_state.observacoes_texto = manifesto_rascunho.get("observacoes", "")
 
@@ -1974,16 +2174,15 @@ if st.session_state.pop("importacao_offline_ok", False):
 
 with st.container(border=True):
     st.markdown(
-        "<p class='section-title'>Coleta offline</p><p class='section-caption'>Use no iPad pela versão HTTPS publicada no Streamlit Cloud, instale na Tela de Início e depois trabalhe sem internet.</p>",
+        "<p class='section-title'>Coleta de campo</p><p class='section-caption'>Tela de coleta compatível com iPad, sem rota estática e sem tela branca.</p>",
         unsafe_allow_html=True,
     )
     st.info(
-        "No iPad, não use arquivo HTML baixado nem link local por IP para gravar áudio. "
-        "O Safari libera o microfone apenas em página segura HTTPS/PWA instalada."
+        "Abra pelo link HTTPS do Streamlit Cloud no Safari do iPad. Esta coleta roda dentro do próprio app, evitando o problema da página branca."
     )
     st.markdown(
         """
-        <a href="app/static/offline/index.html?v=7" target="_blank" rel="noopener" style="
+        <a href="?coleta=1" target="_self" style="
             display:inline-flex;
             align-items:center;
             justify-content:center;
@@ -1995,16 +2194,11 @@ with st.container(border=True):
             font-weight:800;
             text-decoration:none;
             border:1px solid #3f4247;
-        ">Abrir coleta offline</a>
+        ">Abrir coleta de campo</a>
         """,
         unsafe_allow_html=True,
     )
-    st.caption("No iPad, o link deve começar com https:// e com o mesmo domínio do app publicado. Se abrir localhost ou 192.168..., o microfone pode falhar.")
-    st.markdown(
-        "[Abrir coleta offline pelo link relativo](app/static/offline/index.html?v=7)",
-        unsafe_allow_html=False,
-    )
-    st.caption("Antes de ir a campo: abra a coleta offline no Safari, toque em Compartilhar e escolha Adicionar à Tela de Início. Depois ela abre sem internet.")
+    st.caption("Depois de preencher, baixe o pacote JSON ou copie o pacote em texto e importe nesta mesma seção.")
     pacote_offline = st.file_uploader(
         "Sincronizar pacote offline por arquivo JSON",
         type=["json"],
