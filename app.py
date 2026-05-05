@@ -669,6 +669,68 @@ def texto_ou_padrao(valor, padrao="Não informado") -> str:
     return texto if texto else padrao
 
 
+TITULOS_RELATO_REMOVER = {
+    "contexto do atendimento",
+    "descricao do problema",
+    "diagnostico inicial",
+    "acoes corretivas",
+    "acoes executadas",
+    "procedimentos executados",
+    "configuracoes e calibracoes relevantes",
+    "configuracoes e calibracoes",
+    "testes complementares",
+    "validacao do sistema",
+    "resultado final",
+    "conclusao tecnica",
+    "intervencoes fisicas e diagnosticos registrados",
+}
+
+
+def finalizar_frase(texto: str) -> str:
+    texto = limpar_texto(texto).rstrip(" .;:")
+    if not texto:
+        return ""
+    return texto if texto.endswith((".", "!", "?")) else f"{texto}."
+
+
+def limpar_relato_narrativo(valor) -> str:
+    texto = limpar_texto(valor)
+    if not texto:
+        return ""
+
+    texto = re.sub(r"\*\*(.*?)\*\*", r"\1", texto)
+    texto = re.sub(r"__(.*?)__", r"\1", texto)
+    paragrafos = []
+    linhas_paragrafo = []
+
+    def fechar_paragrafo() -> None:
+        if linhas_paragrafo:
+            paragrafo = " ".join(linhas_paragrafo)
+            paragrafo = re.sub(r"\s+([,.;:])", r"\1", paragrafo)
+            if paragrafo:
+                paragrafos.append(finalizar_frase(paragrafo))
+            linhas_paragrafo.clear()
+
+    for linha in texto.split("\n"):
+        linha = linha.strip()
+        if not linha:
+            fechar_paragrafo()
+            continue
+
+        linha = re.sub(r"^\s*[-*•]+\s*", "", linha).strip()
+        linha = linha.strip("*_ ")
+        titulo_normalizado = normalizar_busca(linha.rstrip(":"))
+        titulo_curto = linha.endswith(":") and len(linha.split()) <= 8
+        if titulo_normalizado in TITULOS_RELATO_REMOVER or titulo_curto:
+            fechar_paragrafo()
+            continue
+
+        linhas_paragrafo.append(linha)
+
+    fechar_paragrafo()
+    return "\n\n".join(paragrafos)
+
+
 def dividir_itens(texto: str) -> list[str]:
     itens = []
     for linha in limpar_texto(texto).split("\n"):
@@ -771,18 +833,19 @@ def filtrar_campo_curto(texto: str, termos_bloqueados: tuple[str, ...]) -> tuple
     return "\n".join(itens_validos).strip(), itens_para_relato
 
 
-def adicionar_ao_relato(relato: str, titulo: str, itens: list[str]) -> str:
+def adicionar_ao_relato(relato: str, itens: list[str]) -> str:
     if not itens:
-        return relato
+        return limpar_relato_narrativo(relato)
 
-    relato_base = limpar_texto(relato)
+    relato_base = limpar_relato_narrativo(relato)
     relato_normalizado = normalizar_busca(relato_base)
     itens_novos = [item for item in itens if normalizar_busca(item) not in relato_normalizado]
     if not itens_novos:
         return relato_base
 
-    bloco = titulo + "\n" + "\n".join(f"- {item}" for item in itens_novos)
-    return (relato_base + "\n\n" + bloco).strip() if relato_base else bloco
+    detalhes = "; ".join(limpar_texto(item).rstrip(" .;") for item in itens_novos if limpar_texto(item))
+    complemento = finalizar_frase(f"Foram registrados ainda os seguintes pontos técnicos: {detalhes}")
+    return limpar_relato_narrativo((relato_base + "\n\n" + complemento).strip() if relato_base else complemento)
 
 
 def normalizar_dados_relatorio(dados: dict) -> dict:
@@ -810,9 +873,9 @@ def normalizar_dados_relatorio(dados: dict) -> dict:
     dados_normalizados["calibracoes"] = calibracoes or "Não informado"
     dados_normalizados["relato"] = adicionar_ao_relato(
         dados_normalizados["relato"],
-        "Intervenções físicas e diagnósticos registrados:",
         itens_config_relato + itens_calibracao_relato + detalhes_para_relato,
     )
+    dados_normalizados["relato"] = limpar_relato_narrativo(dados_normalizados["relato"])
 
     if not dados_normalizados["relato"]:
         dados_normalizados["relato"] = "Não informado nos áudios ou observações encaminhadas."
@@ -883,8 +946,9 @@ REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 
 PADRÃO DO RELATO:
 - Escrever em terceira pessoa.
-- Descrever contexto do atendimento, problema informado, diagnóstico inicial, procedimentos executados, configurações/calibrações relevantes, problemas encontrados, correções aplicadas, testes de funcionamento, resultado final e conclusão técnica.
-- Quando houver conteúdo suficiente, usar subtítulos técnicos curtos dentro do próprio texto, como "Descrição do problema", "Diagnóstico inicial", "Ações corretivas", "Testes complementares", "Validação do sistema", "Resultado final" e "Conclusão técnica".
+- Escrever em formato narrativo, como relato técnico do que foi realizado em campo.
+- Não usar subtítulos, tópicos, listas, markdown, negrito com **texto**, enumeração ou blocos separados por títulos.
+- Descrever em parágrafos corridos o contexto do atendimento, problema informado, diagnóstico inicial, procedimentos executados, configurações/calibrações relevantes, problemas encontrados, correções aplicadas, testes de funcionamento, resultado final e conclusão técnica.
 - Em atendimentos de vários dias, separar a sequência por data ou por etapa.
 - Informar "Não informado" nos campos textuais quando o dado não for mencionado.
 
