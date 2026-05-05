@@ -145,6 +145,10 @@
       color: var(--ink);
       font: inherit;
     }
+    .field input + input,
+    .field input + canvas {
+      margin-top: 8px;
+    }
     textarea {
       min-height: 128px;
       resize: vertical;
@@ -412,26 +416,13 @@
     <div class="hero">
       <img src="./logo_agres.png" alt="Agres">
       <div>
-        <div class="kicker">Coleta offline</div>
         <h1>Relatório Técnico Agres</h1>
-        <p>Preenchimento local para campo, com exportação do pacote para geração posterior no Streamlit.</p>
       </div>
     </div>
 
-    <div class="status">
-      <div>
-        <strong id="saveStatus">Rascunho salvo no aparelho.</strong>
-        <div class="small" id="storageStatus">Armazenamento local ativo.</div>
-      </div>
-      <span class="badge" id="networkStatus">Verificando</span>
-    </div>
-    <div class="notice ok" id="installNotice">
-      <strong>Modo correto no iPad</strong>
-      Abra esta página pelo link HTTPS do GitHub Pages, toque em Compartilhar e escolha Adicionar à Tela de Início. Depois disso, a coleta abre sem internet.
-    </div>
     <div class="notice warning" id="secureNotice" hidden>
       <strong>Microfone bloqueado pelo Safari</strong>
-      Para gravar áudio no iPad, use o link HTTPS do GitHub Pages. Acesso por arquivo baixado ou por http://192... pode bloquear o microfone.
+      Abra pelo link HTTPS do GitHub Pages.
     </div>
 
     <section>
@@ -451,7 +442,7 @@
           <button type="button" id="currentLocationBtn">Usar localização atual</button>
           <button type="button" id="openMapsBtn">Abrir Maps</button>
         </div>
-        <p class="hint" id="locationHint">O link será enviado ao relatório no campo ao lado de Cliente e Local.</p>
+        <p class="hint" id="locationHint"></p>
       </div>
       <div class="field">
         <label for="observacoes">Complemento técnico</label>
@@ -461,7 +452,7 @@
         <button type="button" class="primary" id="recordBtn">Gravar áudio</button>
         <button type="button" id="stopBtn" disabled>Parar gravação</button>
       </div>
-      <p class="hint" id="recordHint">Os áudios gravados ficam salvos neste aparelho até a exportação do pacote.</p>
+      <p class="hint" id="recordHint"></p>
       <div class="field">
         <label for="audioFiles">Áudios do celular</label>
         <input id="audioFiles" type="file" accept="audio/*" multiple>
@@ -475,19 +466,19 @@
         <div class="field">
           <label for="info_equip">Informações do equipamento</label>
           <input id="info_equip" type="file" accept="image/*">
-          <p class="hint" id="info_equip_status">Nenhum arquivo selecionado.</p>
+          <p class="hint" id="info_equip_status"></p>
           <div class="preview-grid" id="info_equip_preview"></div>
         </div>
         <div class="field">
           <label for="maquina">Máquina</label>
           <input id="maquina" type="file" accept="image/*">
-          <p class="hint" id="maquina_status">Nenhum arquivo selecionado.</p>
+          <p class="hint" id="maquina_status"></p>
           <div class="preview-grid" id="maquina_preview"></div>
         </div>
         <div class="field">
           <label for="implemento">Implemento</label>
           <input id="implemento" type="file" accept="image/*">
-          <p class="hint" id="implemento_status">Nenhum arquivo selecionado.</p>
+          <p class="hint" id="implemento_status"></p>
           <div class="preview-grid" id="implemento_preview"></div>
         </div>
       </div>
@@ -499,25 +490,25 @@
         <div class="field">
           <label for="fotos_equipamento">Equipamento Agres</label>
           <input id="fotos_equipamento" type="file" accept="image/*" multiple>
-          <p class="hint" id="fotos_equipamento_status">0 imagens.</p>
+          <p class="hint" id="fotos_equipamento_status"></p>
           <div class="preview-grid" id="fotos_equipamento_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_instalacao">Instalação</label>
           <input id="fotos_instalacao" type="file" accept="image/*" multiple>
-          <p class="hint" id="fotos_instalacao_status">0 imagens.</p>
+          <p class="hint" id="fotos_instalacao_status"></p>
           <div class="preview-grid" id="fotos_instalacao_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_configuracao">Configurações</label>
           <input id="fotos_configuracao" type="file" accept="image/*" multiple>
-          <p class="hint" id="fotos_configuracao_status">0 imagens.</p>
+          <p class="hint" id="fotos_configuracao_status"></p>
           <div class="preview-grid" id="fotos_configuracao_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_outros">Outros registros</label>
           <input id="fotos_outros" type="file" accept="image/*" multiple>
-          <p class="hint" id="fotos_outros_status">0 imagens.</p>
+          <p class="hint" id="fotos_outros_status"></p>
           <div class="preview-grid" id="fotos_outros_preview"></div>
         </div>
       </div>
@@ -547,6 +538,7 @@
         <div class="field">
           <label for="responsavel_revenda_fabrica">Responsável da revenda/fábrica</label>
           <input id="responsavel_revenda_fabrica" type="text" placeholder="Nome do responsável">
+          <input id="documento_revenda_fabrica" type="text" placeholder="CPF/RG">
           <canvas id="assinatura_revenda_fabrica"></canvas>
           <div class="signature-actions">
             <button type="button" class="primary" data-open-signature="revenda_fabrica">Assinar em tela cheia</button>
@@ -556,6 +548,7 @@
         <div class="field">
           <label for="responsavel_fazenda">Responsável da fazenda</label>
           <input id="responsavel_fazenda" type="text" placeholder="Nome do responsável">
+          <input id="documento_fazenda" type="text" placeholder="CPF/RG">
           <canvas id="assinatura_fazenda"></canvas>
           <div class="signature-actions">
             <button type="button" class="primary" data-open-signature="fazenda">Assinar em tela cheia</button>
@@ -567,7 +560,6 @@
 
     <section>
       <h2>5. Sincronização</h2>
-      <p class="hint">Quando a internet voltar, envie o pacote para o app online. No iPad, o jeito mais fácil costuma ser copiar o pacote e colar no campo de sincronização do Streamlit.</p>
       <div class="sync-panel">
         <label for="onlineAppUrl">Link do app online Streamlit</label>
         <input id="onlineAppUrl" type="text" placeholder="https://seu-app.streamlit.app">
@@ -581,7 +573,7 @@
       <div class="footer-actions">
         <div class="actions">
           <button type="button" class="primary" id="exportBtn">Exportar pacote offline</button>
-          <button type="button" class="danger" id="clearBtn">Apagar rascunho local</button>
+          <button type="button" class="danger" id="clearBtn">Limpar coleta</button>
         </div>
       </div>
     </section>
@@ -591,7 +583,6 @@
     <div class="signature-modal-header">
       <div>
         <h2 class="signature-modal-title" id="signatureModalTitle">Assinatura</h2>
-        <p class="signature-modal-subtitle">Use o dedo ou Apple Pencil. Gire o iPad se quiser mais largura.</p>
       </div>
       <button type="button" id="closeSignatureModal">Fechar</button>
     </div>
@@ -653,6 +644,7 @@
           fotos_outros: ""
         },
         responsaveis: { revenda_fabrica: "", fazenda: "" },
+        documentos: { revenda_fabrica: "", fazenda: "" },
         assinaturas: { revenda_fabrica: null, fazenda: null }
       };
     }
@@ -689,9 +681,7 @@
       clearTimeout(saveTimer);
       saveTimer = setTimeout(async () => {
         await putDraft();
-        document.getElementById("saveStatus").textContent = "Rascunho salvo no aparelho.";
       }, 250);
-      document.getElementById("saveStatus").textContent = "Salvando rascunho...";
     }
 
     function readFile(file) {
@@ -715,6 +705,7 @@
 
     function updateNetwork() {
       const badge = document.getElementById("networkStatus");
+      if (!badge) return;
       if (navigator.onLine) {
         badge.textContent = "Online";
         badge.className = "badge online";
@@ -726,6 +717,7 @@
 
     function updateSecureNotice() {
       const notice = document.getElementById("secureNotice");
+      if (!notice) return;
       if (!window.isSecureContext) {
         notice.hidden = false;
       } else {
@@ -736,7 +728,7 @@
     function updateCounts() {
       HEADERS.forEach((key) => {
         const item = draft.cabecalho[key];
-        document.getElementById(`${key}_status`).textContent = item ? item.name : "Nenhum arquivo selecionado.";
+        document.getElementById(`${key}_status`).textContent = item ? item.name : "";
         renderImagePreview(`${key}_preview`, item ? [item] : [], (index) => {
           draft.cabecalho[key] = null;
           updateCounts();
@@ -744,7 +736,8 @@
         });
       });
       CATEGORIES.forEach((key) => {
-        document.getElementById(`${key}_status`).textContent = `${draft.evidencias[key].length} imagens.`;
+        const total = draft.evidencias[key].length;
+        document.getElementById(`${key}_status`).textContent = total ? `${total} imagens.` : "";
         renderImagePreview(`${key}_preview`, draft.evidencias[key], (index) => {
           draft.evidencias[key].splice(index, 1);
           updateCounts();
@@ -886,7 +879,7 @@
       recorderMode = "";
       document.getElementById("recordBtn").disabled = false;
       document.getElementById("stopBtn").disabled = true;
-      document.getElementById("recordHint").textContent = "Áudio salvo no rascunho local.";
+      document.getElementById("recordHint").textContent = "Áudio salvo.";
       scheduleSave();
       renderAudios();
     }
@@ -966,11 +959,11 @@
 
     async function startRecording() {
       if (!window.isSecureContext) {
-        document.getElementById("recordHint").textContent = "O Safari bloqueia microfone em HTTP ou arquivo local. Abra pela URL HTTPS publicada no Streamlit e instale na Tela de Início.";
+        document.getElementById("recordHint").textContent = "Microfone bloqueado em HTTP. Abra pelo link HTTPS.";
         return;
       }
       if (!navigator.mediaDevices?.getUserMedia) {
-        document.getElementById("recordHint").textContent = "Microfone indisponível neste navegador. Atualize o iPadOS/Safari ou envie um áudio gravado no app Gravador.";
+        document.getElementById("recordHint").textContent = "Microfone indisponível neste navegador.";
         return;
       }
 
@@ -982,7 +975,7 @@
       await requestWakeLock();
       document.getElementById("recordBtn").disabled = true;
       document.getElementById("stopBtn").disabled = false;
-      document.getElementById("recordHint").textContent = recorderMode === "wav" ? "Gravando áudio em WAV..." : "Gravando áudio...";
+      document.getElementById("recordHint").textContent = "Gravando...";
     }
 
     async function stopRecording() {
@@ -1143,7 +1136,9 @@
         document.getElementById(`legenda_${key}`).value = draft.legendas_evidencias[key] || "";
       });
       document.getElementById("responsavel_revenda_fabrica").value = draft.responsaveis.revenda_fabrica || "";
+      document.getElementById("documento_revenda_fabrica").value = draft.documentos.revenda_fabrica || "";
       document.getElementById("responsavel_fazenda").value = draft.responsaveis.fazenda || "";
+      document.getElementById("documento_fazenda").value = draft.documentos.fazenda || "";
       updateCounts();
     }
 
@@ -1196,8 +1191,16 @@
         draft.responsaveis.revenda_fabrica = event.target.value;
         scheduleSave();
       });
+      document.getElementById("documento_revenda_fabrica").addEventListener("input", (event) => {
+        draft.documentos.revenda_fabrica = event.target.value;
+        scheduleSave();
+      });
       document.getElementById("responsavel_fazenda").addEventListener("input", (event) => {
         draft.responsaveis.fazenda = event.target.value;
+        scheduleSave();
+      });
+      document.getElementById("documento_fazenda").addEventListener("input", (event) => {
+        draft.documentos.fazenda = event.target.value;
         scheduleSave();
       });
 
@@ -1293,10 +1296,10 @@
 
     function useCurrentLocation() {
       if (!navigator.geolocation) {
-        setLocationHint("Este navegador não liberou localização. Cole o link do Maps manualmente.");
+        setLocationHint("Localização indisponível. Cole o link do Maps.");
         return;
       }
-      setLocationHint("Buscando localização atual...");
+      setLocationHint("Buscando localização...");
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const lat = position.coords.latitude.toFixed(6);
@@ -1305,9 +1308,9 @@
           draft.localizacao_maps = link;
           document.getElementById("localizacao_maps").value = link;
           scheduleSave();
-          setLocationHint("Localização atual adicionada ao rascunho.");
+          setLocationHint("Localização adicionada.");
         },
-        () => setLocationHint("Não foi possível obter a localização. Cole o link compartilhado pelo Maps."),
+        () => setLocationHint("Não foi possível obter a localização."),
         { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
       );
     }
@@ -1425,7 +1428,7 @@
     }
 
     async function clearDraft() {
-      if (!confirm("Apagar todo o rascunho offline deste aparelho?")) return;
+      if (!confirm("Limpar todos os dados desta coleta?")) return;
       draft = defaultDraft();
       await putDraft();
       location.reload();
@@ -1441,9 +1444,10 @@
       }
       if (navigator.storage?.persist) {
         const persisted = await navigator.storage.persist();
-        document.getElementById("storageStatus").textContent = persisted
-          ? "Armazenamento local protegido."
-          : "Armazenamento local ativo.";
+        const storageStatus = document.getElementById("storageStatus");
+        if (storageStatus) {
+          storageStatus.textContent = persisted ? "Armazenamento local protegido." : "Armazenamento local ativo.";
+        }
       }
       db = await openDb();
       draft = { ...defaultDraft(), ...(await getDraft()) };
@@ -1453,6 +1457,7 @@
       draft.evidencias = { ...defaultDraft().evidencias, ...(draft.evidencias || {}) };
       draft.legendas_evidencias = { ...defaultDraft().legendas_evidencias, ...(draft.legendas_evidencias || {}) };
       draft.responsaveis = { ...defaultDraft().responsaveis, ...(draft.responsaveis || {}) };
+      draft.documentos = { ...defaultDraft().documentos, ...(draft.documentos || {}) };
       draft.assinaturas = { ...defaultDraft().assinaturas, ...(draft.assinaturas || {}) };
       hydrateFields();
       wireFields();
@@ -1460,7 +1465,7 @@
     }
 
     init().catch((error) => {
-      document.getElementById("saveStatus").textContent = `Erro no modo offline: ${error.message}`;
+      alert(`Erro no modo offline: ${error.message}`);
     });
   </script>
 </body>

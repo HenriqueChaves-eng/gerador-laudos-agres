@@ -65,7 +65,9 @@ CAMPOS_RELATORIO = (
     "calibracoes",
     "acompanhantes",
     "responsavel_revenda_fabrica",
+    "documento_revenda_fabrica",
     "responsavel_fazenda",
+    "documento_fazenda",
     "nome_arquivo_sugerido",
     "relato",
 )
@@ -163,11 +165,13 @@ CATEGORIAS_EVIDENCIAS = {
 ASSINATURAS_RESPONSAVEIS = {
     "revenda_fabrica": {
         "campo": "responsavel_revenda_fabrica",
+        "campo_documento": "documento_revenda_fabrica",
         "titulo": "Responsável da Revenda/Fábrica",
         "label": "Responsável da revenda/fábrica",
     },
     "fazenda": {
         "campo": "responsavel_fazenda",
+        "campo_documento": "documento_fazenda",
         "titulo": "Responsável da Fazenda",
         "label": "Responsável da fazenda",
     },
@@ -832,7 +836,9 @@ def normalizar_dados_relatorio(dados: dict) -> dict:
         "objetivos",
         "acompanhantes",
         "responsavel_revenda_fabrica",
+        "documento_revenda_fabrica",
         "responsavel_fazenda",
+        "documento_fazenda",
     ):
         dados_normalizados[campo] = texto_ou_padrao(dados_normalizados[campo])
 
@@ -869,9 +875,11 @@ REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 10. calibracoes: incluir somente calibrações, aferições e validações com valores, medidas, sensores, vazão, largura, offset, angulação ou parâmetros numéricos.
 11. acompanhantes: informar técnicos, operadores, proprietários, consultores, representantes ou demais pessoas que acompanharam o atendimento.
 12. responsavel_revenda_fabrica: informar o nome do responsável da revenda, fábrica ou Agres que validou/acompanhou o atendimento, quando mencionado.
-13. responsavel_fazenda: informar o nome do responsável da fazenda, cliente, operador, encarregado ou proprietário que validou/acompanhou o atendimento, quando mencionado.
-14. relato: concentrar todo o detalhamento técnico e cronológico. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
-15. nome_arquivo_sugerido: montar no padrão "AAAAMMDD - CIDADE - UF - TIPO EQUIPAMENTO". Use a data inicial quando houver intervalo. Exemplos: "20250710 - SÃO JOSÉ DOS PINHAIS - PR - SUPORTE ISOBOX SPRAYER AGRONAVE 12" ou "20260119 - GUARANIAÇU - PR - SUPORTE AGRONAVE 7 ISOBOX SPRAYER".
+13. documento_revenda_fabrica: informar CPF, RG ou documento do responsável da revenda/fábrica quando mencionado; caso contrário, retornar "".
+14. responsavel_fazenda: informar o nome do responsável da fazenda, cliente, operador, encarregado ou proprietário que validou/acompanhou o atendimento, quando mencionado.
+15. documento_fazenda: informar CPF, RG ou documento do responsável da fazenda quando mencionado; caso contrário, retornar "".
+16. relato: concentrar todo o detalhamento técnico e cronológico. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
+17. nome_arquivo_sugerido: montar no padrão "AAAAMMDD - CIDADE - UF - TIPO EQUIPAMENTO". Use a data inicial quando houver intervalo. Exemplos: "20250710 - SÃO JOSÉ DOS PINHAIS - PR - SUPORTE ISOBOX SPRAYER AGRONAVE 12" ou "20260119 - GUARANIAÇU - PR - SUPORTE AGRONAVE 7 ISOBOX SPRAYER".
 
 PADRÃO DO RELATO:
 - Escrever em terceira pessoa.
@@ -897,7 +905,9 @@ Retorne apenas um JSON válido, sem markdown e sem comentários, com exatamente 
     "calibracoes": "",
     "acompanhantes": "",
     "responsavel_revenda_fabrica": "",
+    "documento_revenda_fabrica": "",
     "responsavel_fazenda": "",
+    "documento_fazenda": "",
     "nome_arquivo_sugerido": "",
     "relato": ""
 }}
@@ -1162,7 +1172,7 @@ def remover_bordas_tabela(table) -> None:
     tbl_pr.append(bordas)
 
 
-def preencher_celula_assinatura(cell, titulo: str, nome: str, caminho_assinatura: Path | None) -> None:
+def preencher_celula_assinatura(cell, titulo: str, nome: str, documento: str, caminho_assinatura: Path | None) -> None:
     cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     cell.text = ""
 
@@ -1189,8 +1199,13 @@ def preencher_celula_assinatura(cell, titulo: str, nome: str, caminho_assinatura
     formatar_run_assinatura(paragrafo_titulo.add_run(titulo), tamanho=10, bold=True)
 
     paragrafo_nome = cell.add_paragraph()
-    formatar_paragrafo_assinatura(paragrafo_nome)
+    formatar_paragrafo_assinatura(paragrafo_nome, space_after=1)
     formatar_run_assinatura(paragrafo_nome.add_run(nome_assinatura_para_exibicao(nome)), tamanho=9)
+
+    paragrafo_documento = cell.add_paragraph()
+    formatar_paragrafo_assinatura(paragrafo_documento)
+    documento_exibicao = texto_ou_padrao(documento)
+    formatar_run_assinatura(paragrafo_documento.add_run(f"CPF/RG: {documento_exibicao}"), tamanho=9)
 
 
 def inserir_elemento_antes_paragrafo(elemento, paragraph) -> None:
@@ -1223,6 +1238,7 @@ def inserir_assinaturas_docx(caminho_docx: Path, dados: dict, caminhos_assinatur
             tabela.cell(0, indice),
             configuracao["titulo"],
             dados.get(configuracao["campo"], ""),
+            dados.get(configuracao["campo_documento"], ""),
             caminhos_assinaturas.get(chave),
         )
 
@@ -1636,6 +1652,7 @@ def novo_manifesto_rascunho() -> dict:
         "observacoes": "",
         "legendas_evidencias": {categoria: "" for categoria in CATEGORIAS_EVIDENCIAS},
         "responsaveis": {chave: "" for chave in ASSINATURAS_RESPONSAVEIS},
+        "documentos": {chave: "" for chave in ASSINATURAS_RESPONSAVEIS},
         "assinaturas": {chave: None for chave in ASSINATURAS_RESPONSAVEIS},
     }
 
@@ -1684,6 +1701,10 @@ def carregar_manifesto(draft_dir: Path) -> dict:
                 manifesto["responsaveis"] = {
                     **novo_manifesto_rascunho()["responsaveis"],
                     **manifesto.get("responsaveis", {}),
+                }
+                manifesto["documentos"] = {
+                    **novo_manifesto_rascunho()["documentos"],
+                    **manifesto.get("documentos", {}),
                 }
                 manifesto["assinaturas"] = {
                     **novo_manifesto_rascunho()["assinaturas"],
@@ -1829,6 +1850,10 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
         if chave in ASSINATURAS_RESPONSAVEIS:
             manifesto["responsaveis"][chave] = texto or ""
 
+    for chave, texto in (pacote.get("documentos") or {}).items():
+        if chave in ASSINATURAS_RESPONSAVEIS:
+            manifesto["documentos"][chave] = texto or ""
+
     audios = []
     for indice, item in enumerate(pacote.get("audios") or []):
         audio = salvar_item_offline_rascunho(
@@ -1894,6 +1919,7 @@ def aplicar_manifesto_na_sessao(manifesto: dict) -> None:
         st.session_state[f"legenda_{categoria}"] = manifesto.get("legendas_evidencias", {}).get(categoria, "")
     for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
         st.session_state[configuracao["campo"]] = manifesto.get("responsaveis", {}).get(chave, "")
+        st.session_state[configuracao["campo_documento"]] = manifesto.get("documentos", {}).get(chave, "")
 
 
 def uploaded_file_para_item_pacote(uploaded_file) -> dict | None:
@@ -1946,10 +1972,9 @@ def canvas_para_item_pacote(canvas_result, nome: str) -> dict | None:
 
 def renderizar_coleta_streamlit() -> None:
     st.markdown(
-        "<p class='section-title'>Coleta de campo</p><p class='section-caption'>Use esta tela no iPad quando a coleta offline estática não abrir. Ela gera o mesmo pacote para sincronização.</p>",
+        "<p class='section-title'>Coleta de campo</p>",
         unsafe_allow_html=True,
     )
-    st.warning("Mantenha esta aba aberta durante o preenchimento. Esta coleta funciona dentro do Streamlit e evita a tela branca da página estática.")
 
     with st.container(border=True):
         st.markdown("### 1. Relato técnico")
@@ -1962,12 +1987,10 @@ def renderizar_coleta_streamlit() -> None:
         )
         coleta_localizacao_maps = st.text_input(
             "Link de localização da fazenda no Maps",
-            placeholder="Cole aqui o link compartilhado pelo Google Maps/Apple Maps ou as coordenadas.",
             key="coleta_localizacao_maps",
         )
         coleta_observacoes = st.text_area(
             "Complemento técnico",
-            placeholder="Cliente, local, máquina, equipamento, versões, falhas, parâmetros, calibrações, pendências e conclusão.",
             height=150,
             key="coleta_observacoes",
         )
@@ -1994,7 +2017,6 @@ def renderizar_coleta_streamlit() -> None:
         coleta_configuracao = col_e2.file_uploader("Configurações", type=list(EXTENSOES_IMAGEM), accept_multiple_files=True, key="coleta_configuracao")
         coleta_outros = col_e2.file_uploader("Outros registros", type=list(EXTENSOES_IMAGEM), accept_multiple_files=True, key="coleta_outros")
 
-        st.caption("Uma linha por foto, na ordem do upload. Formato: Título | legenda | fonte.")
         coleta_legendas = {
             "fotos_equipamento": st.text_area("Legendas - Equipamento", height=80, key="coleta_leg_equipamento"),
             "fotos_instalacao": st.text_area("Legendas - Instalação", height=80, key="coleta_leg_instalacao"),
@@ -2005,10 +2027,14 @@ def renderizar_coleta_streamlit() -> None:
     with st.container(border=True):
         st.markdown("### 4. Assinaturas")
         col_nome1, col_nome2 = st.columns(2)
-        responsaveis = {
-            "revenda_fabrica": col_nome1.text_input("Responsável da revenda/fábrica", key="coleta_resp_revenda"),
-            "fazenda": col_nome2.text_input("Responsável da fazenda", key="coleta_resp_fazenda"),
-        }
+        with col_nome1:
+            responsavel_revenda = st.text_input("Responsável da revenda/fábrica", key="coleta_resp_revenda")
+            documento_revenda = st.text_input("CPF/RG", key="coleta_doc_revenda")
+        with col_nome2:
+            responsavel_fazenda = st.text_input("Responsável da fazenda", key="coleta_resp_fazenda")
+            documento_fazenda = st.text_input("CPF/RG", key="coleta_doc_fazenda")
+        responsaveis = {"revenda_fabrica": responsavel_revenda, "fazenda": responsavel_fazenda}
+        documentos = {"revenda_fabrica": documento_revenda, "fazenda": documento_fazenda}
         assinaturas = {"revenda_fabrica": None, "fazenda": None}
         if st_canvas is not None:
             usar_coleta_ampliada = st.toggle(
@@ -2078,6 +2104,7 @@ def renderizar_coleta_streamlit() -> None:
         },
         "legendas_evidencias": coleta_legendas,
         "responsaveis": responsaveis,
+        "documentos": documentos,
         "assinaturas": {},
     }
 
@@ -2168,6 +2195,7 @@ def atualizar_rascunho_atual(
     observacoes: str,
     legendas: dict,
     responsaveis: dict | None = None,
+    documentos: dict | None = None,
     assinaturas_canvas: dict | None = None,
     assinaturas_upload: dict | None = None,
 ) -> dict:
@@ -2213,6 +2241,10 @@ def atualizar_rascunho_atual(
     for chave, texto in (responsaveis or {}).items():
         if chave in ASSINATURAS_RESPONSAVEIS:
             manifesto["responsaveis"][chave] = texto or ""
+
+    for chave, texto in (documentos or {}).items():
+        if chave in ASSINATURAS_RESPONSAVEIS:
+            manifesto["documentos"][chave] = texto or ""
 
     for chave, resultado in (assinaturas_canvas or {}).items():
         if chave in ASSINATURAS_RESPONSAVEIS:
@@ -2305,6 +2337,9 @@ for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
     campo = configuracao["campo"]
     if campo not in st.session_state:
         st.session_state[campo] = manifesto_rascunho.get("responsaveis", {}).get(chave, "")
+    campo_documento = configuracao["campo_documento"]
+    if campo_documento not in st.session_state:
+        st.session_state[campo_documento] = manifesto_rascunho.get("documentos", {}).get(chave, "")
 
 logo_uri = imagem_data_uri(LOGO_PATH)
 logo_html = f'<img class="brand-logo" src="{logo_uri}" alt="Agres">' if logo_uri else ""
@@ -2313,9 +2348,7 @@ st.markdown(
     <section class="brand-hero">
         {logo_html}
         <div class="brand-copy">
-            <div class="brand-kicker">Relatórios de campo</div>
             <div class="brand-title">Relatórios Técnicos Agres</div>
-            <p class="brand-subtitle">Gere laudos profissionais com áudio, fotos, salvamento automático e evidências fotográficas padronizadas em Word.</p>
         </div>
     </section>
     """,
@@ -2323,15 +2356,12 @@ st.markdown(
 )
 
 if st.session_state.pop("importacao_offline_ok", False):
-    st.success("Pacote offline sincronizado com o rascunho atual.")
+    st.success("Pacote offline sincronizado.")
 
 with st.container(border=True):
     st.markdown(
-        "<p class='section-title'>Coleta de campo</p><p class='section-caption'>Tela de coleta compatível com iPad, sem rota estática e sem tela branca.</p>",
+        "<p class='section-title'>Coleta de campo</p>",
         unsafe_allow_html=True,
-    )
-    st.info(
-        "Abra pelo link HTTPS do Streamlit Cloud no Safari do iPad. Esta coleta roda dentro do próprio app, evitando o problema da página branca."
     )
     st.markdown(
         """
@@ -2351,7 +2381,6 @@ with st.container(border=True):
         """,
         unsafe_allow_html=True,
     )
-    st.caption("Depois de preencher, use uma das opções abaixo para sincronizar o pacote offline com este rascunho.")
     aba_pacote_arquivo, aba_pacote_texto = st.tabs(["Carregar arquivo JSON", "Colar pacote copiado"])
 
     with aba_pacote_arquivo:
@@ -2359,9 +2388,8 @@ with st.container(border=True):
             "Selecione o arquivo JSON exportado pela coleta offline",
             type=["json", "txt"],
             key="pacote_offline",
-            help="No iPad, normalmente fica em Arquivos > Downloads ou no local escolhido ao compartilhar/exportar.",
         )
-        if st.button("Carregar arquivo JSON no rascunho", use_container_width=True, key="btn_importar_pacote_arquivo"):
+        if st.button("Carregar arquivo JSON", use_container_width=True, key="btn_importar_pacote_arquivo"):
             if not pacote_offline:
                 st.warning("Selecione o arquivo JSON da coleta offline antes de carregar.")
             else:
@@ -2374,11 +2402,10 @@ with st.container(border=True):
     with aba_pacote_texto:
         pacote_offline_texto = st.text_area(
             "Cole aqui o pacote copiado no modo offline",
-            placeholder="Cole aqui o texto JSON copiado pelo botão 'Copiar pacote' da coleta offline.",
             height=150,
             key="pacote_offline_texto",
         )
-        if st.button("Importar texto copiado no rascunho", use_container_width=True, key="btn_importar_pacote_texto"):
+        if st.button("Importar texto copiado", use_container_width=True, key="btn_importar_pacote_texto"):
             if not limpar_texto(pacote_offline_texto):
                 st.warning("Cole o pacote copiado pela coleta offline antes de importar.")
             else:
@@ -2390,7 +2417,7 @@ with st.container(border=True):
 
 with st.container(border=True):
     st.markdown(
-        "<p class='section-title'>1. Relato técnico</p><p class='section-caption'>Áudio, arquivos gravados e complemento escrito do atendimento.</p>",
+        "<p class='section-title'>1. Relato técnico</p>",
         unsafe_allow_html=True,
     )
     tipo_atendimento = st.radio(
@@ -2402,13 +2429,11 @@ with st.container(border=True):
     )
     localizacao_maps = st.text_input(
         "Link de localização da fazenda no Maps",
-        placeholder="Cole aqui o link compartilhado pelo Google Maps/Apple Maps ou as coordenadas da fazenda.",
         key="localizacao_maps",
     )
     aba1, aba2 = st.tabs(["🔴 Gravar agora", "📁 Arquivos do celular"])
 
     with aba1:
-        st.info("Grave por trechos. Use 'Remover' para apagar um áudio específico.")
         audios_rec = []
         for i, id_gravador in enumerate(st.session_state.lista_gravadores):
             col_gravador, col_excluir = st.columns([0.80, 0.20], vertical_alignment="bottom")
@@ -2438,14 +2463,13 @@ with st.container(border=True):
 
     observacoes_texto = st.text_area(
         "Complemento técnico opcional",
-        placeholder="Cliente, local, máquina, equipamento, séries, versões, falhas, parâmetros, calibrações ou pendências.",
         height=120,
         key="observacoes_texto",
     )
 
 with st.container(border=True):
     st.markdown(
-        "<p class='section-title'>2. Cabeçalho do relatório</p><p class='section-caption'>Fotos de identificação do equipamento, máquina e implemento.</p>",
+        "<p class='section-title'>2. Cabeçalho do relatório</p>",
         unsafe_allow_html=True,
     )
     col_plaqueta, col_maquina, col_implemento = st.columns(3)
@@ -2455,7 +2479,7 @@ with st.container(border=True):
 
 with st.container(border=True):
     st.markdown(
-        "<p class='section-title'>3. Evidências fotográficas</p><p class='section-caption'>As imagens são padronizadas para duas figuras por página no Word.</p>",
+        "<p class='section-title'>3. Evidências fotográficas</p>",
         unsafe_allow_html=True,
     )
     col_e1, col_e2 = st.columns(2)
@@ -2465,7 +2489,6 @@ with st.container(border=True):
     f_out = col_e2.file_uploader("📂 Outros registros", accept_multiple_files=True, type=list(EXTENSOES_IMAGEM))
 
     with st.expander("Títulos e legendas das evidências", expanded=False):
-        st.caption("Uma linha por foto, na ordem do upload. Formato: Título | legenda | fonte.")
         legendas_evidencias = {
             "fotos_equipamento": st.text_area(
                 "Equipamento Agres",
@@ -2496,29 +2519,43 @@ with st.container(border=True):
 
 with st.container(border=True):
     st.markdown(
-        "<p class='section-title'>4. Assinaturas</p><p class='section-caption'>Responsáveis que validam o atendimento em campo.</p>",
+        "<p class='section-title'>4. Assinaturas</p>",
         unsafe_allow_html=True,
     )
     col_nome_revenda, col_nome_fazenda = st.columns(2)
-    responsaveis_assinaturas = {
-        "revenda_fabrica": col_nome_revenda.text_input(
+    with col_nome_revenda:
+        responsavel_revenda_fabrica = st.text_input(
             ASSINATURAS_RESPONSAVEIS["revenda_fabrica"]["label"],
             placeholder="Nome do responsável",
             key=ASSINATURAS_RESPONSAVEIS["revenda_fabrica"]["campo"],
-        ),
-        "fazenda": col_nome_fazenda.text_input(
+        )
+        documento_revenda_fabrica = st.text_input(
+            "CPF/RG",
+            key=ASSINATURAS_RESPONSAVEIS["revenda_fabrica"]["campo_documento"],
+        )
+    with col_nome_fazenda:
+        responsavel_fazenda = st.text_input(
             ASSINATURAS_RESPONSAVEIS["fazenda"]["label"],
             placeholder="Nome do responsável",
             key=ASSINATURAS_RESPONSAVEIS["fazenda"]["campo"],
-        ),
+        )
+        documento_fazenda = st.text_input(
+            "CPF/RG",
+            key=ASSINATURAS_RESPONSAVEIS["fazenda"]["campo_documento"],
+        )
+    responsaveis_assinaturas = {
+        "revenda_fabrica": responsavel_revenda_fabrica,
+        "fazenda": responsavel_fazenda,
+    }
+    documentos_assinaturas = {
+        "revenda_fabrica": documento_revenda_fabrica,
+        "fazenda": documento_fazenda,
     }
 
-    st.caption("Assine diretamente na tela do celular ou iPad. Ative a área ampliada quando precisar de mais espaço para assinar.")
     usar_assinatura_ampliada = st.toggle(
         "Usar área de assinatura ampliada",
         value=False,
         key="usar_assinatura_ampliada",
-        help="No iPad, use esta opção em modo horizontal para ter uma área maior de assinatura.",
     )
     assinaturas_canvas = {}
     assinaturas_upload = {}
@@ -2534,7 +2571,7 @@ with st.container(border=True):
         with coluna:
             st.markdown(f"**{configuracao['titulo']}**")
             if manifesto_rascunho.get("assinaturas", {}).get(chave):
-                st.caption("Assinatura salva no rascunho.")
+                st.caption("Assinatura salva.")
 
             if st_canvas is not None:
                 assinaturas_canvas[chave] = st_canvas(
@@ -2584,6 +2621,7 @@ manifesto_rascunho = atualizar_rascunho_atual(
     observacoes_texto,
     legendas_evidencias,
     responsaveis_assinaturas,
+    documentos_assinaturas,
     assinaturas_canvas,
     assinaturas_upload,
 )
@@ -2602,6 +2640,11 @@ responsaveis_salvos = {
     or manifesto_rascunho.get("responsaveis", {}).get(chave, "")
     for chave in ASSINATURAS_RESPONSAVEIS
 }
+documentos_salvos = {
+    chave: limpar_texto(documentos_assinaturas.get(chave, ""))
+    or manifesto_rascunho.get("documentos", {}).get(chave, "")
+    for chave in ASSINATURAS_RESPONSAVEIS
+}
 tipo_atendimento_salvo = normalizar_tipo_atendimento(
     tipo_atendimento or manifesto_rascunho.get("tipo_atendimento"),
     "suporte",
@@ -2612,10 +2655,9 @@ entrada_disponivel = bool(caminhos_audio_salvos) or bool(limpar_texto(observacoe
 
 with st.container(border=True):
     st.markdown(
-        "<p class='section-title'>5. Gerar relatório</p><p class='section-caption'>O Word será gerado com nomenclatura técnica, arquivos preservados e evidências em padrão ABNT.</p>",
+        "<p class='section-title'>5. Gerar relatório</p>",
         unsafe_allow_html=True,
     )
-    st.caption("Salvamento automático ativo durante o preenchimento.")
 
     if entrada_disponivel and st.button("Gerar relatório técnico", type="primary", use_container_width=True):
         st.session_state.relatorio_pronto = None
@@ -2625,9 +2667,7 @@ with st.container(border=True):
             with tempfile.TemporaryDirectory() as pasta_temp_raw:
                 pasta_temp = Path(pasta_temp_raw)
 
-                with st.status("Processando dados e imagens...", expanded=True) as status:
-                    st.write("Usando arquivos salvos automaticamente.")
-                    st.write("Extraindo e organizando informações técnicas.")
+                with st.status("Gerando relatório...", expanded=False) as status:
                     dados = processar_atendimento_completo(caminhos_audio_salvos, observacoes_salvas)
                     dados["localizacao_maps"] = localizacao_maps_salva or dados.get("localizacao_maps", "")
                     aplicar_tipo_atendimento_unico(dados, tipo_atendimento_salvo)
@@ -2635,8 +2675,10 @@ with st.container(border=True):
                         responsavel = limpar_texto(responsaveis_salvos.get(chave, ""))
                         if responsavel:
                             dados[configuracao["campo"]] = responsavel
+                        documento = limpar_texto(documentos_salvos.get(chave, ""))
+                        if documento:
+                            dados[configuracao["campo_documento"]] = documento
 
-                    st.write("Renderizando relatório Word.")
                     arquivo_final = gerar_docx(
                         dados,
                         evidencias_salvas,

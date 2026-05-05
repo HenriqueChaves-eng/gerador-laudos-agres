@@ -145,6 +145,10 @@
       color: var(--ink);
       font: inherit;
     }
+    .field input + input,
+    .field input + canvas {
+      margin-top: 8px;
+    }
     textarea {
       min-height: 128px;
       resize: vertical;
@@ -170,6 +174,23 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
       margin-top: 12px;
+    }
+    .radio-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .radio-grid label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      margin: 0;
+      padding: 10px;
+      border: 1px solid #c9ccd1;
+      border-radius: 9px;
+      background: #f7f8f9;
+      font-weight: 800;
     }
     button,
     .button {
@@ -374,7 +395,8 @@
       }
       .hero img { width: 150px; max-width: 74vw; }
       .grid,
-      .actions {
+      .actions,
+      .radio-grid {
         grid-template-columns: 1fr;
       }
       .signature-actions,
@@ -394,30 +416,34 @@
     <div class="hero">
       <img src="./logo_agres.png" alt="Agres">
       <div>
-        <div class="kicker">Coleta offline</div>
         <h1>Relatório Técnico Agres</h1>
-        <p>Preenchimento local para campo, com exportação do pacote para geração posterior no Streamlit.</p>
       </div>
     </div>
 
-    <div class="status">
-      <div>
-        <strong id="saveStatus">Rascunho salvo no aparelho.</strong>
-        <div class="small" id="storageStatus">Armazenamento local ativo.</div>
-      </div>
-      <span class="badge" id="networkStatus">Verificando</span>
-    </div>
-    <div class="notice ok" id="installNotice">
-      <strong>Modo correto no iPad</strong>
-      Abra esta página pela versão publicada em HTTPS do Streamlit, toque em Compartilhar e escolha Adicionar à Tela de Início. Depois disso, a coleta abre sem internet.
-    </div>
     <div class="notice warning" id="secureNotice" hidden>
       <strong>Microfone bloqueado pelo Safari</strong>
-      Para gravar áudio no iPad, use o link HTTPS da versão publicada no Streamlit Cloud. Acesso por arquivo baixado ou por http://192... pode bloquear o microfone.
+      Abra pelo link HTTPS do GitHub Pages.
     </div>
 
     <section>
       <h2>1. Relato técnico</h2>
+      <div class="field">
+        <label>Tipo de atendimento</label>
+        <div class="radio-grid">
+          <label><input type="radio" name="tipo_atendimento" value="suporte"> Suporte</label>
+          <label><input type="radio" name="tipo_atendimento" value="instalacao"> Instalação</label>
+          <label><input type="radio" name="tipo_atendimento" value="treinamento"> Treinamento</label>
+        </div>
+      </div>
+      <div class="field">
+        <label for="localizacao_maps">Link de localização da fazenda no Maps</label>
+        <input id="localizacao_maps" type="text" placeholder="Cole o link do Google Maps/Apple Maps ou as coordenadas">
+        <div class="actions">
+          <button type="button" id="currentLocationBtn">Usar localização atual</button>
+          <button type="button" id="openMapsBtn">Abrir Maps</button>
+        </div>
+        <p class="hint" id="locationHint"></p>
+      </div>
       <div class="field">
         <label for="observacoes">Complemento técnico</label>
         <textarea id="observacoes" placeholder="Cliente, local, máquina, equipamento, versões, falhas, parâmetros, calibrações, pendências e conclusão do atendimento."></textarea>
@@ -426,7 +452,7 @@
         <button type="button" class="primary" id="recordBtn">Gravar áudio</button>
         <button type="button" id="stopBtn" disabled>Parar gravação</button>
       </div>
-      <p class="hint" id="recordHint">Os áudios gravados ficam salvos neste aparelho até a exportação do pacote.</p>
+      <p class="hint" id="recordHint"></p>
       <div class="field">
         <label for="audioFiles">Áudios do celular</label>
         <input id="audioFiles" type="file" accept="audio/*" multiple>
@@ -440,19 +466,19 @@
         <div class="field">
           <label for="info_equip">Informações do equipamento</label>
           <input id="info_equip" type="file" accept="image/*">
-          <p class="hint" id="info_equip_status">Nenhum arquivo selecionado.</p>
+          <p class="hint" id="info_equip_status"></p>
           <div class="preview-grid" id="info_equip_preview"></div>
         </div>
         <div class="field">
           <label for="maquina">Máquina</label>
           <input id="maquina" type="file" accept="image/*">
-          <p class="hint" id="maquina_status">Nenhum arquivo selecionado.</p>
+          <p class="hint" id="maquina_status"></p>
           <div class="preview-grid" id="maquina_preview"></div>
         </div>
         <div class="field">
           <label for="implemento">Implemento</label>
           <input id="implemento" type="file" accept="image/*">
-          <p class="hint" id="implemento_status">Nenhum arquivo selecionado.</p>
+          <p class="hint" id="implemento_status"></p>
           <div class="preview-grid" id="implemento_preview"></div>
         </div>
       </div>
@@ -464,25 +490,25 @@
         <div class="field">
           <label for="fotos_equipamento">Equipamento Agres</label>
           <input id="fotos_equipamento" type="file" accept="image/*" multiple>
-          <p class="hint" id="fotos_equipamento_status">0 imagens.</p>
+          <p class="hint" id="fotos_equipamento_status"></p>
           <div class="preview-grid" id="fotos_equipamento_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_instalacao">Instalação</label>
           <input id="fotos_instalacao" type="file" accept="image/*" multiple>
-          <p class="hint" id="fotos_instalacao_status">0 imagens.</p>
+          <p class="hint" id="fotos_instalacao_status"></p>
           <div class="preview-grid" id="fotos_instalacao_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_configuracao">Configurações</label>
           <input id="fotos_configuracao" type="file" accept="image/*" multiple>
-          <p class="hint" id="fotos_configuracao_status">0 imagens.</p>
+          <p class="hint" id="fotos_configuracao_status"></p>
           <div class="preview-grid" id="fotos_configuracao_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_outros">Outros registros</label>
           <input id="fotos_outros" type="file" accept="image/*" multiple>
-          <p class="hint" id="fotos_outros_status">0 imagens.</p>
+          <p class="hint" id="fotos_outros_status"></p>
           <div class="preview-grid" id="fotos_outros_preview"></div>
         </div>
       </div>
@@ -512,6 +538,7 @@
         <div class="field">
           <label for="responsavel_revenda_fabrica">Responsável da revenda/fábrica</label>
           <input id="responsavel_revenda_fabrica" type="text" placeholder="Nome do responsável">
+          <input id="documento_revenda_fabrica" type="text" placeholder="CPF/RG">
           <canvas id="assinatura_revenda_fabrica"></canvas>
           <div class="signature-actions">
             <button type="button" class="primary" data-open-signature="revenda_fabrica">Assinar em tela cheia</button>
@@ -521,6 +548,7 @@
         <div class="field">
           <label for="responsavel_fazenda">Responsável da fazenda</label>
           <input id="responsavel_fazenda" type="text" placeholder="Nome do responsável">
+          <input id="documento_fazenda" type="text" placeholder="CPF/RG">
           <canvas id="assinatura_fazenda"></canvas>
           <div class="signature-actions">
             <button type="button" class="primary" data-open-signature="fazenda">Assinar em tela cheia</button>
@@ -532,9 +560,11 @@
 
     <section>
       <h2>5. Sincronização</h2>
-      <p class="hint">Quando a internet voltar, envie o pacote para o app online. No iPad, o jeito mais fácil costuma ser copiar o pacote e colar no campo de sincronização do Streamlit.</p>
       <div class="sync-panel">
+        <label for="onlineAppUrl">Link do app online Streamlit</label>
+        <input id="onlineAppUrl" type="text" placeholder="https://seu-app.streamlit.app">
         <button type="button" id="copyPackageBtn">Copiar pacote para colar no app online</button>
+        <button type="button" id="selectPackageBtn">Selecionar pacote manualmente</button>
         <button type="button" id="sharePackageBtn">Compartilhar pacote JSON</button>
         <button type="button" id="openOnlineBtn">Abrir app online</button>
         <textarea class="sync-output" id="packageText" readonly aria-label="Pacote offline para copiar"></textarea>
@@ -543,7 +573,7 @@
       <div class="footer-actions">
         <div class="actions">
           <button type="button" class="primary" id="exportBtn">Exportar pacote offline</button>
-          <button type="button" class="danger" id="clearBtn">Apagar rascunho local</button>
+          <button type="button" class="danger" id="clearBtn">Limpar coleta</button>
         </div>
       </div>
     </section>
@@ -553,7 +583,6 @@
     <div class="signature-modal-header">
       <div>
         <h2 class="signature-modal-title" id="signatureModalTitle">Assinatura</h2>
-        <p class="signature-modal-subtitle">Use o dedo ou Apple Pencil. Gire o iPad se quiser mais largura.</p>
       </div>
       <button type="button" id="closeSignatureModal">Fechar</button>
     </div>
@@ -597,6 +626,8 @@
       return {
         version: 1,
         updated_at: new Date().toISOString(),
+        tipo_atendimento: "suporte",
+        localizacao_maps: "",
         observacoes: "",
         audios: [],
         cabecalho: { info_equip: null, maquina: null, implemento: null },
@@ -613,6 +644,7 @@
           fotos_outros: ""
         },
         responsaveis: { revenda_fabrica: "", fazenda: "" },
+        documentos: { revenda_fabrica: "", fazenda: "" },
         assinaturas: { revenda_fabrica: null, fazenda: null }
       };
     }
@@ -649,9 +681,7 @@
       clearTimeout(saveTimer);
       saveTimer = setTimeout(async () => {
         await putDraft();
-        document.getElementById("saveStatus").textContent = "Rascunho salvo no aparelho.";
       }, 250);
-      document.getElementById("saveStatus").textContent = "Salvando rascunho...";
     }
 
     function readFile(file) {
@@ -675,6 +705,7 @@
 
     function updateNetwork() {
       const badge = document.getElementById("networkStatus");
+      if (!badge) return;
       if (navigator.onLine) {
         badge.textContent = "Online";
         badge.className = "badge online";
@@ -686,6 +717,7 @@
 
     function updateSecureNotice() {
       const notice = document.getElementById("secureNotice");
+      if (!notice) return;
       if (!window.isSecureContext) {
         notice.hidden = false;
       } else {
@@ -696,7 +728,7 @@
     function updateCounts() {
       HEADERS.forEach((key) => {
         const item = draft.cabecalho[key];
-        document.getElementById(`${key}_status`).textContent = item ? item.name : "Nenhum arquivo selecionado.";
+        document.getElementById(`${key}_status`).textContent = item ? item.name : "";
         renderImagePreview(`${key}_preview`, item ? [item] : [], (index) => {
           draft.cabecalho[key] = null;
           updateCounts();
@@ -704,7 +736,8 @@
         });
       });
       CATEGORIES.forEach((key) => {
-        document.getElementById(`${key}_status`).textContent = `${draft.evidencias[key].length} imagens.`;
+        const total = draft.evidencias[key].length;
+        document.getElementById(`${key}_status`).textContent = total ? `${total} imagens.` : "";
         renderImagePreview(`${key}_preview`, draft.evidencias[key], (index) => {
           draft.evidencias[key].splice(index, 1);
           updateCounts();
@@ -846,7 +879,7 @@
       recorderMode = "";
       document.getElementById("recordBtn").disabled = false;
       document.getElementById("stopBtn").disabled = true;
-      document.getElementById("recordHint").textContent = "Áudio salvo no rascunho local.";
+      document.getElementById("recordHint").textContent = "Áudio salvo.";
       scheduleSave();
       renderAudios();
     }
@@ -926,11 +959,11 @@
 
     async function startRecording() {
       if (!window.isSecureContext) {
-        document.getElementById("recordHint").textContent = "O Safari bloqueia microfone em HTTP ou arquivo local. Abra pela URL HTTPS publicada no Streamlit e instale na Tela de Início.";
+        document.getElementById("recordHint").textContent = "Microfone bloqueado em HTTP. Abra pelo link HTTPS.";
         return;
       }
       if (!navigator.mediaDevices?.getUserMedia) {
-        document.getElementById("recordHint").textContent = "Microfone indisponível neste navegador. Atualize o iPadOS/Safari ou envie um áudio gravado no app Gravador.";
+        document.getElementById("recordHint").textContent = "Microfone indisponível neste navegador.";
         return;
       }
 
@@ -942,7 +975,7 @@
       await requestWakeLock();
       document.getElementById("recordBtn").disabled = true;
       document.getElementById("stopBtn").disabled = false;
-      document.getElementById("recordHint").textContent = recorderMode === "wav" ? "Gravando áudio em WAV..." : "Gravando áudio...";
+      document.getElementById("recordHint").textContent = "Gravando...";
     }
 
     async function stopRecording() {
@@ -1093,19 +1126,41 @@
     }
 
     function hydrateFields() {
+      const tipo = draft.tipo_atendimento || "suporte";
+      const tipoInput = document.querySelector(`input[name="tipo_atendimento"][value="${tipo}"]`);
+      if (tipoInput) tipoInput.checked = true;
+      document.getElementById("localizacao_maps").value = draft.localizacao_maps || "";
       document.getElementById("observacoes").value = draft.observacoes || "";
+      document.getElementById("onlineAppUrl").value = localStorage.getItem("agresOnlineAppUrl") || "";
       CATEGORIES.forEach((key) => {
         document.getElementById(`legenda_${key}`).value = draft.legendas_evidencias[key] || "";
       });
       document.getElementById("responsavel_revenda_fabrica").value = draft.responsaveis.revenda_fabrica || "";
+      document.getElementById("documento_revenda_fabrica").value = draft.documentos.revenda_fabrica || "";
       document.getElementById("responsavel_fazenda").value = draft.responsaveis.fazenda || "";
+      document.getElementById("documento_fazenda").value = draft.documentos.fazenda || "";
       updateCounts();
     }
 
     function wireFields() {
+      document.querySelectorAll('input[name="tipo_atendimento"]').forEach((input) => {
+        input.addEventListener("change", (event) => {
+          if (event.target.checked) {
+            draft.tipo_atendimento = event.target.value;
+            scheduleSave();
+          }
+        });
+      });
+      document.getElementById("localizacao_maps").addEventListener("input", (event) => {
+        draft.localizacao_maps = event.target.value.trim();
+        scheduleSave();
+      });
       document.getElementById("observacoes").addEventListener("input", (event) => {
         draft.observacoes = event.target.value;
         scheduleSave();
+      });
+      document.getElementById("onlineAppUrl").addEventListener("input", (event) => {
+        localStorage.setItem("agresOnlineAppUrl", event.target.value.trim());
       });
 
       CATEGORIES.forEach((key) => {
@@ -1136,8 +1191,16 @@
         draft.responsaveis.revenda_fabrica = event.target.value;
         scheduleSave();
       });
+      document.getElementById("documento_revenda_fabrica").addEventListener("input", (event) => {
+        draft.documentos.revenda_fabrica = event.target.value;
+        scheduleSave();
+      });
       document.getElementById("responsavel_fazenda").addEventListener("input", (event) => {
         draft.responsaveis.fazenda = event.target.value;
+        scheduleSave();
+      });
+      document.getElementById("documento_fazenda").addEventListener("input", (event) => {
+        draft.documentos.fazenda = event.target.value;
         scheduleSave();
       });
 
@@ -1195,8 +1258,11 @@
       });
 
       document.getElementById("copyPackageBtn").addEventListener("click", copyPackage);
+      document.getElementById("selectPackageBtn").addEventListener("click", selectPackageText);
       document.getElementById("sharePackageBtn").addEventListener("click", sharePackage);
       document.getElementById("openOnlineBtn").addEventListener("click", openOnlineApp);
+      document.getElementById("currentLocationBtn").addEventListener("click", useCurrentLocation);
+      document.getElementById("openMapsBtn").addEventListener("click", openMaps);
       document.getElementById("exportBtn").addEventListener("click", exportDraft);
       document.getElementById("clearBtn").addEventListener("click", clearDraft);
     }
@@ -1206,10 +1272,14 @@
       return `agres_coleta_offline_${stamp}.json`;
     }
 
-    async function packageText() {
-      await putDraft();
+    function packageTextSync() {
       const pacote = { ...draft, exported_at: new Date().toISOString() };
       return JSON.stringify(pacote);
+    }
+
+    async function packageText() {
+      await putDraft();
+      return packageTextSync();
     }
 
     async function packageBlob() {
@@ -1218,6 +1288,73 @@
 
     function setSyncMessage(texto) {
       document.getElementById("syncMessage").textContent = texto || "";
+    }
+
+    function setLocationHint(texto) {
+      document.getElementById("locationHint").textContent = texto || "";
+    }
+
+    function useCurrentLocation() {
+      if (!navigator.geolocation) {
+        setLocationHint("Localização indisponível. Cole o link do Maps.");
+        return;
+      }
+      setLocationHint("Buscando localização...");
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude.toFixed(6);
+          const lng = position.coords.longitude.toFixed(6);
+          const link = `https://maps.google.com/?q=${lat},${lng}`;
+          draft.localizacao_maps = link;
+          document.getElementById("localizacao_maps").value = link;
+          scheduleSave();
+          setLocationHint("Localização adicionada.");
+        },
+        () => setLocationHint("Não foi possível obter a localização."),
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+      );
+    }
+
+    function openMaps() {
+      const link = (draft.localizacao_maps || document.getElementById("localizacao_maps").value || "").trim();
+      if (link) {
+        window.open(link, "_blank", "noopener");
+      } else {
+        window.open("https://maps.google.com/", "_blank", "noopener");
+      }
+    }
+
+    function revealPackageText(text) {
+      const output = document.getElementById("packageText");
+      output.value = text || packageTextSync();
+      output.classList.add("visible");
+      return output;
+    }
+
+    function selectPackageText() {
+      const output = revealPackageText();
+      output.focus({ preventScroll: false });
+      output.select();
+      output.setSelectionRange(0, output.value.length);
+      setSyncMessage("Pacote selecionado. Toque em Copiar e depois cole no campo de sincronização do app online.");
+    }
+
+    function copyPackageWithLegacyFallback(output) {
+      const wasReadOnly = output.hasAttribute("readonly");
+      if (wasReadOnly) output.removeAttribute("readonly");
+      output.focus({ preventScroll: false });
+      output.select();
+      output.setSelectionRange(0, output.value.length);
+
+      let copied = false;
+      try {
+        copied = document.execCommand("copy");
+      } catch (error) {
+        copied = false;
+      }
+
+      if (wasReadOnly) output.setAttribute("readonly", "readonly");
+      return copied;
     }
 
     async function exportDraft() {
@@ -1234,10 +1371,9 @@
     }
 
     async function copyPackage() {
-      const text = await packageText();
-      const output = document.getElementById("packageText");
-      output.value = text;
-      output.classList.add("visible");
+      const text = packageTextSync();
+      const output = revealPackageText(text);
+      putDraft().catch(() => {});
 
       try {
         if (!navigator.clipboard?.writeText) {
@@ -1246,9 +1382,12 @@
         await navigator.clipboard.writeText(text);
         setSyncMessage("Pacote copiado. Volte ao app online e cole no campo de sincronização.");
       } catch (error) {
-        output.focus();
-        output.select();
-        setSyncMessage("Não foi possível copiar automaticamente. Selecione o texto exibido, copie e cole no app online.");
+        if (copyPackageWithLegacyFallback(output)) {
+          setSyncMessage("Pacote copiado pelo modo compatível. Volte ao app online e cole no campo de sincronização.");
+        } else {
+          selectPackageText();
+          setSyncMessage("O Safari bloqueou a cópia automática. O pacote ficou selecionado: toque em Copiar e cole no app online.");
+        }
       }
     }
 
@@ -1278,11 +1417,18 @@
     }
 
     function openOnlineApp() {
-      window.open("/", "_blank", "noopener");
+      const url = (document.getElementById("onlineAppUrl").value || localStorage.getItem("agresOnlineAppUrl") || "").trim();
+      if (!url || !/^https:\/\//i.test(url)) {
+        setSyncMessage("Informe o link HTTPS do app Streamlit antes de abrir o app online.");
+        document.getElementById("onlineAppUrl").focus();
+        return;
+      }
+      localStorage.setItem("agresOnlineAppUrl", url);
+      window.open(url, "_blank", "noopener");
     }
 
     async function clearDraft() {
-      if (!confirm("Apagar todo o rascunho offline deste aparelho?")) return;
+      if (!confirm("Limpar todos os dados desta coleta?")) return;
       draft = defaultDraft();
       await putDraft();
       location.reload();
@@ -1298,16 +1444,20 @@
       }
       if (navigator.storage?.persist) {
         const persisted = await navigator.storage.persist();
-        document.getElementById("storageStatus").textContent = persisted
-          ? "Armazenamento local protegido."
-          : "Armazenamento local ativo.";
+        const storageStatus = document.getElementById("storageStatus");
+        if (storageStatus) {
+          storageStatus.textContent = persisted ? "Armazenamento local protegido." : "Armazenamento local ativo.";
+        }
       }
       db = await openDb();
       draft = { ...defaultDraft(), ...(await getDraft()) };
+      draft.tipo_atendimento = draft.tipo_atendimento || "suporte";
+      draft.localizacao_maps = draft.localizacao_maps || "";
       draft.cabecalho = { ...defaultDraft().cabecalho, ...(draft.cabecalho || {}) };
       draft.evidencias = { ...defaultDraft().evidencias, ...(draft.evidencias || {}) };
       draft.legendas_evidencias = { ...defaultDraft().legendas_evidencias, ...(draft.legendas_evidencias || {}) };
       draft.responsaveis = { ...defaultDraft().responsaveis, ...(draft.responsaveis || {}) };
+      draft.documentos = { ...defaultDraft().documentos, ...(draft.documentos || {}) };
       draft.assinaturas = { ...defaultDraft().assinaturas, ...(draft.assinaturas || {}) };
       hydrateFields();
       wireFields();
@@ -1315,7 +1465,7 @@
     }
 
     init().catch((error) => {
-      document.getElementById("saveStatus").textContent = `Erro no modo offline: ${error.message}`;
+      alert(`Erro no modo offline: ${error.message}`);
     });
   </script>
 </body>

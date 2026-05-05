@@ -1,4 +1,4 @@
-﻿const CACHE_NAME = "agres-coleta-v1";
+﻿const CACHE_NAME = "agres-coleta-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -55,4 +55,5 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
 
