@@ -629,6 +629,7 @@
     const mainSignaturePads = {};
     let wakeLock;
     let saveTimer;
+    let locationWatchId = null;
 
     function defaultDraft() {
       return {
@@ -1318,27 +1319,63 @@
       document.getElementById("locationHint").textContent = texto || "";
     }
 
+    function setLocationButtonBusy(busy) {
+      const button = document.getElementById("currentLocationBtn");
+      if (!button) return;
+      button.disabled = busy;
+      button.textContent = busy ? "Buscando localização..." : "Atualizar localização atual";
+    }
+
+    function applyCurrentPosition(position) {
+      const lat = position.coords.latitude.toFixed(6);
+      const lng = position.coords.longitude.toFixed(6);
+      const link = `https://maps.google.com/?q=${lat},${lng}`;
+      draft.localizacao_maps = link;
+      document.getElementById("localizacao_maps").value = link;
+      scheduleSave();
+      setLocationHint(`Localização atualizada: ${lat}, ${lng}.`);
+    }
+
     function useCurrentLocation() {
       if (!navigator.geolocation) {
         setLocationHint("Localização indisponível. Cole o link do Maps.");
         return;
       }
+
+      if (locationWatchId !== null) {
+        navigator.geolocation.clearWatch(locationWatchId);
+        locationWatchId = null;
+      }
+
+      setLocationButtonBusy(true);
       setLocationHint("Buscando localização...");
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const lat = position.coords.latitude.toFixed(6);
-          const lng = position.coords.longitude.toFixed(6);
-          const link = `https://maps.google.com/?q=${lat},${lng}`;
-          draft.localizacao_maps = link;
-          document.getElementById("localizacao_maps").value = link;
-          scheduleSave();
-          setLocationHint("Localização adicionada.");
+          applyCurrentPosition(position);
+          setLocationButtonBusy(false);
         },
-        () => setLocationHint("Não foi possível obter a localização."),
-        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+        () => {
+          locationWatchId = navigator.geolocation.watchPosition(
+            (position) => {
+              applyCurrentPosition(position);
+              navigator.geolocation.clearWatch(locationWatchId);
+              locationWatchId = null;
+              setLocationButtonBusy(false);
+            },
+            () => {
+              if (locationWatchId !== null) {
+                navigator.geolocation.clearWatch(locationWatchId);
+                locationWatchId = null;
+              }
+              setLocationHint("Não foi possível obter a localização. Tente novamente ou cole o link do Maps.");
+              setLocationButtonBusy(false);
+            },
+            { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+          );
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     }
-
     function openMaps() {
       const link = (draft.localizacao_maps || document.getElementById("localizacao_maps").value || "").trim();
       if (link) {
@@ -1351,7 +1388,7 @@
     async function ensureOfflineReady() {
       const assets = ["./", "./index.html", "./sw.js", "./manifest.webmanifest", "./logo_agres.png"];
       if ("caches" in window) {
-        const cache = await caches.open("agres-offline-v13");
+        const cache = await caches.open("agres-offline-v14");
         await Promise.allSettled(assets.map((asset) => cache.add(asset)));
       }
       if ("serviceWorker" in navigator) {

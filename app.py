@@ -1,4 +1,4 @@
-import base64
+﻿import base64
 import json
 import re
 import shutil
@@ -403,6 +403,9 @@ st.markdown(
         label, .stTextInput label, .stTextArea label, .stFileUploader label {
             color: #25272b !important;
             font-weight: 700 !important;
+        }
+        iframe[title*="streamlit_drawable_canvas"] {
+            max-width: 100% !important;
         }
         @media (max-width: 640px) {
             [data-testid="stToolbar"],
@@ -982,7 +985,7 @@ REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 14. responsavel_fazenda: informar o nome do responsável da fazenda, cliente, operador, encarregado ou proprietário que validou/acompanhou o atendimento, quando mencionado.
 15. documento_fazenda: informar CPF, RG ou documento do responsável da fazenda quando mencionado; caso contrário, retornar "".
 16. relato: concentrar todo o detalhamento técnico e cronológico. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
-17. nome_arquivo_sugerido: montar no padrão "AAAAMMDD - CIDADE - UF - TIPO EQUIPAMENTO". Use a data inicial quando houver intervalo. Exemplos: "20250710 - SÃO JOSÉ DOS PINHAIS - PR - SUPORTE ISOBOX SPRAYER AGRONAVE 12" ou "20260119 - GUARANIAÇU - PR - SUPORTE AGRONAVE 7 ISOBOX SPRAYER".
+17. nome_arquivo_sugerido: montar no padrão "AAAAMMDD_RELATÓRIO_ATIVIDADES_EQUIPAMENTO_TÉCNICO_CIDADE_UF". Use a data inicial quando houver intervalo. Exemplo: "20250115_RELATÓRIO_ATIVIDADES_ISO34C_HENRIQUE_IPIRANGA_PR".
 
 PADRÃO DO RELATO:
 - Escrever em terceira pessoa.
@@ -1087,6 +1090,15 @@ def limpar_nome_relatorio(texto: str) -> str:
     return (nome or "RELATÓRIO DE ATENDIMENTO")[:150]
 
 
+def componente_nome_arquivo(texto: str, padrao: str) -> str:
+    nome = limpar_texto(texto).replace("\n", " ")
+    nome = re.sub(r'[\\/*?:"<>|]', "", nome)
+    nome = re.sub(r"\s*&\s*", "_E_", nome)
+    nome = re.sub(r"[^0-9A-Za-zÀ-ÿ]+", "_", nome)
+    nome = re.sub(r"_+", "_", nome).strip("_")
+    return (nome or padrao).upper()
+
+
 def data_para_nome_arquivo(data_visita: str) -> str:
     texto = limpar_texto(data_visita)
     intervalo = re.search(r"\b(\d{1,2})\s*(?:a|até|-)\s*\d{1,2}/(\d{1,2})/(\d{4})\b", texto, flags=re.I)
@@ -1153,6 +1165,12 @@ def tipo_atendimento_para_nome(dados: dict) -> str:
 def equipamento_para_nome(dados: dict) -> str:
     texto = normalizar_busca("\n".join([dados.get("objetivos", ""), dados.get("equipamentos", ""), dados.get("maquinas", "")]))
     encontrados = []
+
+    iso_match = re.search(r"\biso\s*([0-9]{1,3})\s*([a-z]{0,4})\b", texto)
+    if iso_match:
+        numero, sufixo = iso_match.groups()
+        encontrados.append(f"ISO{numero}{sufixo.upper()}")
+
     padroes = [
         ("ISOBOX SPRAYER", r"\bisobox\s+sprayer\b"),
         ("AGRONAVE 12", r"\b(?:agronave|agronave|agn)\s*12\b"),
@@ -1173,27 +1191,40 @@ def equipamento_para_nome(dados: dict) -> str:
     return primeira_linha or "EQUIPAMENTO AGRES"
 
 
+def tecnico_para_nome_arquivo(dados: dict) -> str:
+    texto = limpar_texto(dados.get("tecnicos", ""))
+    texto = re.sub(r"^(técnicos?|tecnicos?|responsáveis?|responsaveis?)\s*:\s*", "", texto, flags=re.I)
+    partes = [
+        parte.strip()
+        for parte in re.split(r"\s*(?:,|;|\n|/|&|\be\b)\s*", texto, flags=re.I)
+        if parte.strip()
+    ]
+    nomes = []
+    for parte in partes:
+        primeiro_nome = parte.split()[0] if parte.split() else ""
+        if primeiro_nome and normalizar_busca(primeiro_nome) not in {"tecnico", "tecnica", "agres"}:
+            nomes.append(primeiro_nome)
+    return componente_nome_arquivo("_".join(nomes[:3]), "HENRIQUE")
+
+
 def gerar_nome_arquivo_relatorio(dados: dict) -> str:
-    sugerido = limpar_nome_relatorio(dados.get("nome_arquivo_sugerido", ""))
-    tipo_nome = tipo_atendimento_para_nome(dados)
-    outros_tipos = [nome.upper() for chave, nome in TIPOS_ATENDIMENTO.items() if chave != normalizar_tipo_atendimento(dados.get("tipo_atendimento"))]
-    sugerido_valido = (
-        re.match(r"^\d{8}\s+-\s+", sugerido)
-        and tipo_nome in sugerido.upper()
-        and not any(outro in sugerido.upper() for outro in outros_tipos)
-    )
+    sugerido = componente_nome_arquivo(dados.get("nome_arquivo_sugerido", ""), "")
+    sugerido_valido = re.match(r"^\d{8}_RELAT[ÓO]RIO_ATIVIDADES_", sugerido, flags=re.I)
     if sugerido_valido:
-        return sugerido.upper()
+        return sugerido[:150]
 
     data_nome = data_para_nome_arquivo(dados.get("data_visita", ""))
     cidade, uf = extrair_cidade_uf(dados.get("cliente_local", ""))
     partes = [
         data_nome,
-        cidade.upper(),
-        uf.upper(),
-        f"{tipo_nome} {equipamento_para_nome(dados)}".strip().upper(),
+        "RELATÓRIO",
+        "ATIVIDADES",
+        componente_nome_arquivo(equipamento_para_nome(dados), "EQUIPAMENTO"),
+        tecnico_para_nome_arquivo(dados),
+        componente_nome_arquivo(cidade, "LOCAL"),
+        componente_nome_arquivo(uf, "UF"),
     ]
-    return limpar_nome_relatorio(" - ".join(partes)).upper()
+    return "_".join(partes)[:150]
 
 
 def linhas_metadados(texto: str) -> list[str]:
@@ -1442,52 +1473,51 @@ def adicionar_fotos_atendimento_zip(
     caminhos_assinaturas: dict | None,
     usados: set[str],
 ) -> None:
+    indice_zip = 1
+
+    def adicionar_foto_unica(caminho: Path | None, nome_base: str, extensao_padrao: str = ".jpg") -> None:
+        nonlocal indice_zip
+        if not caminho:
+            return
+        caminho = Path(caminho)
+        if not caminho.exists():
+            return
+        extensao = caminho.suffix.lower() or extensao_padrao
+        nome = nome_arquivo_seguro(nome_base, f"foto_{indice_zip:02d}")
+        adicionar_arquivo_zip(
+            zip_out,
+            caminho,
+            f"FOTOS DO ATENDIMENTO/{indice_zip:02d}_{nome}{extensao}",
+            usados,
+        )
+        indice_zip += 1
+
     cabecalho_nomes = {
         "info_equip": "informacoes_equipamento",
         "maquina": "maquina",
         "implemento": "implemento",
     }
-    for indice, (chave, nome) in enumerate(cabecalho_nomes.items(), start=1):
-        caminho = caminhos_cabecalho.get(chave)
-        if caminho and Path(caminho).exists():
-            extensao = Path(caminho).suffix.lower() or ".jpg"
-            adicionar_arquivo_zip(zip_out, caminho, f"fotos_atendimento/01_cabecalho/{indice:02d}_{nome}{extensao}", usados)
+    for chave, nome in cabecalho_nomes.items():
+        adicionar_foto_unica(caminhos_cabecalho.get(chave), nome)
 
     contador = 1
     for categoria, configuracao in CATEGORIAS_EVIDENCIAS.items():
-        pasta_categoria = nome_arquivo_seguro(configuracao["nome"], categoria)
         for indice, caminho in enumerate(dicionario_evidencias.get(categoria, [])):
             caminho = Path(caminho)
             if not caminho.exists():
                 continue
             metadados = montar_metadados_figura(categoria, indice, contador, legendas_evidencias or {})
-            extensao = caminho.suffix.lower() or ".jpg"
-            nome = nome_arquivo_seguro(metadados["titulo"], f"figura_{contador:02d}")
-            adicionar_arquivo_zip(
-                zip_out,
-                caminho,
-                f"fotos_atendimento/02_evidencias/{pasta_categoria}/figura_{contador:02d}_{nome}{extensao}",
-                usados,
-            )
+            adicionar_foto_unica(caminho, f"figura_{contador:02d}_{metadados['titulo']}")
             contador += 1
 
-    for indice, caminho in enumerate(fotos_atendimento or [], start=1):
+    for caminho in fotos_atendimento or []:
         caminho = Path(caminho)
         if not caminho.exists():
             continue
-        extensao = caminho.suffix.lower() or ".jpg"
-        nome = nome_arquivo_seguro(caminho.stem, f"foto_atendimento_{indice:02d}")
-        adicionar_arquivo_zip(
-            zip_out,
-            caminho,
-            f"fotos_atendimento/03_fotos_do_atendimento/{indice:02d}_{nome}{extensao}",
-            usados,
-        )
+        adicionar_foto_unica(caminho, caminho.stem)
 
     for chave, caminho in (caminhos_assinaturas or {}).items():
-        if caminho and Path(caminho).exists():
-            extensao = Path(caminho).suffix.lower() or ".png"
-            adicionar_arquivo_zip(zip_out, caminho, f"fotos_atendimento/04_assinaturas/{chave}{extensao}", usados)
+        adicionar_foto_unica(caminho, f"assinatura_{chave}", ".png")
 
 
 def gerar_pacote_relatorio(
@@ -1728,15 +1758,39 @@ def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
 
     paragrafos = list(iterar_paragrafos_word(documento))
     quebra_fotos_inserida = False
-    for paragraph in paragrafos:
+    for indice, paragraph in enumerate(paragrafos):
         texto = limpar_texto(paragraph.text).rstrip(":")
         if texto == "Fotos":
             if not quebra_fotos_inserida:
                 inserir_quebra_pagina_antes_paragrafo(paragraph)
                 quebra_fotos_inserida = True
             paragraph.paragraph_format.keep_with_next = True
+            paragraph.paragraph_format.keep_together = True
             paragraph.paragraph_format.widow_control = True
-            paragraph.paragraph_format.space_after = Pt(8)
+            paragraph.paragraph_format.page_break_before = False
+            paragraph.paragraph_format.space_before = Pt(0)
+            paragraph.paragraph_format.space_after = Pt(2)
+
+            for proximo in paragrafos[indice + 1 :]:
+                proximo_texto = limpar_texto(proximo.text)
+                if proximo_texto or paragrafo_tem_imagem(proximo):
+                    break
+                remover_paragrafo_word(proximo)
+
+    paragrafos = list(iterar_paragrafos_word(documento))
+
+    titulos_fotos = {"Identificação do Equipamento", "Instalação e Chicotes", "Configurações", "Outros Registros"}
+    for indice, paragraph in enumerate(paragrafos):
+        texto = limpar_texto(paragraph.text)
+        if texto not in titulos_fotos:
+            continue
+        for proximo in paragrafos[indice + 1 :]:
+            proximo_texto = limpar_texto(proximo.text)
+            if proximo_texto or paragrafo_tem_imagem(proximo):
+                break
+            remover_paragrafo_word(proximo)
+
+    paragrafos = list(iterar_paragrafos_word(documento))
 
     dentro_bloco_figura = False
     numero_figura = 0
@@ -1786,9 +1840,11 @@ def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
             formatar_paragrafo_figura(paragraph, keep_with_next=True)
             continue
 
-        if texto in {"Identificação do Equipamento", "Instalação e Chicotes", "Configurações", "Outros Registros"}:
+        if texto in titulos_fotos:
             paragraph.paragraph_format.keep_with_next = True
             paragraph.paragraph_format.widow_control = True
+            paragraph.paragraph_format.space_before = Pt(0)
+            paragraph.paragraph_format.space_after = Pt(4)
 
     documento.save(str(caminho_docx))
 
@@ -2006,12 +2062,28 @@ def salvar_arquivo_rascunho(
     }
 
 
-def decodificar_data_url(data_url: str) -> tuple[bytes, str]:
-    match = re.match(r"^data:([^;,]+)?(?:;[^,]*)?;base64,(.*)$", str(data_url or ""), flags=re.DOTALL)
-    if not match:
+def decodificar_data_url(data_url: str, mime_type_padrao: str = "application/octet-stream") -> tuple[bytes, str]:
+    bruto = str(data_url or "").strip()
+    if not bruto:
+        raise ValueError("Arquivo offline inválido: conteúdo em base64 vazio.")
+
+    mime_type = mime_type_padrao.lower()
+    match = re.match(r"^data:([^;,]+)?(?:;[^,]*)?;base64,(.*)$", bruto, flags=re.DOTALL)
+    if match:
+        mime_type = (match.group(1) or mime_type).lower()
+        conteudo_base64 = match.group(2)
+    else:
+        conteudo_base64 = bruto
+
+    conteudo_base64 = re.sub(r"\s+", "", conteudo_base64)
+    if not conteudo_base64:
         raise ValueError("Arquivo offline inválido: conteúdo em base64 não encontrado.")
-    mime_type = (match.group(1) or "application/octet-stream").lower()
-    return base64.b64decode(match.group(2)), mime_type
+    conteudo_base64 += "=" * ((4 - len(conteudo_base64) % 4) % 4)
+
+    try:
+        return base64.b64decode(conteudo_base64, validate=False), mime_type
+    except Exception as erro:
+        raise ValueError("Arquivo offline inválido: base64 corrompido ou incompleto.") from erro
 
 
 def extensao_item_offline(item: dict, mime_type: str, extensoes_permitidas: set[str], extensao_padrao: str) -> str:
@@ -2033,10 +2105,15 @@ def salvar_item_offline_rascunho(
     extensao_padrao: str,
     padronizar_figura: bool = False,
 ) -> dict | None:
-    if not isinstance(item, dict) or not item.get("dataUrl"):
+    if not isinstance(item, dict):
         return None
 
-    conteudo, mime_type = decodificar_data_url(item["dataUrl"])
+    conteudo_codificado = item.get("dataUrl") or item.get("data_url") or item.get("base64") or item.get("content")
+    if not conteudo_codificado:
+        return None
+
+    mime_type_informado = str(item.get("type") or item.get("mime_type") or item.get("mimeType") or "application/octet-stream")
+    conteudo, mime_type = decodificar_data_url(conteudo_codificado, mime_type_informado)
     if not conteudo:
         return None
 
@@ -2085,19 +2162,31 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
             manifesto["documentos"][chave] = texto or ""
 
     audios = []
-    for indice, item in enumerate(pacote.get("audios") or []):
-        audio = salvar_item_offline_rascunho(
-            item,
-            draft_dir,
-            "audios",
-            f"offline_audio_{indice}",
-            EXTENSOES_AUDIO,
-            "m4a",
-        )
+    audios_recebidos = pacote.get("audios") or []
+    erros_audio = []
+    for indice, item in enumerate(audios_recebidos):
+        try:
+            audio = salvar_item_offline_rascunho(
+                item,
+                draft_dir,
+                "audios",
+                f"offline_audio_{indice}",
+                EXTENSOES_AUDIO,
+                "m4a",
+            )
+        except Exception as erro:
+            erros_audio.append(f"Áudio {indice + 1}: {erro}")
+            continue
         if audio:
             audios.append(audio)
     if audios or "audios" in pacote:
         manifesto["audios"] = audios
+
+    manifesto["importacao_offline"] = {
+        "audios_recebidos": len(audios_recebidos),
+        "audios_salvos": len(audios),
+        "erros_audio": erros_audio[:3],
+    }
 
     for chave, item in (pacote.get("cabecalho") or {}).items():
         if chave in manifesto["cabecalho"]:
@@ -2515,12 +2604,14 @@ def atualizar_rascunho_atual(
             item = salvar_assinatura_canvas(resultado, draft_dir, chave)
             if item:
                 manifesto["assinaturas"][chave] = item
+                st.session_state[f"editar_assinatura_{chave}"] = False
 
     for chave, arquivo in (assinaturas_upload or {}).items():
         if chave in ASSINATURAS_RESPONSAVEIS:
             item = salvar_arquivo_rascunho(arquivo, draft_dir, "assinaturas", chave, EXTENSOES_IMAGEM, "png")
             if item:
                 manifesto["assinaturas"][chave] = item
+                st.session_state[f"editar_assinatura_{chave}"] = False
 
     salvar_manifesto(draft_dir, manifesto)
     return manifesto
@@ -2556,6 +2647,69 @@ def contar_evidencias(manifesto: dict) -> int:
     return sum(len(itens or []) for itens in manifesto.get("evidencias", {}).values())
 
 
+def manifesto_tem_conteudo_para_gerar(manifesto: dict) -> bool:
+    if limpar_texto(manifesto.get("observacoes", "")) or manifesto.get("audios"):
+        return True
+    if limpar_texto(manifesto.get("localizacao_maps", "")):
+        return True
+    if any(manifesto.get("cabecalho", {}).values()):
+        return True
+    if any(itens for itens in manifesto.get("evidencias", {}).values()):
+        return True
+    if manifesto.get("fotos_atendimento"):
+        return True
+    if any(limpar_texto(texto) for texto in manifesto.get("legendas_evidencias", {}).values()):
+        return True
+    if any(limpar_texto(texto) for texto in manifesto.get("responsaveis", {}).values()):
+        return True
+    if any(manifesto.get("assinaturas", {}).values()):
+        return True
+    return False
+
+
+def contexto_manifesto_para_geracao(manifesto: dict) -> str:
+    linhas = []
+    observacoes = limpar_texto(manifesto.get("observacoes", ""))
+    if observacoes:
+        linhas.append(observacoes)
+
+    tipo = normalizar_tipo_atendimento(manifesto.get("tipo_atendimento"), "")
+    if tipo:
+        linhas.append(f"Tipo de atendimento selecionado: {TIPOS_ATENDIMENTO.get(tipo, tipo)}.")
+    localizacao = limpar_texto(manifesto.get("localizacao_maps", ""))
+    if localizacao:
+        linhas.append(f"Localização informada no Maps: {localizacao}.")
+
+    cabecalho_fotos = sum(1 for item in manifesto.get("cabecalho", {}).values() if item)
+    if cabecalho_fotos:
+        linhas.append(f"Fotos de cabeçalho do relatório: {cabecalho_fotos} imagem(ns) anexada(s).")
+
+    for categoria, configuracao in CATEGORIAS_EVIDENCIAS.items():
+        quantidade = len(manifesto.get("evidencias", {}).get(categoria, []) or [])
+        legenda = limpar_texto(manifesto.get("legendas_evidencias", {}).get(categoria, ""))
+        if quantidade:
+            linhas.append(f"{configuracao['nome']}: {quantidade} foto(s) anexada(s).")
+        if legenda:
+            linhas.append(f"Descrição das fotos de {configuracao['nome']}: {legenda}.")
+
+    fotos_extras = len(manifesto.get("fotos_atendimento", []) or [])
+    if fotos_extras:
+        linhas.append(f"Fotos adicionais do atendimento: {fotos_extras} foto(s) anexada(s) somente para o ZIP.")
+
+    for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
+        responsavel = limpar_texto(manifesto.get("responsaveis", {}).get(chave, ""))
+        documento = limpar_texto(manifesto.get("documentos", {}).get(chave, ""))
+        if responsavel:
+            linhas.append(f"{configuracao['titulo']}: {responsavel}.")
+        if documento:
+            linhas.append(f"Documento do {configuracao['label']}: {documento}.")
+
+    if linhas and not observacoes:
+        linhas.insert(0, "Coleta offline importada sem complemento técnico descritivo. Utilizar os metadados abaixo para compor o relatório sem inventar procedimentos não informados.")
+
+    return limpar_texto("\n".join(linhas))
+
+
 def limpar_rascunho_atual() -> None:
     draft_dir = DRAFTS_DIR / st.session_state.draft_id
     if draft_dir.exists():
@@ -2569,6 +2723,7 @@ def limpar_rascunho_atual() -> None:
         "fotos_atendimento_zip",
         *[f"legenda_{categoria}" for categoria in CATEGORIAS_EVIDENCIAS],
         *[configuracao["campo"] for configuracao in ASSINATURAS_RESPONSAVEIS.values()],
+        *[configuracao["campo_documento"] for configuracao in ASSINATURAS_RESPONSAVEIS.values()],
     ):
         st.session_state.pop(chave, None)
     st.session_state.relatorio_pronto = None
@@ -2580,6 +2735,7 @@ def limpar_rascunho_atual() -> None:
 def finalizar_importacao_offline(manifesto: dict) -> None:
     aplicar_manifesto_na_sessao(manifesto)
     st.session_state.importacao_offline_ok = True
+    st.session_state.importacao_offline_stats = manifesto.get("importacao_offline", {})
     st.rerun()
 
 
@@ -2628,7 +2784,20 @@ st.markdown(
 )
 
 if st.session_state.pop("importacao_offline_ok", False):
-    st.success("Pacote offline sincronizado.")
+    estatisticas_importacao = st.session_state.pop("importacao_offline_stats", {}) or {}
+    audios_recebidos = int(estatisticas_importacao.get("audios_recebidos") or 0)
+    audios_salvos = int(estatisticas_importacao.get("audios_salvos") or 0)
+    if audios_recebidos:
+        st.success(f"Pacote offline sincronizado. Áudios importados: {audios_salvos}/{audios_recebidos}.")
+    else:
+        st.success("Pacote offline sincronizado.")
+    if audios_recebidos and audios_salvos == 0:
+        st.warning(
+            "O pacote informa áudio, mas nenhum arquivo de áudio pôde ser salvo neste navegador. "
+            "O relatório ainda pode ser gerado usando o texto e os dados coletados; para usar a fala, exporte o pacote novamente pelo iPad."
+        )
+    for mensagem in estatisticas_importacao.get("erros_audio", []) or []:
+        st.caption(mensagem)
 
 with st.container(border=True):
     st.markdown(
@@ -2800,56 +2969,46 @@ with st.container(border=True):
         "<p class='section-title'>4. Assinaturas</p>",
         unsafe_allow_html=True,
     )
-    col_nome_revenda, col_nome_fazenda = st.columns(2)
-    with col_nome_revenda:
-        responsavel_revenda_fabrica = st.text_input(
-            ASSINATURAS_RESPONSAVEIS["revenda_fabrica"]["label"],
-            placeholder="Nome do responsável",
-            key=ASSINATURAS_RESPONSAVEIS["revenda_fabrica"]["campo"],
-        )
-        documento_revenda_fabrica = st.text_input(
-            "CPF/RG",
-            key=ASSINATURAS_RESPONSAVEIS["revenda_fabrica"]["campo_documento"],
-        )
-    with col_nome_fazenda:
-        responsavel_fazenda = st.text_input(
-            ASSINATURAS_RESPONSAVEIS["fazenda"]["label"],
-            placeholder="Nome do responsável",
-            key=ASSINATURAS_RESPONSAVEIS["fazenda"]["campo"],
-        )
-        documento_fazenda = st.text_input(
-            "CPF/RG",
-            key=ASSINATURAS_RESPONSAVEIS["fazenda"]["campo_documento"],
-        )
-    responsaveis_assinaturas = {
-        "revenda_fabrica": responsavel_revenda_fabrica,
-        "fazenda": responsavel_fazenda,
-    }
-    documentos_assinaturas = {
-        "revenda_fabrica": documento_revenda_fabrica,
-        "fazenda": documento_fazenda,
-    }
-
-    usar_assinatura_ampliada = st.toggle(
-        "Usar área de assinatura ampliada",
-        value=False,
-        key="usar_assinatura_ampliada",
-    )
+    responsaveis_assinaturas = {}
+    documentos_assinaturas = {}
     assinaturas_canvas = {}
     assinaturas_upload = {}
-    largura_assinatura = 760 if usar_assinatura_ampliada else 320
-    altura_assinatura = 360 if usar_assinatura_ampliada else 150
-    sufixo_assinatura = "ampliada" if usar_assinatura_ampliada else "normal"
-    colunas_assinatura = (
-        [st.container(border=True), st.container(border=True)]
-        if usar_assinatura_ampliada
-        else list(st.columns(2))
-    )
-    for (chave, configuracao), coluna in zip(ASSINATURAS_RESPONSAVEIS.items(), colunas_assinatura):
-        with coluna:
+
+    for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
+        with st.container(border=True):
             st.markdown(f"**{configuracao['titulo']}**")
-            if manifesto_rascunho.get("assinaturas", {}).get(chave):
-                st.caption("Assinatura salva.")
+            col_nome_assinatura, col_doc_assinatura = st.columns(2)
+            with col_nome_assinatura:
+                responsaveis_assinaturas[chave] = st.text_input(
+                    configuracao["label"],
+                    placeholder="Nome do responsável",
+                    key=configuracao["campo"],
+                )
+            with col_doc_assinatura:
+                documentos_assinaturas[chave] = st.text_input(
+                    "CPF/RG",
+                    key=configuracao["campo_documento"],
+                )
+
+            assinatura_item = manifesto_rascunho.get("assinaturas", {}).get(chave)
+            assinatura_path = resolver_arquivo_rascunho(draft_dir, assinatura_item)
+            assinatura_ja_salva = bool(assinatura_path)
+            chave_edicao_assinatura = f"editar_assinatura_{chave}"
+            if chave_edicao_assinatura not in st.session_state:
+                st.session_state[chave_edicao_assinatura] = False
+
+            if assinatura_ja_salva and not st.session_state[chave_edicao_assinatura]:
+                st.caption("Assinatura salva e protegida.")
+                st.image(str(assinatura_path), width=360)
+                if st.button("Substituir assinatura", key=f"btn_substituir_assinatura_{chave}", use_container_width=True):
+                    st.session_state[chave_edicao_assinatura] = True
+                    st.rerun()
+                continue
+
+            if assinatura_ja_salva and st.session_state[chave_edicao_assinatura]:
+                if st.button("Cancelar substituição", key=f"btn_cancelar_assinatura_{chave}", use_container_width=True):
+                    st.session_state[chave_edicao_assinatura] = False
+                    st.rerun()
 
             if st_canvas is not None:
                 assinaturas_canvas[chave] = st_canvas(
@@ -2857,14 +3016,14 @@ with st.container(border=True):
                     stroke_width=3,
                     stroke_color="#25272b",
                     background_color="#ffffff",
-                    height=altura_assinatura,
-                    width=largura_assinatura,
+                    height=260,
+                    width=720,
                     drawing_mode="freedraw",
                     display_toolbar=True,
-                    key=f"canvas_{chave}_{sufixo_assinatura}",
+                    key=f"canvas_{chave}_{'editar' if assinatura_ja_salva else 'novo'}",
                 )
             else:
-                st.info("Para assinar na tela, adicione streamlit-drawable-canvas ao requirements.txt. Enquanto isso, envie uma imagem da assinatura.")
+                st.info("Assinatura na tela indisponível neste ambiente. Envie uma imagem da assinatura.")
                 assinaturas_upload[chave] = st.file_uploader(
                     f"Imagem da assinatura - {configuracao['titulo']}",
                     type=list(EXTENSOES_IMAGEM),
@@ -2908,7 +3067,12 @@ caminhos_audio_salvos, caminhos_cabecalho_salvos, evidencias_salvas, fotos_atend
     draft_dir,
     manifesto_rascunho,
 )
-observacoes_salvas = limpar_texto(observacoes_texto) or manifesto_rascunho.get("observacoes", "")
+contexto_manifesto_salvo = contexto_manifesto_para_geracao(manifesto_rascunho) if manifesto_tem_conteudo_para_gerar(manifesto_rascunho) else ""
+observacoes_salvas = (
+    limpar_texto(observacoes_texto)
+    or manifesto_rascunho.get("observacoes", "")
+    or contexto_manifesto_salvo
+)
 legendas_salvas = {
     categoria: limpar_texto(legendas_evidencias.get(categoria, ""))
     or manifesto_rascunho.get("legendas_evidencias", {}).get(categoria, "")
@@ -2930,7 +3094,11 @@ tipo_atendimento_salvo = normalizar_tipo_atendimento(
 )
 localizacao_maps_salva = limpar_texto(localizacao_maps) or manifesto_rascunho.get("localizacao_maps", "")
 
-entrada_disponivel = bool(caminhos_audio_salvos) or bool(limpar_texto(observacoes_salvas))
+entrada_disponivel = (
+    bool(caminhos_audio_salvos)
+    or bool(limpar_texto(observacoes_salvas))
+    or manifesto_tem_conteudo_para_gerar(manifesto_rascunho)
+)
 
 with st.container(border=True):
     st.markdown(
@@ -2988,7 +3156,7 @@ with st.container(border=True):
             st.error(f"Erro no processamento: {erro}")
             st.exception(erro)
     elif not entrada_disponivel:
-        st.caption("Adicione ao menos um áudio ou complemento escrito para gerar o relatório.")
+        st.caption("Adicione áudio, complemento escrito ou importe um pacote offline com dados do atendimento.")
 
     if st.session_state.relatorio_pronto:
         st.success("✅ O laudo está pronto para download!")
