@@ -1,13 +1,30 @@
-const CACHE_NAME = "agres-pages-offline-v6";
+const CACHE_NAME = "agres-pages-offline-v7";
 const ASSETS = [
   "./",
   "./index.html",
+  "./sw.js",
   "./manifest.webmanifest",
   "./logo_agres.png"
 ];
+const APP_SHELL = new URL("./index.html", self.location.href).href;
+
+async function cacheAsset(cache, asset) {
+  const url = new URL(asset, self.location.href);
+  const request = new Request(url.href, { cache: "reload" });
+  const response = await fetch(request);
+  if (response.ok) {
+    const shellCopy = response.clone();
+    await cache.put(request, response);
+    if (asset === "./" || asset === "./index.html") {
+      await cache.put(APP_SHELL, shellCopy);
+    }
+  }
+}
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => Promise.allSettled(ASSETS.map((asset) => cacheAsset(cache, asset))))
+  );
   self.skipWaiting();
 });
 
@@ -31,16 +48,25 @@ self.addEventListener("fetch", (event) => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
         return response;
-      }).catch(() => caches.match("./index.html"))
+      }).catch(async () => {
+        const cache = await caches.open(CACHE_NAME);
+        return (
+          await cache.match(request, { ignoreSearch: true })
+        ) || (
+          await cache.match(APP_SHELL, { ignoreSearch: true })
+        ) || (
+          await cache.match("./index.html", { ignoreSearch: true })
+        );
+      })
     );
     return;
   }
 
   event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request).then((response) => {
+    caches.match(request, { ignoreSearch: true }).then((cached) => cached || fetch(request).then((response) => {
       const copy = response.clone();
       caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
       return response;
-    }))
+    }).catch(() => caches.match("./index.html", { ignoreSearch: true })))
   );
 });

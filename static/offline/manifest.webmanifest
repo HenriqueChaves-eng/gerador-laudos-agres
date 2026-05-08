@@ -2,7 +2,7 @@
   "name": "Agres Coleta Offline",
   "short_name": "Agres Offline",
   "description": "Coleta offline de dados para relatórios técnicos Agres.",
-  "start_url": "./index.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#e7e9ec",

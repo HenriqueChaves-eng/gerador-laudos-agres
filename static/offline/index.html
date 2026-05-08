@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Agres | Coleta Offline</title>
   <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./logo_agres.png">
   <style>
     :root {
       color-scheme: light;
@@ -1347,6 +1348,18 @@
       }
     }
 
+    async function ensureOfflineReady() {
+      const assets = ["./", "./index.html", "./sw.js", "./manifest.webmanifest", "./logo_agres.png"];
+      if ("caches" in window) {
+        const cache = await caches.open("agres-offline-v13");
+        await Promise.allSettled(assets.map((asset) => cache.add(asset)));
+      }
+      if ("serviceWorker" in navigator) {
+        await navigator.serviceWorker.register("./sw.js", { scope: "./" });
+        await navigator.serviceWorker.ready;
+      }
+    }
+
     function revealPackageText(text) {
       const output = document.getElementById("packageText");
       output.value = text || packageTextSync();
@@ -1462,9 +1475,7 @@
       updateSecureNotice();
       window.addEventListener("online", updateNetwork);
       window.addEventListener("offline", updateNetwork);
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("./sw.js").catch(() => {});
-      }
+      ensureOfflineReady().catch(() => {});
       if (navigator.storage?.persist) {
         const persisted = await navigator.storage.persist();
         const storageStatus = document.getElementById("storageStatus");
