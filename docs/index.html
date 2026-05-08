@@ -511,6 +511,12 @@
           <p class="hint" id="fotos_outros_status"></p>
           <div class="preview-grid" id="fotos_outros_preview"></div>
         </div>
+        <div class="field">
+          <label for="fotos_atendimento">Fotos do atendimento (somente ZIP)</label>
+          <input id="fotos_atendimento" type="file" accept="image/*" multiple>
+          <p class="hint" id="fotos_atendimento_status"></p>
+          <div class="preview-grid" id="fotos_atendimento_preview"></div>
+        </div>
       </div>
       <div class="grid">
         <div class="field">
@@ -599,6 +605,7 @@
     const DRAFT_KEY = "current";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
+    const ATTENDANCE_PHOTOS = "fotos_atendimento";
     const SIGNATURES = ["revenda_fabrica", "fazenda"];
     const SIGNATURE_LABELS = {
       revenda_fabrica: "Responsável da revenda/fábrica",
@@ -637,6 +644,7 @@
           fotos_configuracao: [],
           fotos_outros: []
         },
+        fotos_atendimento: [],
         legendas_evidencias: {
           fotos_equipamento: "",
           fotos_instalacao: "",
@@ -743,6 +751,13 @@
           updateCounts();
           scheduleSave();
         });
+      });
+      const fotosAtendimento = draft.fotos_atendimento || [];
+      document.getElementById(`${ATTENDANCE_PHOTOS}_status`).textContent = fotosAtendimento.length ? `${fotosAtendimento.length} imagens.` : "";
+      renderImagePreview(`${ATTENDANCE_PHOTOS}_preview`, fotosAtendimento, (index) => {
+        draft.fotos_atendimento.splice(index, 1);
+        updateCounts();
+        scheduleSave();
       });
       renderAudios();
     }
@@ -1177,6 +1192,14 @@
         });
       });
 
+      document.getElementById(ATTENDANCE_PHOTOS).addEventListener("change", async (event) => {
+        const arquivos = await Promise.all([...event.target.files].map(readFile));
+        draft.fotos_atendimento.push(...arquivos);
+        event.target.value = "";
+        updateCounts();
+        scheduleSave();
+      });
+
       HEADERS.forEach((key) => {
         document.getElementById(key).addEventListener("change", async (event) => {
           const file = event.target.files[0];
@@ -1455,6 +1478,7 @@
       draft.localizacao_maps = draft.localizacao_maps || "";
       draft.cabecalho = { ...defaultDraft().cabecalho, ...(draft.cabecalho || {}) };
       draft.evidencias = { ...defaultDraft().evidencias, ...(draft.evidencias || {}) };
+      draft.fotos_atendimento = Array.isArray(draft.fotos_atendimento) ? draft.fotos_atendimento : [];
       draft.legendas_evidencias = { ...defaultDraft().legendas_evidencias, ...(draft.legendas_evidencias || {}) };
       draft.responsaveis = { ...defaultDraft().responsaveis, ...(draft.responsaveis || {}) };
       draft.documentos = { ...defaultDraft().documentos, ...(draft.documentos || {}) };

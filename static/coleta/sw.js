@@ -1,9 +1,7 @@
-﻿const CACHE_NAME = "agres-coleta-v2";
+﻿const CACHE_NAME = "agres-coleta-v4";
 const ASSETS = [
   "./",
   "./index.html",
-  "./coleta_offline_agres.html",
-  "./reset.html",
   "./manifest.webmanifest",
   "./logo_agres.png"
 ];
@@ -18,7 +16,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+      Promise.all(keys.filter((key) => key.startsWith(CACHE_NAME.replace(/v\d+$/, "")) && key !== CACHE_NAME).map((key) => caches.delete(key)))
     )
   );
   self.clients.claim();
