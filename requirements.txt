@@ -3,4 +3,3 @@ google-generativeai
 docxtpl
 python-docx
 pillow
-streamlit-drawable-canvas

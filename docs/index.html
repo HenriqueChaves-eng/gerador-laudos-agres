@@ -284,6 +284,34 @@
       padding: 0 8px;
       font-size: 12px;
     }
+    .caption-control {
+      display: grid;
+      gap: 6px;
+      padding: 0 7px 7px;
+    }
+    .caption-control label,
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .caption-control textarea {
+      min-height: 72px;
+      font-size: 13px;
+    }
+    .legacy-legends {
+      display: none;
+    }
+    .signature-settings {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
     canvas {
       display: block;
       width: 100%;
@@ -404,6 +432,9 @@
       .signature-modal-actions {
         grid-template-columns: 1fr;
       }
+      .signature-settings {
+        grid-template-columns: 1fr;
+      }
       .signature-modal canvas {
         min-height: 62vh;
         height: calc(100dvh - 210px);
@@ -519,7 +550,7 @@
           <div class="preview-grid" id="fotos_atendimento_preview"></div>
         </div>
       </div>
-      <div class="grid">
+      <div class="grid legacy-legends" aria-hidden="true">
         <div class="field">
           <label for="legenda_fotos_equipamento">Títulos e legendas - Equipamento</label>
           <textarea id="legenda_fotos_equipamento" placeholder="Uma linha por foto: Título | legenda | fonte"></textarea>
@@ -541,28 +572,22 @@
 
     <section>
       <h2>4. Assinaturas</h2>
-      <div class="grid">
+      <div class="signature-settings">
+        <label class="check-row">
+          <input id="assinaturas_habilitadas" type="checkbox">
+          Incluir assinaturas no relatório
+        </label>
         <div class="field">
-          <label for="responsavel_revenda_fabrica">Responsável da revenda/fábrica</label>
-          <input id="responsavel_revenda_fabrica" type="text" placeholder="Nome do responsável">
-          <input id="documento_revenda_fabrica" type="text" placeholder="CPF/RG">
-          <canvas id="assinatura_revenda_fabrica"></canvas>
-          <div class="signature-actions">
-            <button type="button" class="primary" data-open-signature="revenda_fabrica">Assinar em tela cheia</button>
-            <button type="button" data-clear-signature="revenda_fabrica">Limpar assinatura</button>
-          </div>
-        </div>
-        <div class="field">
-          <label for="responsavel_fazenda">Responsável da fazenda</label>
-          <input id="responsavel_fazenda" type="text" placeholder="Nome do responsável">
-          <input id="documento_fazenda" type="text" placeholder="CPF/RG">
-          <canvas id="assinatura_fazenda"></canvas>
-          <div class="signature-actions">
-            <button type="button" class="primary" data-open-signature="fazenda">Assinar em tela cheia</button>
-            <button type="button" data-clear-signature="fazenda">Limpar assinatura</button>
-          </div>
+          <label for="quantidade_assinaturas">Quantidade de assinaturas</label>
+          <select id="quantidade_assinaturas">
+            <option value="2">2 assinaturas</option>
+            <option value="3">3 assinaturas</option>
+            <option value="4">4 assinaturas</option>
+            <option value="5">5 assinaturas</option>
+          </select>
         </div>
       </div>
+      <div class="grid" id="signatureFields"></div>
     </section>
 
     <section>
@@ -607,11 +632,8 @@
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
-    const SIGNATURES = ["revenda_fabrica", "fazenda"];
-    const SIGNATURE_LABELS = {
-      revenda_fabrica: "Responsável da revenda/fábrica",
-      fazenda: "Responsável da fazenda"
-    };
+    const MIN_SIGNATURES = 2;
+    const MAX_SIGNATURES = 5;
 
     let db;
     let draft = defaultDraft();
@@ -626,7 +648,7 @@
     let wavSampleRate = 44100;
     let activeSignatureKey = "";
     let modalSignaturePad;
-    const mainSignaturePads = {};
+    let mainSignaturePads = {};
     let wakeLock;
     let saveTimer;
     let locationWatchId = null;
@@ -655,7 +677,72 @@
         },
         responsaveis: { revenda_fabrica: "", fazenda: "" },
         documentos: { revenda_fabrica: "", fazenda: "" },
-        assinaturas: { revenda_fabrica: null, fazenda: null }
+        assinaturas: { revenda_fabrica: null, fazenda: null },
+        assinaturas_habilitadas: true,
+        quantidade_assinaturas: MIN_SIGNATURES,
+        assinaturas_lista: defaultSignatures(MIN_SIGNATURES)
+      };
+    }
+
+    function clampSignatureCount(value) {
+      const count = Number.parseInt(value, 10);
+      if (Number.isNaN(count)) return MIN_SIGNATURES;
+      return Math.max(MIN_SIGNATURES, Math.min(MAX_SIGNATURES, count));
+    }
+
+    function defaultSignature(index) {
+      const labels = ["Responsável da Revenda/Fábrica", "Responsável da Fazenda"];
+      return {
+        id: `assinatura_${index}`,
+        nome: "",
+        representa: labels[index - 1] || `Responsável ${index}`,
+        documento: "",
+        imagem: null
+      };
+    }
+
+    function defaultSignatures(count) {
+      return Array.from({ length: clampSignatureCount(count) }, (_, index) => defaultSignature(index + 1));
+    }
+
+    function normalizeSignatures() {
+      const legacy = [
+        {
+          ...defaultSignature(1),
+          nome: draft.responsaveis?.revenda_fabrica || "",
+          documento: draft.documentos?.revenda_fabrica || "",
+          imagem: draft.assinaturas?.revenda_fabrica || null
+        },
+        {
+          ...defaultSignature(2),
+          nome: draft.responsaveis?.fazenda || "",
+          documento: draft.documentos?.fazenda || "",
+          imagem: draft.assinaturas?.fazenda || null
+        }
+      ];
+      const source = Array.isArray(draft.assinaturas_lista) ? draft.assinaturas_lista : legacy;
+      draft.quantidade_assinaturas = clampSignatureCount(draft.quantidade_assinaturas || source.length);
+      draft.assinaturas_lista = defaultSignatures(draft.quantidade_assinaturas).map((fallback, index) => {
+        const item = source[index] || fallback;
+        return {
+          id: fallback.id,
+          nome: item.nome || "",
+          representa: item.representa || fallback.representa,
+          documento: item.documento || "",
+          imagem: item.imagem || null
+        };
+      });
+      draft.responsaveis = {
+        revenda_fabrica: draft.assinaturas_lista[0]?.nome || "",
+        fazenda: draft.assinaturas_lista[1]?.nome || ""
+      };
+      draft.documentos = {
+        revenda_fabrica: draft.assinaturas_lista[0]?.documento || "",
+        fazenda: draft.assinaturas_lista[1]?.documento || ""
+      };
+      draft.assinaturas = {
+        revenda_fabrica: draft.assinaturas_lista[0]?.imagem || null,
+        fazenda: draft.assinaturas_lista[1]?.imagem || null
       };
     }
 
@@ -750,9 +837,10 @@
         document.getElementById(`${key}_status`).textContent = total ? `${total} imagens.` : "";
         renderImagePreview(`${key}_preview`, draft.evidencias[key], (index) => {
           draft.evidencias[key].splice(index, 1);
+          removeMetadataLine(key, index);
           updateCounts();
           scheduleSave();
-        });
+        }, key);
       });
       const fotosAtendimento = draft.fotos_atendimento || [];
       document.getElementById(`${ATTENDANCE_PHOTOS}_status`).textContent = fotosAtendimento.length ? `${fotosAtendimento.length} imagens.` : "";
@@ -764,7 +852,37 @@
       renderAudios();
     }
 
-    function renderImagePreview(containerId, items, onRemove) {
+    function metadataLines(key) {
+      return String(draft.legendas_evidencias?.[key] || "").split(/\r?\n/);
+    }
+
+    function metadataLineParts(line) {
+      const parts = String(line || "").split("|");
+      return {
+        titulo: (parts[0] || "").trim(),
+        legenda: (parts[1] || "").trim(),
+        fonte: (parts[2] || "").trim()
+      };
+    }
+
+    function setMetadataLine(key, index, line) {
+      const lines = metadataLines(key);
+      while (lines.length <= index) lines.push("||");
+      lines[index] = line;
+      draft.legendas_evidencias[key] = lines.join("\n");
+      const legacy = document.getElementById(`legenda_${key}`);
+      if (legacy) legacy.value = draft.legendas_evidencias[key];
+    }
+
+    function removeMetadataLine(key, index) {
+      const lines = metadataLines(key);
+      lines.splice(index, 1);
+      draft.legendas_evidencias[key] = lines.join("\n");
+      const legacy = document.getElementById(`legenda_${key}`);
+      if (legacy) legacy.value = draft.legendas_evidencias[key];
+    }
+
+    function renderImagePreview(containerId, items, onRemove, categoryKey = "") {
       const container = document.getElementById(containerId);
       if (!container) return;
       container.innerHTML = "";
@@ -789,6 +907,36 @@
         footer.appendChild(name);
         footer.appendChild(remove);
         card.appendChild(footer);
+
+        if (categoryKey) {
+          const line = metadataLines(categoryKey)[index] || "";
+          const parts = metadataLineParts(line);
+          const manual = Boolean(line && line !== "||" && (parts.titulo || parts.legenda || parts.fonte));
+          const caption = document.createElement("div");
+          caption.className = "caption-control";
+          const label = document.createElement("label");
+          const check = document.createElement("input");
+          check.type = "checkbox";
+          check.checked = manual;
+          label.appendChild(check);
+          label.appendChild(document.createTextNode("Legenda personalizada"));
+          const text = document.createElement("textarea");
+          text.placeholder = "Legenda desta foto";
+          text.value = parts.legenda;
+          text.disabled = !manual;
+          check.addEventListener("change", () => {
+            text.disabled = !check.checked;
+            setMetadataLine(categoryKey, index, check.checked ? ` | ${text.value.trim()} | ` : "||");
+            scheduleSave();
+          });
+          text.addEventListener("input", () => {
+            setMetadataLine(categoryKey, index, check.checked ? ` | ${text.value.trim()} | ` : "||");
+            scheduleSave();
+          });
+          caption.appendChild(label);
+          caption.appendChild(text);
+          card.appendChild(caption);
+        }
         container.appendChild(card);
       });
     }
@@ -1020,29 +1168,42 @@
       ctx.fillRect(0, 0, rect.width, rect.height);
     }
 
+    function signatureById(key) {
+      normalizeSignatures();
+      return draft.assinaturas_lista.find((item) => item.id === key);
+    }
+
+    function signatureLabel(key) {
+      return signatureById(key)?.representa || "Assinatura";
+    }
+
     function paintStoredSignature(canvas, key) {
       if (!key) {
         clearCanvasSurface(canvas);
         return;
       }
       clearCanvasSurface(canvas);
-      if (draft.assinaturas[key]?.dataUrl) {
+      const assinatura = signatureById(key);
+      if (assinatura?.imagem?.dataUrl) {
         const rect = canvas.getBoundingClientRect();
         const ctx = canvas.getContext("2d");
         const img = new Image();
         img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
-        img.src = draft.assinaturas[key].dataUrl;
+        img.src = assinatura.imagem.dataUrl;
       }
     }
 
     function saveCanvasSignature(canvas, key) {
       if (!key) return;
-      draft.assinaturas[key] = {
+      const assinatura = signatureById(key);
+      if (!assinatura) return;
+      assinatura.imagem = {
         name: `assinatura_${key}.png`,
         type: "image/png",
         size: 0,
         dataUrl: canvas.toDataURL("image/png")
       };
+      normalizeSignatures();
       scheduleSave();
     }
 
@@ -1116,7 +1277,9 @@
           const key = getKey();
           clearCanvasSurface(canvas);
           if (key) {
-            draft.assinaturas[key] = null;
+            const assinatura = signatureById(key);
+            if (assinatura) assinatura.imagem = null;
+            normalizeSignatures();
             scheduleSave();
             refreshSignatureCanvases(key, canvas);
           }
@@ -1127,7 +1290,7 @@
 
     function openSignatureModal(key) {
       activeSignatureKey = key;
-      document.getElementById("signatureModalTitle").textContent = SIGNATURE_LABELS[key] || "Assinatura";
+      document.getElementById("signatureModalTitle").textContent = signatureLabel(key);
       document.getElementById("signatureModal").classList.add("open");
       document.body.classList.add("signature-open");
       window.setTimeout(() => modalSignaturePad.resize(), 60);
@@ -1142,6 +1305,62 @@
       activeSignatureKey = "";
     }
 
+    function escapeAttr(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function renderSignatureFields() {
+      normalizeSignatures();
+      const container = document.getElementById("signatureFields");
+      container.innerHTML = "";
+      mainSignaturePads = {};
+      if (!draft.assinaturas_habilitadas) {
+        container.innerHTML = '<p class="hint">As assinaturas não serão inseridas no relatório.</p>';
+        return;
+      }
+
+      draft.assinaturas_lista.forEach((assinatura, index) => {
+        const card = document.createElement("div");
+        card.className = "field";
+        card.innerHTML = `
+          <label>Assinatura ${index + 1}</label>
+          <input type="text" data-signature-name="${assinatura.id}" placeholder="Nome do responsável" value="${escapeAttr(assinatura.nome)}">
+          <input type="text" data-signature-role="${assinatura.id}" placeholder="Representa" value="${escapeAttr(assinatura.representa)}">
+          <input type="text" data-signature-doc="${assinatura.id}" placeholder="CPF/RG ou documento" value="${escapeAttr(assinatura.documento)}">
+          <canvas id="canvas_${assinatura.id}"></canvas>
+          <div class="signature-actions">
+            <button type="button" class="primary" data-open-signature="${assinatura.id}">Assinar em tela cheia</button>
+            <button type="button" data-clear-signature="${assinatura.id}">Limpar assinatura</button>
+          </div>
+        `;
+        container.appendChild(card);
+        card.querySelector(`[data-signature-name="${assinatura.id}"]`).addEventListener("input", (event) => {
+          assinatura.nome = event.target.value;
+          normalizeSignatures();
+          scheduleSave();
+        });
+        card.querySelector(`[data-signature-role="${assinatura.id}"]`).addEventListener("input", (event) => {
+          assinatura.representa = event.target.value;
+          scheduleSave();
+        });
+        card.querySelector(`[data-signature-doc="${assinatura.id}"]`).addEventListener("input", (event) => {
+          assinatura.documento = event.target.value;
+          normalizeSignatures();
+          scheduleSave();
+        });
+        mainSignaturePads[assinatura.id] = setupDrawingCanvas(
+          card.querySelector(`#canvas_${assinatura.id}`),
+          () => assinatura.id
+        );
+        card.querySelector(`[data-clear-signature="${assinatura.id}"]`).addEventListener("click", () => mainSignaturePads[assinatura.id].clear());
+        card.querySelector(`[data-open-signature="${assinatura.id}"]`).addEventListener("click", () => openSignatureModal(assinatura.id));
+      });
+    }
+
     function hydrateFields() {
       const tipo = draft.tipo_atendimento || "suporte";
       const tipoInput = document.querySelector(`input[name="tipo_atendimento"][value="${tipo}"]`);
@@ -1152,10 +1371,10 @@
       CATEGORIES.forEach((key) => {
         document.getElementById(`legenda_${key}`).value = draft.legendas_evidencias[key] || "";
       });
-      document.getElementById("responsavel_revenda_fabrica").value = draft.responsaveis.revenda_fabrica || "";
-      document.getElementById("documento_revenda_fabrica").value = draft.documentos.revenda_fabrica || "";
-      document.getElementById("responsavel_fazenda").value = draft.responsaveis.fazenda || "";
-      document.getElementById("documento_fazenda").value = draft.documentos.fazenda || "";
+      document.getElementById("assinaturas_habilitadas").checked = draft.assinaturas_habilitadas !== false;
+      document.getElementById("quantidade_assinaturas").value = String(clampSignatureCount(draft.quantidade_assinaturas));
+      document.getElementById("quantidade_assinaturas").disabled = draft.assinaturas_habilitadas === false;
+      renderSignatureFields();
       updateCounts();
     }
 
@@ -1179,6 +1398,18 @@
       document.getElementById("onlineAppUrl").addEventListener("input", (event) => {
         localStorage.setItem("agresOnlineAppUrl", event.target.value.trim());
       });
+      document.getElementById("assinaturas_habilitadas").addEventListener("change", (event) => {
+        draft.assinaturas_habilitadas = event.target.checked;
+        document.getElementById("quantidade_assinaturas").disabled = !event.target.checked;
+        renderSignatureFields();
+        scheduleSave();
+      });
+      document.getElementById("quantidade_assinaturas").addEventListener("change", (event) => {
+        draft.quantidade_assinaturas = clampSignatureCount(event.target.value);
+        normalizeSignatures();
+        renderSignatureFields();
+        scheduleSave();
+      });
 
       CATEGORIES.forEach((key) => {
         document.getElementById(`legenda_${key}`).addEventListener("input", (event) => {
@@ -1187,7 +1418,8 @@
         });
         document.getElementById(key).addEventListener("change", async (event) => {
           const arquivos = await Promise.all([...event.target.files].map(readFile));
-          draft.evidencias[key].push(...arquivos);
+          draft.evidencias[key] = arquivos;
+          draft.legendas_evidencias[key] = "";
           event.target.value = "";
           updateCounts();
           scheduleSave();
@@ -1196,7 +1428,7 @@
 
       document.getElementById(ATTENDANCE_PHOTOS).addEventListener("change", async (event) => {
         const arquivos = await Promise.all([...event.target.files].map(readFile));
-        draft.fotos_atendimento.push(...arquivos);
+        draft.fotos_atendimento = arquivos;
         event.target.value = "";
         updateCounts();
         scheduleSave();
@@ -1210,23 +1442,6 @@
           updateCounts();
           scheduleSave();
         });
-      });
-
-      document.getElementById("responsavel_revenda_fabrica").addEventListener("input", (event) => {
-        draft.responsaveis.revenda_fabrica = event.target.value;
-        scheduleSave();
-      });
-      document.getElementById("documento_revenda_fabrica").addEventListener("input", (event) => {
-        draft.documentos.revenda_fabrica = event.target.value;
-        scheduleSave();
-      });
-      document.getElementById("responsavel_fazenda").addEventListener("input", (event) => {
-        draft.responsaveis.fazenda = event.target.value;
-        scheduleSave();
-      });
-      document.getElementById("documento_fazenda").addEventListener("input", (event) => {
-        draft.documentos.fazenda = event.target.value;
-        scheduleSave();
       });
 
       document.getElementById("audioFiles").addEventListener("change", async (event) => {
@@ -1256,23 +1471,11 @@
         document.getElementById("stopBtn").disabled = true;
       }));
 
-      mainSignaturePads.revenda_fabrica = setupDrawingCanvas(
-        document.getElementById("assinatura_revenda_fabrica"),
-        () => "revenda_fabrica"
-      );
-      mainSignaturePads.fazenda = setupDrawingCanvas(
-        document.getElementById("assinatura_fazenda"),
-        () => "fazenda"
-      );
       modalSignaturePad = setupDrawingCanvas(
         document.getElementById("signatureModalCanvas"),
         () => activeSignatureKey
       );
 
-      document.querySelector("[data-clear-signature='revenda_fabrica']").addEventListener("click", () => mainSignaturePads.revenda_fabrica.clear());
-      document.querySelector("[data-clear-signature='fazenda']").addEventListener("click", () => mainSignaturePads.fazenda.clear());
-      document.querySelector("[data-open-signature='revenda_fabrica']").addEventListener("click", () => openSignatureModal("revenda_fabrica"));
-      document.querySelector("[data-open-signature='fazenda']").addEventListener("click", () => openSignatureModal("fazenda"));
       document.getElementById("clearSignatureModal").addEventListener("click", () => modalSignaturePad.clear());
       document.getElementById("closeSignatureModal").addEventListener("click", closeSignatureModal);
       document.getElementById("finishSignatureModal").addEventListener("click", closeSignatureModal);
@@ -1298,6 +1501,7 @@
     }
 
     function packageTextSync() {
+      normalizeSignatures();
       const pacote = { ...draft, exported_at: new Date().toISOString() };
       return JSON.stringify(pacote);
     }
@@ -1531,6 +1735,8 @@
       draft.responsaveis = { ...defaultDraft().responsaveis, ...(draft.responsaveis || {}) };
       draft.documentos = { ...defaultDraft().documentos, ...(draft.documentos || {}) };
       draft.assinaturas = { ...defaultDraft().assinaturas, ...(draft.assinaturas || {}) };
+      draft.assinaturas_habilitadas = draft.assinaturas_habilitadas !== false;
+      normalizeSignatures();
       hydrateFields();
       wireFields();
       await putDraft();

@@ -1,4 +1,4 @@
-﻿const CACHE_NAME = "agres-offline-v14";
+﻿const CACHE_NAME = "agres-offline-v15";
 const ASSETS = [
   "./",
   "./index.html",
@@ -72,3 +72,4 @@ self.addEventListener("fetch", (event) => {
     }).catch(() => caches.match("./index.html", { ignoreSearch: true })))
   );
 });
+

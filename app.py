@@ -178,6 +178,74 @@ ASSINATURAS_RESPONSAVEIS = {
     },
 }
 
+MIN_ASSINATURAS = 2
+MAX_ASSINATURAS = 5
+
+
+def quantidade_assinaturas_normalizada(valor, padrao: int = MIN_ASSINATURAS) -> int:
+    try:
+        quantidade = int(valor)
+    except (TypeError, ValueError):
+        quantidade = padrao
+    return max(MIN_ASSINATURAS, min(MAX_ASSINATURAS, quantidade))
+
+
+def assinatura_padrao(indice: int) -> dict:
+    titulos_iniciais = [
+        "Responsável da Revenda/Fábrica",
+        "Responsável da Fazenda",
+    ]
+    representa = titulos_iniciais[indice - 1] if indice <= len(titulos_iniciais) else f"Responsável {indice}"
+    return {
+        "id": f"assinatura_{indice}",
+        "nome": "",
+        "representa": representa,
+        "documento": "",
+        "imagem": None,
+    }
+
+
+def assinaturas_padrao_lista(quantidade: int = MIN_ASSINATURAS) -> list[dict]:
+    return [assinatura_padrao(indice) for indice in range(1, quantidade_assinaturas_normalizada(quantidade) + 1)]
+
+
+def normalizar_assinaturas_lista(manifesto: dict) -> list[dict]:
+    registros = manifesto.get("assinaturas_lista")
+
+    if not isinstance(registros, list):
+        registros = []
+        legados = [
+            ("revenda_fabrica", "Responsável da Revenda/Fábrica"),
+            ("fazenda", "Responsável da Fazenda"),
+        ]
+        for indice, (chave, representa) in enumerate(legados, start=1):
+            registros.append(
+                {
+                    "id": f"assinatura_{indice}",
+                    "nome": limpar_texto(manifesto.get("responsaveis", {}).get(chave, "")),
+                    "representa": representa,
+                    "documento": limpar_texto(manifesto.get("documentos", {}).get(chave, "")),
+                    "imagem": manifesto.get("assinaturas", {}).get(chave),
+                }
+            )
+
+    quantidade = quantidade_assinaturas_normalizada(manifesto.get("quantidade_assinaturas") or len(registros))
+    normalizadas = []
+    por_id = {str(item.get("id") or f"assinatura_{indice}"): item for indice, item in enumerate(registros, start=1) if isinstance(item, dict)}
+    for indice in range(1, quantidade + 1):
+        padrao = assinatura_padrao(indice)
+        item = por_id.get(padrao["id"], {})
+        normalizadas.append(
+            {
+                "id": padrao["id"],
+                "nome": limpar_texto(item.get("nome", padrao["nome"])),
+                "representa": limpar_texto(item.get("representa", padrao["representa"])) or padrao["representa"],
+                "documento": limpar_texto(item.get("documento", padrao["documento"])),
+                "imagem": item.get("imagem"),
+            }
+        )
+    return normalizadas
+
 
 for chave, valor_inicial in {
     "lista_gravadores": [0],
@@ -992,6 +1060,7 @@ PADRÃO DO RELATO:
 - Escrever em formato narrativo, como relato técnico do que foi realizado em campo.
 - Não usar subtítulos, tópicos, listas, markdown, negrito com **texto**, enumeração ou blocos separados por títulos.
 - Descrever em parágrafos corridos o contexto do atendimento, problema informado, diagnóstico inicial, procedimentos executados, configurações/calibrações relevantes, problemas encontrados, correções aplicadas, testes de funcionamento, resultado final e conclusão técnica.
+- Separar o relato em 3 a 5 parágrafos, usando uma linha em branco entre parágrafos. Não retornar tudo em um único bloco.
 - Em atendimentos de vários dias, separar a sequência por data ou por etapa.
 - Informar "Não informado" nos campos textuais quando o dado não for mencionado.
 
@@ -1354,9 +1423,34 @@ def inserir_quebra_pagina_antes_paragrafo(paragraph) -> None:
     paragraph._p.addprevious(quebra)
 
 
-def inserir_assinaturas_docx(caminho_docx: Path, dados: dict, caminhos_assinaturas: dict | None = None) -> None:
+def inserir_assinaturas_docx(caminho_docx: Path, dados: dict, caminhos_assinaturas: list[dict] | dict | None = None) -> None:
     documento = Document(str(caminho_docx))
-    caminhos_assinaturas = caminhos_assinaturas or {}
+    if not caminhos_assinaturas:
+        return
+
+    if isinstance(caminhos_assinaturas, dict):
+        assinaturas_documento = []
+        for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
+            caminho = caminhos_assinaturas.get(chave)
+            if caminho or dados.get(configuracao["campo"]) or dados.get(configuracao["campo_documento"]):
+                assinaturas_documento.append(
+                    {
+                        "nome": dados.get(configuracao["campo"], ""),
+                        "representa": configuracao["titulo"],
+                        "documento": dados.get(configuracao["campo_documento"], ""),
+                        "caminho": caminho,
+                    }
+                )
+    else:
+        assinaturas_documento = caminhos_assinaturas
+
+    assinaturas_documento = [
+        assinatura
+        for assinatura in assinaturas_documento
+        if assinatura.get("nome") or assinatura.get("representa") or assinatura.get("documento") or assinatura.get("caminho")
+    ]
+    if not assinaturas_documento:
+        return
 
     titulo = documento.add_paragraph()
     titulo.paragraph_format.keep_with_next = True
@@ -1367,17 +1461,20 @@ def inserir_assinaturas_docx(caminho_docx: Path, dados: dict, caminhos_assinatur
     run_titulo.font.size = Pt(11)
     run_titulo.font.bold = True
 
-    tabela = documento.add_table(rows=1, cols=2)
+    linhas = (len(assinaturas_documento) + 1) // 2
+    tabela = documento.add_table(rows=linhas, cols=2)
     tabela.alignment = WD_TABLE_ALIGNMENT.CENTER
     remover_bordas_tabela(tabela)
 
-    for indice, (chave, configuracao) in enumerate(ASSINATURAS_RESPONSAVEIS.items()):
+    for indice, assinatura in enumerate(assinaturas_documento):
+        linha = indice // 2
+        coluna = indice % 2
         preencher_celula_assinatura(
-            tabela.cell(0, indice),
-            configuracao["titulo"],
-            dados.get(configuracao["campo"], ""),
-            dados.get(configuracao["campo_documento"], ""),
-            caminhos_assinaturas.get(chave),
+            tabela.cell(linha, coluna),
+            assinatura.get("representa", ""),
+            assinatura.get("nome", ""),
+            assinatura.get("documento", ""),
+            assinatura.get("caminho"),
         )
 
     for paragraph in documento.paragraphs:
@@ -1427,6 +1524,7 @@ def gerar_docx(
     caminho_saida = pasta_saida / nome_arquivo
     doc.render(dados_render)
     doc.save(str(caminho_saida))
+    aplicar_paragrafos_relato_docx(caminho_saida, dados_render.get("relato", ""))
     inserir_assinaturas_docx(caminho_saida, dados_render, caminhos_assinaturas)
     aplicar_formatacao_texto_tecnico(caminho_saida)
     aplicar_paginacao_abnt_figuras(caminho_saida)
@@ -1516,8 +1614,13 @@ def adicionar_fotos_atendimento_zip(
             continue
         adicionar_foto_unica(caminho, caminho.stem)
 
-    for chave, caminho in (caminhos_assinaturas or {}).items():
-        adicionar_foto_unica(caminho, f"assinatura_{chave}", ".png")
+    if isinstance(caminhos_assinaturas, dict):
+        for chave, caminho in (caminhos_assinaturas or {}).items():
+            adicionar_foto_unica(caminho, f"assinatura_{chave}", ".png")
+    else:
+        for indice, assinatura in enumerate(caminhos_assinaturas or [], start=1):
+            nome_base = assinatura.get("nome") or assinatura.get("representa") or f"assinatura_{indice}"
+            adicionar_foto_unica(assinatura.get("caminho"), f"assinatura_{indice}_{nome_base}", ".png")
 
 
 def gerar_pacote_relatorio(
@@ -1582,6 +1685,76 @@ def paragrafo_tem_imagem(paragraph) -> bool:
     return paragraph._p.xpath(".//*[local-name()='drawing' or local-name()='pict']")
 
 
+def formatar_paragrafo_relato(paragraph) -> None:
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    formato = paragraph.paragraph_format
+    formato.left_indent = Mm(0)
+    formato.right_indent = Mm(0)
+    formato.first_line_indent = Mm(12.5)
+    formato.space_before = Pt(0)
+    formato.space_after = Pt(0)
+    formato.line_spacing = 1.5
+    formato.widow_control = True
+    for run in paragraph.runs:
+        run.font.name = "Arial"
+        run.font.size = Pt(11)
+
+
+def dividir_relato_em_paragrafos(texto: str) -> list[str]:
+    texto = limpar_relato_narrativo(texto)
+    paragrafos = [paragrafo.strip() for paragrafo in re.split(r"\n{2,}", texto) if paragrafo.strip()]
+    if len(paragrafos) > 1 or not paragrafos or len(paragrafos[0]) < 900:
+        return paragrafos
+
+    frases = re.split(r"(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9])", paragrafos[0])
+    frases = [frase.strip() for frase in frases if frase.strip()]
+    if len(frases) < 6:
+        return paragrafos
+
+    alvo = max(2, min(4, round(len(frases) / 3)))
+    blocos = []
+    for indice in range(0, len(frases), alvo):
+        blocos.append(" ".join(frases[indice : indice + alvo]).strip())
+    return blocos
+
+
+def aplicar_paragrafos_relato_docx(caminho_docx: Path, relato: str) -> None:
+    paragrafos_relato = dividir_relato_em_paragrafos(relato)
+    if len(paragrafos_relato) <= 1:
+        return
+
+    documento = Document(caminho_docx)
+    relato_normalizado = limpar_texto(relato)
+    alvo = None
+    for paragraph in iterar_paragrafos_word(documento):
+        if paragrafo_tem_imagem(paragraph):
+            continue
+        if limpar_texto(paragraph.text) == relato_normalizado:
+            alvo = paragraph
+            break
+
+    if alvo is None:
+        trecho = limpar_texto(paragrafos_relato[0])[:80]
+        for paragraph in iterar_paragrafos_word(documento):
+            if trecho and trecho in limpar_texto(paragraph.text):
+                alvo = paragraph
+                break
+
+    if alvo is None:
+        return
+
+    novos_paragrafos = []
+    for paragrafo_texto in paragrafos_relato:
+        novo = alvo.insert_paragraph_before()
+        novo.style = alvo.style
+        novo.add_run(paragrafo_texto)
+        formatar_paragrafo_relato(novo)
+        novos_paragrafos.append(novo)
+
+    remover_paragrafo_word(alvo)
+    documento.save(caminho_docx)
+
+
 def aplicar_formatacao_texto_tecnico(caminho_docx: Path) -> None:
     documento = Document(caminho_docx)
     preservar_centralizado = {
@@ -1603,6 +1776,9 @@ def aplicar_formatacao_texto_tecnico(caminho_docx: Path) -> None:
             or texto.startswith("Fonte:")
             or texto.startswith("Legenda:")
         ):
+            continue
+        if paragraph.paragraph_format.first_line_indent:
+            formatar_paragrafo_relato(paragraph)
             continue
 
         paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -1690,7 +1866,7 @@ def consolidar_bloco_figura(
 
     formatar_paragrafo_figura(titulo_paragraph, keep_with_next=False, tamanho_fonte=None)
     titulo_paragraph.paragraph_format.space_before = Pt(6)
-    titulo_paragraph.paragraph_format.space_after = Pt(14)
+    titulo_paragraph.paragraph_format.space_after = Pt(20)
 
 
 def consolidar_figuras_em_blocos_unicos(paragrafos: list) -> None:
@@ -1802,7 +1978,7 @@ def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
             numero_figura += 1
             formatar_paragrafo_figura(paragraph, keep_with_next=False)
             paragraph.paragraph_format.space_before = Pt(6)
-            paragraph.paragraph_format.space_after = Pt(14)
+            paragraph.paragraph_format.space_after = Pt(20)
             dentro_bloco_figura = False
             continue
 
@@ -1819,7 +1995,7 @@ def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
         ):
             formatar_paragrafo_figura(paragraph, keep_with_next=False, tamanho_fonte=None)
             paragraph.paragraph_format.space_before = Pt(0)
-            paragraph.paragraph_format.space_after = Pt(14)
+            paragraph.paragraph_format.space_after = Pt(20)
             dentro_bloco_figura = False
             continue
 
@@ -1939,6 +2115,9 @@ def novo_manifesto_rascunho() -> dict:
         "responsaveis": {chave: "" for chave in ASSINATURAS_RESPONSAVEIS},
         "documentos": {chave: "" for chave in ASSINATURAS_RESPONSAVEIS},
         "assinaturas": {chave: None for chave in ASSINATURAS_RESPONSAVEIS},
+        "assinaturas_habilitadas": True,
+        "quantidade_assinaturas": MIN_ASSINATURAS,
+        "assinaturas_lista": assinaturas_padrao_lista(MIN_ASSINATURAS),
     }
 
 
@@ -1996,6 +2175,9 @@ def carregar_manifesto(draft_dir: Path) -> dict:
                     **novo_manifesto_rascunho()["assinaturas"],
                     **manifesto.get("assinaturas", {}),
                 }
+                manifesto["assinaturas_habilitadas"] = bool(manifesto.get("assinaturas_habilitadas", True))
+                manifesto["assinaturas_lista"] = normalizar_assinaturas_lista(manifesto)
+                manifesto["quantidade_assinaturas"] = len(manifesto["assinaturas_lista"])
         except (OSError, json.JSONDecodeError):
             pass
     return manifesto
@@ -2227,11 +2409,39 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
     if fotos_atendimento or "fotos_atendimento" in pacote:
         manifesto["fotos_atendimento"] = fotos_atendimento
 
-    for chave, item in (pacote.get("assinaturas") or {}).items():
-        if chave in ASSINATURAS_RESPONSAVEIS:
-            assinatura = salvar_item_offline_rascunho(item, draft_dir, "assinaturas", chave, EXTENSOES_IMAGEM, "png")
-            if assinatura:
-                manifesto["assinaturas"][chave] = assinatura
+    if "assinaturas_habilitadas" in pacote:
+        manifesto["assinaturas_habilitadas"] = bool(pacote.get("assinaturas_habilitadas"))
+
+    assinaturas_lista = pacote.get("assinaturas_lista")
+    if isinstance(assinaturas_lista, list):
+        quantidade = quantidade_assinaturas_normalizada(pacote.get("quantidade_assinaturas") or len(assinaturas_lista))
+        registros = []
+        for indice in range(1, quantidade + 1):
+            padrao = assinatura_padrao(indice)
+            item = assinaturas_lista[indice - 1] if indice - 1 < len(assinaturas_lista) and isinstance(assinaturas_lista[indice - 1], dict) else {}
+            imagem = None
+            imagem_item = item.get("imagem") or item.get("assinatura")
+            if imagem_item:
+                imagem = salvar_item_offline_rascunho(imagem_item, draft_dir, "assinaturas", padrao["id"], EXTENSOES_IMAGEM, "png")
+            registros.append(
+                {
+                    "id": padrao["id"],
+                    "nome": limpar_texto(item.get("nome", "")),
+                    "representa": limpar_texto(item.get("representa", padrao["representa"])) or padrao["representa"],
+                    "documento": limpar_texto(item.get("documento", "")),
+                    "imagem": imagem,
+                }
+            )
+        manifesto["quantidade_assinaturas"] = quantidade
+        manifesto["assinaturas_lista"] = registros
+    else:
+        for chave, item in (pacote.get("assinaturas") or {}).items():
+            if chave in ASSINATURAS_RESPONSAVEIS:
+                assinatura = salvar_item_offline_rascunho(item, draft_dir, "assinaturas", chave, EXTENSOES_IMAGEM, "png")
+                if assinatura:
+                    manifesto["assinaturas"][chave] = assinatura
+        manifesto["assinaturas_lista"] = normalizar_assinaturas_lista(manifesto)
+        manifesto["quantidade_assinaturas"] = len(manifesto["assinaturas_lista"])
 
     salvar_manifesto(draft_dir, manifesto)
     return manifesto
@@ -2254,6 +2464,13 @@ def aplicar_manifesto_na_sessao(manifesto: dict) -> None:
     for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
         st.session_state[configuracao["campo"]] = manifesto.get("responsaveis", {}).get(chave, "")
         st.session_state[configuracao["campo_documento"]] = manifesto.get("documentos", {}).get(chave, "")
+    st.session_state.assinaturas_habilitadas = manifesto.get("assinaturas_habilitadas", True)
+    st.session_state.quantidade_assinaturas = quantidade_assinaturas_normalizada(manifesto.get("quantidade_assinaturas", MIN_ASSINATURAS))
+    for assinatura in normalizar_assinaturas_lista(manifesto):
+        assinatura_id = assinatura["id"]
+        st.session_state[f"assinatura_nome_{assinatura_id}"] = assinatura.get("nome", "")
+        st.session_state[f"assinatura_representa_{assinatura_id}"] = assinatura.get("representa", "")
+        st.session_state[f"assinatura_documento_{assinatura_id}"] = assinatura.get("documento", "")
 
 
 def uploaded_file_para_item_pacote(uploaded_file) -> dict | None:
@@ -2533,6 +2750,9 @@ def atualizar_rascunho_atual(
     legendas: dict,
     responsaveis: dict | None = None,
     documentos: dict | None = None,
+    assinaturas_habilitadas: bool = True,
+    quantidade_assinaturas: int = MIN_ASSINATURAS,
+    assinaturas_form: dict | None = None,
     assinaturas_canvas: dict | None = None,
     assinaturas_upload: dict | None = None,
 ) -> dict:
@@ -2591,33 +2811,54 @@ def atualizar_rascunho_atual(
         if categoria in CATEGORIAS_EVIDENCIAS:
             manifesto["legendas_evidencias"][categoria] = texto or ""
 
-    for chave, texto in (responsaveis or {}).items():
-        if chave in ASSINATURAS_RESPONSAVEIS:
-            manifesto["responsaveis"][chave] = texto or ""
+    manifesto["assinaturas_habilitadas"] = bool(assinaturas_habilitadas)
+    manifesto["quantidade_assinaturas"] = quantidade_assinaturas_normalizada(quantidade_assinaturas)
+    assinaturas_atuais = {item["id"]: item for item in normalizar_assinaturas_lista(manifesto)}
+    assinaturas_form = assinaturas_form or {}
 
-    for chave, texto in (documentos or {}).items():
-        if chave in ASSINATURAS_RESPONSAVEIS:
-            manifesto["documentos"][chave] = texto or ""
+    for indice in range(1, manifesto["quantidade_assinaturas"] + 1):
+        assinatura_id = f"assinatura_{indice}"
+        atual = assinaturas_atuais.get(assinatura_id, assinatura_padrao(indice))
+        recebido = assinaturas_form.get(assinatura_id, {})
+        assinaturas_atuais[assinatura_id] = {
+            "id": assinatura_id,
+            "nome": limpar_texto(recebido.get("nome", atual.get("nome", ""))),
+            "representa": limpar_texto(recebido.get("representa", atual.get("representa", ""))) or assinatura_padrao(indice)["representa"],
+            "documento": limpar_texto(recebido.get("documento", atual.get("documento", ""))),
+            "imagem": atual.get("imagem"),
+        }
 
     for chave, resultado in (assinaturas_canvas or {}).items():
-        if chave in ASSINATURAS_RESPONSAVEIS:
+        if chave in assinaturas_atuais:
             item = salvar_assinatura_canvas(resultado, draft_dir, chave)
             if item:
-                manifesto["assinaturas"][chave] = item
+                assinaturas_atuais[chave]["imagem"] = item
                 st.session_state[f"editar_assinatura_{chave}"] = False
 
     for chave, arquivo in (assinaturas_upload or {}).items():
-        if chave in ASSINATURAS_RESPONSAVEIS:
+        if chave in assinaturas_atuais:
             item = salvar_arquivo_rascunho(arquivo, draft_dir, "assinaturas", chave, EXTENSOES_IMAGEM, "png")
             if item:
-                manifesto["assinaturas"][chave] = item
+                assinaturas_atuais[chave]["imagem"] = item
                 st.session_state[f"editar_assinatura_{chave}"] = False
+
+    manifesto["assinaturas_lista"] = [
+        assinaturas_atuais[f"assinatura_{indice}"]
+        for indice in range(1, manifesto["quantidade_assinaturas"] + 1)
+    ]
+
+    legados = [("revenda_fabrica", 0), ("fazenda", 1)]
+    for chave, indice in legados:
+        assinatura = manifesto["assinaturas_lista"][indice] if indice < len(manifesto["assinaturas_lista"]) else assinatura_padrao(indice + 1)
+        manifesto["responsaveis"][chave] = assinatura.get("nome", "")
+        manifesto["documentos"][chave] = assinatura.get("documento", "")
+        manifesto["assinaturas"][chave] = assinatura.get("imagem")
 
     salvar_manifesto(draft_dir, manifesto)
     return manifesto
 
 
-def caminhos_salvos_rascunho(draft_dir: Path, manifesto: dict) -> tuple[list[Path], dict, dict, list[Path], dict]:
+def caminhos_salvos_rascunho(draft_dir: Path, manifesto: dict) -> tuple[list[Path], dict, dict, list[Path], list[dict]]:
     audios = [caminho for item in manifesto.get("audios", []) if (caminho := resolver_arquivo_rascunho(draft_dir, item))]
     cabecalho = {
         chave: resolver_arquivo_rascunho(draft_dir, item)
@@ -2636,10 +2877,12 @@ def caminhos_salvos_rascunho(draft_dir: Path, manifesto: dict) -> tuple[list[Pat
         for item in manifesto.get("fotos_atendimento", [])
         if (caminho := resolver_arquivo_rascunho(draft_dir, item))
     ]
-    assinaturas = {
-        chave: resolver_arquivo_rascunho(draft_dir, item)
-        for chave, item in manifesto.get("assinaturas", {}).items()
-    }
+    assinaturas = []
+    if manifesto.get("assinaturas_habilitadas", True):
+        for assinatura in normalizar_assinaturas_lista(manifesto):
+            caminho = resolver_arquivo_rascunho(draft_dir, assinatura.get("imagem"))
+            if assinatura.get("nome") or assinatura.get("representa") or assinatura.get("documento") or caminho:
+                assinaturas.append({**assinatura, "caminho": caminho})
     return audios, cabecalho, evidencias, fotos_atendimento, assinaturas
 
 
@@ -2660,9 +2903,9 @@ def manifesto_tem_conteudo_para_gerar(manifesto: dict) -> bool:
         return True
     if any(limpar_texto(texto) for texto in manifesto.get("legendas_evidencias", {}).values()):
         return True
-    if any(limpar_texto(texto) for texto in manifesto.get("responsaveis", {}).values()):
+    if any(limpar_texto(item.get("nome", "")) for item in normalizar_assinaturas_lista(manifesto)):
         return True
-    if any(manifesto.get("assinaturas", {}).values()):
+    if any(item.get("imagem") for item in normalizar_assinaturas_lista(manifesto)):
         return True
     return False
 
@@ -2696,13 +2939,14 @@ def contexto_manifesto_para_geracao(manifesto: dict) -> str:
     if fotos_extras:
         linhas.append(f"Fotos adicionais do atendimento: {fotos_extras} foto(s) anexada(s) somente para o ZIP.")
 
-    for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
-        responsavel = limpar_texto(manifesto.get("responsaveis", {}).get(chave, ""))
-        documento = limpar_texto(manifesto.get("documentos", {}).get(chave, ""))
+    for assinatura in normalizar_assinaturas_lista(manifesto):
+        responsavel = limpar_texto(assinatura.get("nome", ""))
+        representa = limpar_texto(assinatura.get("representa", ""))
+        documento = limpar_texto(assinatura.get("documento", ""))
         if responsavel:
-            linhas.append(f"{configuracao['titulo']}: {responsavel}.")
+            linhas.append(f"{representa or 'Responsável'}: {responsavel}.")
         if documento:
-            linhas.append(f"Documento do {configuracao['label']}: {documento}.")
+            linhas.append(f"Documento informado na assinatura: {documento}.")
 
     if linhas and not observacoes:
         linhas.insert(0, "Coleta offline importada sem complemento técnico descritivo. Utilizar os metadados abaixo para compor o relatório sem inventar procedimentos não informados.")
@@ -2721,11 +2965,16 @@ def limpar_rascunho_atual() -> None:
         "localizacao_maps",
         "observacoes_texto",
         "fotos_atendimento_zip",
+        "assinaturas_habilitadas",
+        "quantidade_assinaturas",
         *[f"legenda_{categoria}" for categoria in CATEGORIAS_EVIDENCIAS],
         *[configuracao["campo"] for configuracao in ASSINATURAS_RESPONSAVEIS.values()],
         *[configuracao["campo_documento"] for configuracao in ASSINATURAS_RESPONSAVEIS.values()],
     ):
         st.session_state.pop(chave, None)
+    for chave in list(st.session_state):
+        if chave.startswith(("assinatura_nome_", "assinatura_representa_", "assinatura_documento_", "editar_assinatura_", "canvas_assinatura_")):
+            st.session_state.pop(chave, None)
     st.session_state.relatorio_pronto = None
     st.session_state.nome_arquivo_pronto = None
     st.session_state.pacote_zip_pronto = None
@@ -2739,15 +2988,72 @@ def finalizar_importacao_offline(manifesto: dict) -> None:
     st.rerun()
 
 
+def linhas_metadados_preservando_vazios(texto: str) -> list[str]:
+    if texto is None:
+        return []
+    return [linha.strip() for linha in str(texto).replace("\r\n", "\n").replace("\r", "\n").split("\n")]
+
+
+def renderizar_editor_legendas_fotos(categoria: str, arquivos_upload, manifesto: dict) -> str:
+    chave_estado = f"legenda_{categoria}"
+    texto_existente = st.session_state.get(
+        chave_estado,
+        manifesto.get("legendas_evidencias", {}).get(categoria, ""),
+    )
+    linhas_existentes = linhas_metadados_preservando_vazios(texto_existente)
+    arquivos_upload = arquivos_upload or []
+    itens_salvos = manifesto.get("evidencias", {}).get(categoria, []) or []
+    total = len(arquivos_upload) if arquivos_upload else len(itens_salvos)
+
+    if total == 0:
+        st.caption("Sem fotos nesta categoria.")
+        return texto_existente or ""
+
+    linhas_finais = []
+    for indice in range(total):
+        linha_existente = linhas_existentes[indice] if indice < len(linhas_existentes) else ""
+        titulo_existente, legenda_existente, fonte_existente = separar_metadados_figura(linha_existente)
+        manual_existente = bool(linha_existente and linha_existente != "||" and (titulo_existente or legenda_existente or fonte_existente))
+        nome_foto = (
+            getattr(arquivos_upload[indice], "name", "")
+            if arquivos_upload
+            else (itens_salvos[indice].get("name", "") if isinstance(itens_salvos[indice], dict) else "")
+        )
+        rotulo_foto = nome_foto or f"Foto {indice + 1}"
+
+        with st.container(border=True):
+            st.markdown(f"**{indice + 1}. {rotulo_foto}**")
+            usar_manual = st.checkbox(
+                "Usar legenda personalizada nesta foto",
+                value=manual_existente,
+                key=f"usar_legenda_{categoria}_{indice}",
+            )
+            if usar_manual:
+                titulo = st.text_input(
+                    "Título da figura",
+                    value=titulo_existente,
+                    placeholder=CATEGORIAS_EVIDENCIAS[categoria]["titulo_padrao"],
+                    key=f"titulo_legenda_{categoria}_{indice}",
+                )
+                legenda = st.text_area(
+                    "Legenda",
+                    value=legenda_existente,
+                    placeholder=CATEGORIAS_EVIDENCIAS[categoria]["legenda_padrao"],
+                    height=70,
+                    key=f"texto_legenda_{categoria}_{indice}",
+                )
+                linhas_finais.append(f"{limpar_texto(titulo)} | {limpar_texto(legenda)} | {limpar_texto(fonte_existente)}")
+            else:
+                linhas_finais.append("||")
+
+    return "\n".join(linhas_finais)
+
+
 # ==========================================
 # 5. Interface visual
 # ==========================================
 draft_dir = pasta_rascunho_atual()
 manifesto_rascunho = carregar_manifesto(draft_dir)
-
-if st.query_params.get("coleta") == "1":
-    renderizar_coleta_streamlit()
-    st.stop()
 
 if "observacoes_texto" not in st.session_state:
     st.session_state.observacoes_texto = manifesto_rascunho.get("observacoes", "")
@@ -2768,6 +3074,22 @@ for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
     campo_documento = configuracao["campo_documento"]
     if campo_documento not in st.session_state:
         st.session_state[campo_documento] = manifesto_rascunho.get("documentos", {}).get(chave, "")
+
+if "assinaturas_habilitadas" not in st.session_state:
+    st.session_state.assinaturas_habilitadas = manifesto_rascunho.get("assinaturas_habilitadas", True)
+if "quantidade_assinaturas" not in st.session_state:
+    st.session_state.quantidade_assinaturas = quantidade_assinaturas_normalizada(manifesto_rascunho.get("quantidade_assinaturas", MIN_ASSINATURAS))
+
+for assinatura in normalizar_assinaturas_lista(manifesto_rascunho):
+    assinatura_id = assinatura["id"]
+    for campo, valor in (
+        ("nome", assinatura.get("nome", "")),
+        ("representa", assinatura.get("representa", "")),
+        ("documento", assinatura.get("documento", "")),
+    ):
+        chave_estado = f"assinatura_{campo}_{assinatura_id}"
+        if chave_estado not in st.session_state:
+            st.session_state[chave_estado] = valor
 
 logo_uri = imagem_data_uri(LOGO_PATH)
 logo_html = f'<img class="brand-logo" src="{logo_uri}" alt="Agres">' if logo_uri else ""
@@ -2801,25 +3123,11 @@ if st.session_state.pop("importacao_offline_ok", False):
 
 with st.container(border=True):
     st.markdown(
-        "<p class='section-title'>Coleta de campo</p>",
+        "<p class='section-title'>1. Importar coleta offline</p>",
         unsafe_allow_html=True,
     )
     st.markdown(
-        """
-        <a href="?coleta=1" target="_self" style="
-            display:inline-flex;
-            align-items:center;
-            justify-content:center;
-            min-height:44px;
-            padding:0 1rem;
-            border-radius:8px;
-            background:#3f4247;
-            color:#ffffff;
-            font-weight:800;
-            text-decoration:none;
-            border:1px solid #3f4247;
-        ">Abrir coleta de campo</a>
-        """,
+        "<p class='section-caption'>Importe o JSON exportado pelo iPad para gerar o relatório técnico.</p>",
         unsafe_allow_html=True,
     )
     aba_pacote_arquivo, aba_pacote_texto = st.tabs(["Carregar arquivo JSON", "Colar pacote copiado"])
@@ -2858,211 +3166,47 @@ with st.container(border=True):
 
 with st.container(border=True):
     st.markdown(
-        "<p class='section-title'>1. Relato técnico</p>",
+        "<p class='section-title'>2. Conferir pacote</p>",
         unsafe_allow_html=True,
     )
-    tipo_atendimento = st.radio(
-        "Tipo de atendimento",
-        options=list(TIPOS_ATENDIMENTO),
-        format_func=lambda chave: TIPOS_ATENDIMENTO[chave],
-        horizontal=True,
-        key="tipo_atendimento",
+    total_audios = len(manifesto_rascunho.get("audios", []) or [])
+    total_cabecalho = sum(1 for item in manifesto_rascunho.get("cabecalho", {}).values() if item)
+    total_evidencias = contar_evidencias(manifesto_rascunho)
+    total_fotos_zip = len(manifesto_rascunho.get("fotos_atendimento", []) or [])
+    total_assinaturas = sum(1 for item in normalizar_assinaturas_lista(manifesto_rascunho) if item.get("imagem"))
+
+    col_resumo_1, col_resumo_2, col_resumo_3, col_resumo_4 = st.columns(4)
+    col_resumo_1.metric("Áudios", total_audios)
+    col_resumo_2.metric("Fotos do Word", total_evidencias)
+    col_resumo_3.metric("Fotos do ZIP", total_cabecalho + total_evidencias + total_fotos_zip + total_assinaturas)
+    col_resumo_4.metric("Assinaturas", total_assinaturas)
+
+    tipo_atendimento_salvo = normalizar_tipo_atendimento(
+        manifesto_rascunho.get("tipo_atendimento"),
+        "suporte",
     )
-    localizacao_maps = st.text_input(
-        "Link de localização da fazenda no Maps",
-        key="localizacao_maps",
-    )
-    aba1, aba2 = st.tabs(["🔴 Gravar agora", "📁 Arquivos do celular"])
-
-    with aba1:
-        audios_rec = []
-        for i, id_gravador in enumerate(st.session_state.lista_gravadores):
-            col_gravador, col_excluir = st.columns([0.80, 0.20], vertical_alignment="bottom")
-            with col_gravador:
-                audio = st.audio_input(f"Trecho {i + 1}", key=f"rec_{id_gravador}_{st.session_state.reset_audio}")
-                if audio:
-                    audios_rec.append(audio)
-            with col_excluir:
-                if st.button("🗑️ Remover", key=f"btn_del_{id_gravador}", use_container_width=True):
-                    st.session_state.lista_gravadores.remove(id_gravador)
-                    st.rerun()
-
-        col_novo, col_limpar = st.columns(2)
-        if col_novo.button("➕ Novo trecho", use_container_width=True):
-            st.session_state.lista_gravadores.append(st.session_state.proximo_id)
-            st.session_state.proximo_id += 1
-            st.rerun()
-        if col_limpar.button("🧹 Limpar tudo", use_container_width=True):
-            st.session_state.lista_gravadores = [st.session_state.proximo_id]
-            st.session_state.proximo_id += 1
-            st.session_state.reset_audio += 1
-            st.session_state.relatorio_pronto = None
-            st.rerun()
-
-    with aba2:
-        audios_up = st.file_uploader("Upload de áudios", type=list(EXTENSOES_AUDIO), accept_multiple_files=True)
+    localizacao_maps_salva = manifesto_rascunho.get("localizacao_maps", "")
+    st.caption(f"Tipo de atendimento: {TIPOS_ATENDIMENTO.get(tipo_atendimento_salvo, 'Suporte')}")
+    if localizacao_maps_salva:
+        st.caption(f"Localização: {localizacao_maps_salva}")
 
     observacoes_texto = st.text_area(
-        "Complemento técnico opcional",
-        height=120,
+        "Ajuste opcional antes de gerar",
+        height=110,
         key="observacoes_texto",
     )
+    if limpar_texto(observacoes_texto) != limpar_texto(manifesto_rascunho.get("observacoes", "")):
+        manifesto_rascunho["observacoes"] = observacoes_texto or ""
+        salvar_manifesto(draft_dir, manifesto_rascunho)
 
-with st.container(border=True):
-    st.markdown(
-        "<p class='section-title'>2. Cabeçalho do relatório</p>",
-        unsafe_allow_html=True,
-    )
-    col_plaqueta, col_maquina, col_implemento = st.columns(3)
-    f_plaqueta = col_plaqueta.file_uploader("📸 Informações do Equipamento", type=list(EXTENSOES_IMAGEM), key="up_p1")
-    f_maquina = col_maquina.file_uploader("🚜 Máquina", type=list(EXTENSOES_IMAGEM), key="up_p2")
-    f_implemento = col_implemento.file_uploader("🔧 Implemento", type=list(EXTENSOES_IMAGEM), key="up_p3")
-
-with st.container(border=True):
-    st.markdown(
-        "<p class='section-title'>3. Evidências fotográficas</p>",
-        unsafe_allow_html=True,
-    )
-    col_e1, col_e2 = st.columns(2)
-    f_eq = col_e1.file_uploader("📋 Equipamento Agres", accept_multiple_files=True, type=list(EXTENSOES_IMAGEM))
-    f_ins = col_e1.file_uploader("🔨 Instalação", accept_multiple_files=True, type=list(EXTENSOES_IMAGEM))
-    f_conf = col_e2.file_uploader("⚙️ Configurações", accept_multiple_files=True, type=list(EXTENSOES_IMAGEM))
-    f_out = col_e2.file_uploader("📂 Outros registros", accept_multiple_files=True, type=list(EXTENSOES_IMAGEM))
-    f_atendimento_zip = st.file_uploader(
-        "📷 Fotos do atendimento (somente ZIP)",
-        accept_multiple_files=True,
-        type=list(EXTENSOES_IMAGEM),
-        key="fotos_atendimento_zip",
-    )
-
-    with st.expander("Títulos e legendas das evidências", expanded=False):
-        legendas_evidencias = {
-            "fotos_equipamento": st.text_area(
-                "Equipamento Agres",
-                placeholder="Plaqueta de identificação da tela AgroNave 7 | Registro da série e versões do equipamento",
-                height=90,
-                key="legenda_fotos_equipamento",
-            ),
-            "fotos_instalacao": st.text_area(
-                "Instalação",
-                placeholder="Roteamento do chicote principal | Chicote fixado no trator após instalação",
-                height=90,
-                key="legenda_fotos_instalacao",
-            ),
-            "fotos_configuracao": st.text_area(
-                "Configurações",
-                placeholder="Tela de parâmetros do piloto | Configuração final utilizada durante os testes",
-                height=90,
-                key="legenda_fotos_configuracao",
-            ),
-            "fotos_outros": st.text_area(
-                "Outros registros",
-                placeholder="Teste de campo após calibração | Validação operacional realizada com o cliente",
-                height=90,
-                key="legenda_fotos_outros",
-            ),
-        }
-
-
-with st.container(border=True):
-    st.markdown(
-        "<p class='section-title'>4. Assinaturas</p>",
-        unsafe_allow_html=True,
-    )
-    responsaveis_assinaturas = {}
-    documentos_assinaturas = {}
-    assinaturas_canvas = {}
-    assinaturas_upload = {}
-
-    for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
-        with st.container(border=True):
-            st.markdown(f"**{configuracao['titulo']}**")
-            col_nome_assinatura, col_doc_assinatura = st.columns(2)
-            with col_nome_assinatura:
-                responsaveis_assinaturas[chave] = st.text_input(
-                    configuracao["label"],
-                    placeholder="Nome do responsável",
-                    key=configuracao["campo"],
-                )
-            with col_doc_assinatura:
-                documentos_assinaturas[chave] = st.text_input(
-                    "CPF/RG",
-                    key=configuracao["campo_documento"],
-                )
-
-            assinatura_item = manifesto_rascunho.get("assinaturas", {}).get(chave)
-            assinatura_path = resolver_arquivo_rascunho(draft_dir, assinatura_item)
-            assinatura_ja_salva = bool(assinatura_path)
-            chave_edicao_assinatura = f"editar_assinatura_{chave}"
-            if chave_edicao_assinatura not in st.session_state:
-                st.session_state[chave_edicao_assinatura] = False
-
-            if assinatura_ja_salva and not st.session_state[chave_edicao_assinatura]:
-                st.caption("Assinatura salva e protegida.")
-                st.image(str(assinatura_path), width=360)
-                if st.button("Substituir assinatura", key=f"btn_substituir_assinatura_{chave}", use_container_width=True):
-                    st.session_state[chave_edicao_assinatura] = True
-                    st.rerun()
-                continue
-
-            if assinatura_ja_salva and st.session_state[chave_edicao_assinatura]:
-                if st.button("Cancelar substituição", key=f"btn_cancelar_assinatura_{chave}", use_container_width=True):
-                    st.session_state[chave_edicao_assinatura] = False
-                    st.rerun()
-
-            if st_canvas is not None:
-                assinaturas_canvas[chave] = st_canvas(
-                    fill_color="rgba(255, 255, 255, 0)",
-                    stroke_width=3,
-                    stroke_color="#25272b",
-                    background_color="#ffffff",
-                    height=260,
-                    width=720,
-                    drawing_mode="freedraw",
-                    display_toolbar=True,
-                    key=f"canvas_{chave}_{'editar' if assinatura_ja_salva else 'novo'}",
-                )
-            else:
-                st.info("Assinatura na tela indisponível neste ambiente. Envie uma imagem da assinatura.")
-                assinaturas_upload[chave] = st.file_uploader(
-                    f"Imagem da assinatura - {configuracao['titulo']}",
-                    type=list(EXTENSOES_IMAGEM),
-                    key=f"upload_assinatura_{chave}",
-                )
+    if st.button("Limpar pacote importado", use_container_width=True):
+        limpar_rascunho_atual()
+        st.rerun()
 
 
 # ==========================================
 # 6. Execução
 # ==========================================
-audios_finais = audios_rec + (audios_up if audios_up else [])
-uploads_cabecalho = {
-    "info_equip": f_plaqueta,
-    "maquina": f_maquina,
-    "implemento": f_implemento,
-}
-uploads_evidencias = {
-    "fotos_equipamento": f_eq,
-    "fotos_instalacao": f_ins,
-    "fotos_configuracao": f_conf,
-    "fotos_outros": f_out,
-}
-
-manifesto_rascunho = atualizar_rascunho_atual(
-    draft_dir,
-    manifesto_rascunho,
-    tipo_atendimento,
-    localizacao_maps,
-    audios_finais,
-    uploads_cabecalho,
-    uploads_evidencias,
-    f_atendimento_zip,
-    observacoes_texto,
-    legendas_evidencias,
-    responsaveis_assinaturas,
-    documentos_assinaturas,
-    assinaturas_canvas,
-    assinaturas_upload,
-)
 caminhos_audio_salvos, caminhos_cabecalho_salvos, evidencias_salvas, fotos_atendimento_salvas, assinaturas_salvas = caminhos_salvos_rascunho(
     draft_dir,
     manifesto_rascunho,
@@ -3074,25 +3218,22 @@ observacoes_salvas = (
     or contexto_manifesto_salvo
 )
 legendas_salvas = {
-    categoria: limpar_texto(legendas_evidencias.get(categoria, ""))
-    or manifesto_rascunho.get("legendas_evidencias", {}).get(categoria, "")
+    categoria: manifesto_rascunho.get("legendas_evidencias", {}).get(categoria, "")
     for categoria in CATEGORIAS_EVIDENCIAS
 }
 responsaveis_salvos = {
-    chave: limpar_texto(responsaveis_assinaturas.get(chave, ""))
-    or manifesto_rascunho.get("responsaveis", {}).get(chave, "")
+    chave: manifesto_rascunho.get("responsaveis", {}).get(chave, "")
     for chave in ASSINATURAS_RESPONSAVEIS
 }
 documentos_salvos = {
-    chave: limpar_texto(documentos_assinaturas.get(chave, ""))
-    or manifesto_rascunho.get("documentos", {}).get(chave, "")
+    chave: manifesto_rascunho.get("documentos", {}).get(chave, "")
     for chave in ASSINATURAS_RESPONSAVEIS
 }
 tipo_atendimento_salvo = normalizar_tipo_atendimento(
-    tipo_atendimento or manifesto_rascunho.get("tipo_atendimento"),
+    manifesto_rascunho.get("tipo_atendimento"),
     "suporte",
 )
-localizacao_maps_salva = limpar_texto(localizacao_maps) or manifesto_rascunho.get("localizacao_maps", "")
+localizacao_maps_salva = manifesto_rascunho.get("localizacao_maps", "")
 
 entrada_disponivel = (
     bool(caminhos_audio_salvos)
@@ -3102,7 +3243,7 @@ entrada_disponivel = (
 
 with st.container(border=True):
     st.markdown(
-        "<p class='section-title'>5. Gerar relatório</p>",
+        "<p class='section-title'>3. Gerar relatório</p>",
         unsafe_allow_html=True,
     )
 
@@ -3156,7 +3297,7 @@ with st.container(border=True):
             st.error(f"Erro no processamento: {erro}")
             st.exception(erro)
     elif not entrada_disponivel:
-        st.caption("Adicione áudio, complemento escrito ou importe um pacote offline com dados do atendimento.")
+        st.caption("Importe o pacote offline exportado pelo iPad para gerar o relatório técnico.")
 
     if st.session_state.relatorio_pronto:
         st.success("✅ O laudo está pronto para download!")

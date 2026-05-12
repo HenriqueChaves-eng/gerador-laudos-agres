@@ -1,11 +1,11 @@
-# Coleta Offline no iPad
+# Coleta offline no iPad
 
-## Arquitetura correta
+## Arquitetura recomendada
 
-- `docs/`: PWA de coleta 100% offline para iPad.
-- `app.py`: app Streamlit online para importar o pacote e gerar o relatório Word.
+- `docs/`: PWA de coleta para iPad, instalada pela tela de inicio e preparada para uso sem internet.
+- `app.py`: app Streamlit online usado apenas para importar o pacote offline, conferir os dados e gerar o Word + fotos em ZIP.
 
-O Streamlit não é usado para preencher offline. Ele só gera o relatório quando a internet voltar.
+O preenchimento de campo deve ser feito pela PWA offline. O Streamlit fica como central de geracao do relatorio quando a internet voltar.
 
 ## Publicar a PWA offline
 
@@ -23,18 +23,18 @@ O Streamlit não é usado para preencher offline. Ele só gera o relatório quan
 
 1. Abra o link HTTPS do GitHub Pages no Safari do iPad.
 2. Toque em `Compartilhar`.
-3. Toque em `Adicionar à Tela de Início`.
-4. Abra pelo ícone criado.
-5. Faça um teste: coloque o iPad em modo avião e abra pelo ícone.
+3. Toque em `Adicionar a Tela de Inicio`.
+4. Abra pelo icone criado, nao pelo navegador.
+5. Faca um teste: coloque o iPad em modo aviao e abra pelo icone.
 
 ## Sincronizar com o Streamlit
 
 Quando voltar internet:
 
-1. Na PWA, toque em `Copiar pacote para colar no app online`.
+1. Na PWA, toque em `Copiar pacote para colar no app online` ou exporte o arquivo JSON.
 2. Abra o app Streamlit online.
-3. Cole no campo `Ou cole aqui o pacote copiado no modo offline`.
-4. Clique em `Importar pacote para este rascunho`.
-5. Gere o relatório.
+3. Use `Carregar arquivo JSON` ou `Colar pacote copiado`.
+4. Clique em `Carregar arquivo JSON` ou `Importar texto copiado`.
+5. Confira o pacote importado e clique em `Gerar relatorio tecnico`.
 
-Também é possível usar `Compartilhar pacote JSON` ou `Exportar pacote offline`, mas copiar e colar costuma ser mais simples no iPad.
+O ZIP final contem o arquivo Word e uma pasta unica `FOTOS DO ATENDIMENTO` com todas as fotos do atendimento.
