@@ -178,7 +178,7 @@
     }
     .radio-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 8px;
     }
     .radio-grid label {
@@ -283,6 +283,14 @@
       min-height: 32px;
       padding: 0 8px;
       font-size: 12px;
+    }
+    .thumb-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
+      gap: 5px;
+    }
+    .thumb-actions button {
+      width: 100%;
     }
     .caption-control {
       display: grid;
@@ -398,6 +406,47 @@
       font-size: 13px;
       line-height: 1.35;
     }
+    .offline-checklist {
+      display: grid;
+      gap: 7px;
+      margin: 4px 0 2px;
+    }
+    .offline-check {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 8px;
+      align-items: start;
+      padding: 9px 10px;
+      border: 1px solid #d3d6da;
+      border-radius: 10px;
+      background: #f7f8f9;
+    }
+    .offline-check-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 26px;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--brand);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .offline-check.ok .offline-check-badge { background: var(--ok); }
+    .offline-check.warn .offline-check-badge { background: var(--warn); }
+    .offline-check.info .offline-check-badge { background: var(--brand-2); }
+    .offline-check-title {
+      color: var(--ink);
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    .offline-check-detail {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
     body.signature-open {
       overflow: hidden;
     }
@@ -465,6 +514,7 @@
           <label><input type="radio" name="tipo_atendimento" value="suporte"> Suporte</label>
           <label><input type="radio" name="tipo_atendimento" value="instalacao"> Instalação</label>
           <label><input type="radio" name="tipo_atendimento" value="treinamento"> Treinamento</label>
+          <label><input type="radio" name="tipo_atendimento" value="validacao_homologacao"> Validação/Homologação</label>
         </div>
       </div>
       <div class="field">
@@ -600,6 +650,7 @@
         <button type="button" id="sharePackageBtn">Compartilhar pacote JSON</button>
         <button type="button" id="openOnlineBtn">Abrir app online</button>
         <textarea class="sync-output" id="packageText" readonly aria-label="Pacote offline para copiar"></textarea>
+        <div class="offline-checklist" id="offlineChecklist" aria-live="polite"></div>
         <div class="sync-message" id="syncMessage"></div>
       </div>
       <div class="footer-actions">
@@ -629,11 +680,28 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
+    const APP_VERSION = "2026.05.18.1";
+    const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
+      ? "agres-offline-v16"
+      : location.pathname.includes("/static/coleta/")
+      ? "agres-coleta-v9"
+      : "agres-pages-offline-v10";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
     const MIN_SIGNATURES = 2;
     const MAX_SIGNATURES = 5;
+    const HEADER_LABELS = {
+      info_equip: "Informações do equipamento",
+      maquina: "Máquina",
+      implemento: "Implemento"
+    };
+    const CATEGORY_LABELS = {
+      fotos_equipamento: "Equipamento Agres",
+      fotos_instalacao: "Instalação",
+      fotos_configuracao: "Configurações",
+      fotos_outros: "Outros registros"
+    };
 
     let db;
     let draft = defaultDraft();
@@ -656,6 +724,7 @@
     function defaultDraft() {
       return {
         version: 1,
+        app_version: APP_VERSION,
         updated_at: new Date().toISOString(),
         tipo_atendimento: "suporte",
         localizacao_maps: "",
@@ -765,6 +834,7 @@
     }
 
     function putDraft() {
+      draft.app_version = APP_VERSION;
       draft.updated_at = new Date().toISOString();
       return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE, "readwrite");
@@ -775,6 +845,7 @@
     }
 
     function scheduleSave() {
+      renderOfflineChecklist();
       clearTimeout(saveTimer);
       saveTimer = setTimeout(async () => {
         await putDraft();
@@ -840,7 +911,12 @@
           removeMetadataLine(key, index);
           updateCounts();
           scheduleSave();
-        }, key);
+        }, key, (index, direction) => {
+          moveItem(draft.evidencias[key], index, direction);
+          moveMetadataLine(key, index, direction);
+          updateCounts();
+          scheduleSave();
+        });
       });
       const fotosAtendimento = draft.fotos_atendimento || [];
       document.getElementById(`${ATTENDANCE_PHOTOS}_status`).textContent = fotosAtendimento.length ? `${fotosAtendimento.length} imagens.` : "";
@@ -848,8 +924,13 @@
         draft.fotos_atendimento.splice(index, 1);
         updateCounts();
         scheduleSave();
+      }, "", (index, direction) => {
+        moveItem(draft.fotos_atendimento, index, direction);
+        updateCounts();
+        scheduleSave();
       });
       renderAudios();
+      renderOfflineChecklist();
     }
 
     function metadataLines(key) {
@@ -882,7 +963,23 @@
       if (legacy) legacy.value = draft.legendas_evidencias[key];
     }
 
-    function renderImagePreview(containerId, items, onRemove, categoryKey = "") {
+    function moveItem(items, index, direction) {
+      const target = index + direction;
+      if (!Array.isArray(items) || target < 0 || target >= items.length) return;
+      const [item] = items.splice(index, 1);
+      items.splice(target, 0, item);
+    }
+
+    function moveMetadataLine(key, index, direction) {
+      const lines = metadataLines(key);
+      while (lines.length < draft.evidencias[key].length) lines.push("||");
+      moveItem(lines, index, direction);
+      draft.legendas_evidencias[key] = lines.join("\n");
+      const legacy = document.getElementById(`legenda_${key}`);
+      if (legacy) legacy.value = draft.legendas_evidencias[key];
+    }
+
+    function renderImagePreview(containerId, items, onRemove, categoryKey = "", onMove = null) {
       const container = document.getElementById(containerId);
       if (!container) return;
       container.innerHTML = "";
@@ -900,12 +997,30 @@
         const name = document.createElement("div");
         name.className = "thumb-name";
         name.textContent = item.name || `Imagem ${index + 1}`;
+        const actions = document.createElement("div");
+        actions.className = "thumb-actions";
+        if (onMove) {
+          const up = document.createElement("button");
+          up.type = "button";
+          up.textContent = "Subir";
+          up.disabled = index === 0;
+          up.addEventListener("click", () => onMove(index, -1));
+          actions.appendChild(up);
+
+          const down = document.createElement("button");
+          down.type = "button";
+          down.textContent = "Descer";
+          down.disabled = index === items.length - 1;
+          down.addEventListener("click", () => onMove(index, 1));
+          actions.appendChild(down);
+        }
         const remove = document.createElement("button");
         remove.type = "button";
         remove.textContent = "Remover";
         remove.addEventListener("click", () => onRemove(index));
+        actions.appendChild(remove);
         footer.appendChild(name);
-        footer.appendChild(remove);
+        footer.appendChild(actions);
         card.appendChild(footer);
 
         if (categoryKey) {
@@ -1313,6 +1428,118 @@
         .replace(/>/g, "&gt;");
     }
 
+    function totalEvidencePhotos() {
+      return CATEGORIES.reduce((sum, key) => sum + (draft.evidencias[key]?.length || 0), 0);
+    }
+
+    function manualCaptionCount() {
+      return CATEGORIES.reduce((sum, key) => {
+        const lines = String(draft.legendas_evidencias?.[key] || "").split(/\r?\n/);
+        return sum + lines.filter((line) => {
+          const parts = metadataLineParts(line);
+          return line && line !== "||" && (parts.titulo || parts.legenda || parts.fonte);
+        }).length;
+      }, 0);
+    }
+
+    function signatureStats() {
+      normalizeSignatures();
+      const signatures = draft.assinaturas_habilitadas ? draft.assinaturas_lista : [];
+      return {
+        total: signatures.length,
+        names: signatures.filter((item) => String(item.nome || "").trim()).length,
+        docs: signatures.filter((item) => String(item.documento || "").trim()).length,
+        images: signatures.filter((item) => item.imagem?.dataUrl).length
+      };
+    }
+
+    function draftValidationItems() {
+      const audioCount = draft.audios?.length || 0;
+      const textReady = Boolean(String(draft.observacoes || "").trim());
+      const headerCount = HEADERS.filter((key) => draft.cabecalho?.[key]).length;
+      const evidenceCount = totalEvidencePhotos();
+      const extraPhotos = draft.fotos_atendimento?.length || 0;
+      const captions = manualCaptionCount();
+      const signatures = signatureStats();
+      const locationReady = Boolean(String(draft.localizacao_maps || "").trim());
+
+      const items = [
+        {
+          ok: audioCount > 0 || textReady,
+          title: "Relato técnico",
+          detail: audioCount > 0
+            ? `${audioCount} áudio(s) salvo(s)${textReady ? " e complemento escrito preenchido" : ""}.`
+            : textReady
+            ? "Complemento escrito preenchido, sem áudio gravado."
+            : "Sem áudio e sem complemento técnico."
+        },
+        {
+          ok: locationReady,
+          title: "Localização",
+          detail: locationReady ? "Link/coordenada preenchido." : "Sem localização da fazenda."
+        },
+        {
+          ok: headerCount >= 1,
+          title: "Cabeçalho",
+          detail: `${headerCount}/3 foto(s) de cabeçalho selecionada(s).`
+        },
+        {
+          ok: evidenceCount >= 1,
+          title: "Fotos do relatório",
+          detail: `${evidenceCount} foto(s) serão inserida(s) no Word.`
+        },
+        {
+          ok: true,
+          type: "info",
+          title: "Fotos extras",
+          detail: `${extraPhotos} foto(s) irão apenas para a pasta FOTOS DO ATENDIMENTO.`
+        },
+        {
+          ok: true,
+          type: "info",
+          title: "Legendas",
+          detail: captions
+            ? `${captions} legenda(s) personalizada(s); as demais usam o padrão técnico.`
+            : "Sem legendas personalizadas; o padrão técnico será aplicado automaticamente."
+        }
+      ];
+
+      if (draft.assinaturas_habilitadas !== false) {
+        items.push({
+          ok: signatures.images >= 1,
+          title: "Assinaturas",
+          detail: `${signatures.images}/${signatures.total} assinatura(s), ${signatures.names} nome(s) e ${signatures.docs} documento(s).`
+        });
+      } else {
+        items.push({
+          ok: true,
+          type: "info",
+          title: "Assinaturas",
+          detail: "Assinaturas desabilitadas para este atendimento."
+        });
+      }
+
+      return items;
+    }
+
+    function renderOfflineChecklist() {
+      const container = document.getElementById("offlineChecklist");
+      if (!container) return;
+      container.innerHTML = draftValidationItems().map((item) => {
+        const status = item.type === "info" ? "info" : item.ok ? "ok" : "warn";
+        const label = status === "ok" ? "Pronto" : status === "info" ? "Info" : "Ajustar";
+        return `
+          <div class="offline-check ${status}">
+            <span class="offline-check-badge">${label}</span>
+            <div>
+              <div class="offline-check-title">${escapeAttr(item.title)}</div>
+              <div class="offline-check-detail">${escapeAttr(item.detail)}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
     function renderSignatureFields() {
       normalizeSignatures();
       const container = document.getElementById("signatureFields");
@@ -1320,6 +1547,7 @@
       mainSignaturePads = {};
       if (!draft.assinaturas_habilitadas) {
         container.innerHTML = '<p class="hint">As assinaturas não serão inseridas no relatório.</p>';
+        renderOfflineChecklist();
         return;
       }
 
@@ -1359,6 +1587,7 @@
         card.querySelector(`[data-clear-signature="${assinatura.id}"]`).addEventListener("click", () => mainSignaturePads[assinatura.id].clear());
         card.querySelector(`[data-open-signature="${assinatura.id}"]`).addEventListener("click", () => openSignatureModal(assinatura.id));
       });
+      renderOfflineChecklist();
     }
 
     function hydrateFields() {
@@ -1502,7 +1731,7 @@
 
     function packageTextSync() {
       normalizeSignatures();
-      const pacote = { ...draft, exported_at: new Date().toISOString() };
+      const pacote = { ...draft, app_version: APP_VERSION, exported_at: new Date().toISOString() };
       return JSON.stringify(pacote);
     }
 
@@ -1592,7 +1821,7 @@
     async function ensureOfflineReady() {
       const assets = ["./", "./index.html", "./sw.js", "./manifest.webmanifest", "./logo_agres.png"];
       if ("caches" in window) {
-        const cache = await caches.open("agres-pages-offline-v8");
+        const cache = await caches.open(APP_SHELL_CACHE);
         await Promise.allSettled(assets.map((asset) => cache.add(asset)));
       }
       if ("serviceWorker" in navigator) {

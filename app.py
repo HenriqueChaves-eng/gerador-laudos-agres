@@ -9,6 +9,7 @@ import zipfile
 from copy import deepcopy
 from datetime import date, datetime
 from hashlib import sha1
+from html import escape
 from io import BytesIO
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -55,6 +56,7 @@ CAMPOS_RELATORIO = (
     "suporte",
     "instalacao",
     "treinamento",
+    "validacao_homologacao",
     "data_visita",
     "tecnicos",
     "cliente_local",
@@ -73,18 +75,20 @@ CAMPOS_RELATORIO = (
     "relato",
 )
 
-CAMPOS_SERVICO = ("suporte", "instalacao", "treinamento")
+CAMPOS_SERVICO = ("suporte", "instalacao", "treinamento", "validacao_homologacao")
 
 TIPOS_ATENDIMENTO = {
     "suporte": "Suporte",
     "instalacao": "Instalação",
     "treinamento": "Treinamento",
+    "validacao_homologacao": "Validação/Homologação",
 }
 
 ROTULOS_CAMPOS = {
     "suporte": "Suporte",
     "instalacao": "Instalação",
     "treinamento": "Treinamento",
+    "validacao_homologacao": "Validação/Homologação",
     "configuracoes": "Configurações",
     "calibracoes": "Calibrações",
 }
@@ -405,6 +409,47 @@ st.markdown(
             font-size: 0.86rem;
             margin: 0 0 0.8rem;
         }
+        .package-checklist {
+            display: grid;
+            gap: 0.5rem;
+            margin: 0.85rem 0 0.6rem;
+        }
+        .package-check {
+            display: grid;
+            grid-template-columns: 5.1rem minmax(0, 1fr);
+            gap: 0.65rem;
+            align-items: start;
+            border: 1px solid #d6d8dc;
+            border-radius: 10px;
+            padding: 0.65rem 0.75rem;
+            background: #f8f9fa;
+        }
+        .package-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 1.7rem;
+            border-radius: 999px;
+            color: #ffffff !important;
+            font-size: 0.72rem;
+            font-weight: 850;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .package-badge.ok { background: #176b43; }
+        .package-badge.warn { background: #985d00; }
+        .package-badge.info { background: #55585c; }
+        .package-check-title {
+            color: #25272b !important;
+            font-weight: 800;
+            line-height: 1.25;
+        }
+        .package-check-detail {
+            color: #5a5e63 !important;
+            font-size: 0.84rem;
+            line-height: 1.35;
+            margin-top: 0.1rem;
+        }
         .status-strip {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -498,6 +543,8 @@ st.markdown(
             .brand-logo { width: 150px; max-width: 70vw; }
             .brand-hero .brand-title { font-size: 1.45rem; }
             .status-strip { grid-template-columns: 1fr; }
+            .package-check { grid-template-columns: 1fr; }
+            .package-badge { width: fit-content; padding: 0 0.72rem; }
         }
     </style>
     """,
@@ -866,7 +913,18 @@ def normalizar_marcador_servico(valor) -> tuple[str, list[str]]:
     marcador = ""
     if texto.strip().upper() == "X" or any(
         termo in texto_normalizado
-        for termo in ("sim", "realizado", "realizada", "executado", "executada", "suporte", "instalacao", "treinamento")
+        for termo in (
+            "sim",
+            "realizado",
+            "realizada",
+            "executado",
+            "executada",
+            "suporte",
+            "instalacao",
+            "treinamento",
+            "validacao",
+            "homologacao",
+        )
     ):
         marcador = "X"
 
@@ -880,6 +938,8 @@ def normalizar_tipo_atendimento(valor, padrao: str = "") -> str:
         return padrao
     if texto in TIPOS_ATENDIMENTO:
         return texto
+    if "valid" in texto or "homolog" in texto:
+        return "validacao_homologacao"
     if "instal" in texto:
         return "instalacao"
     if "trein" in texto:
@@ -905,6 +965,8 @@ def escolher_tipo_atendimento_unico(dados: dict, marcadores: dict | None = None)
             for campo in ("objetivos", "relato", "equipamentos", "maquinas", "configuracoes")
         )
     )
+    if re.search(r"\b(validacao|validar|validado|homologacao|homologar|homologado)\b", texto):
+        return "validacao_homologacao"
     if re.search(r"\b(instalacao|instalar|instalado|montagem|chicote|fixacao)\b", texto):
         return "instalacao"
     if re.search(r"\b(treinamento|treinar|orientacao operacional|capacitacao)\b", texto):
@@ -920,6 +982,40 @@ def aplicar_tipo_atendimento_unico(dados: dict, tipo_preferido: str = "") -> dic
     for campo in CAMPOS_SERVICO:
         dados[campo] = "X" if campo == tipo else ""
     return dados
+
+
+def escrever_celula_servico(cell: _Cell, texto: str, tamanho: int = 14) -> None:
+    cell.text = ""
+    cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+    paragraph = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph()
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = paragraph.add_run(texto)
+    run.bold = True
+    run.font.name = "Arial"
+    run.font.size = Pt(tamanho)
+
+
+def aplicar_tipo_atendimento_word(caminho_docx: Path, dados: dict) -> None:
+    tipo = normalizar_tipo_atendimento(dados.get("tipo_atendimento"))
+    if tipo != "validacao_homologacao":
+        return
+
+    documento = Document(caminho_docx)
+    for tabela in documento.tables:
+        if not tabela.rows:
+            continue
+        primeira_linha = tabela.rows[0]
+        textos = [normalizar_busca(celula.text) for celula in primeira_linha.cells]
+        if not any("suporte" in texto for texto in textos) or not any("treinamento" in texto for texto in textos):
+            continue
+
+        celulas = primeira_linha.cells
+        escrever_celula_servico(celulas[0], "VALIDAÇÃO/HOMOLOGAÇÃO", tamanho=13)
+        escrever_celula_servico(celulas[1], "X", tamanho=14)
+        for celula in celulas[2:]:
+            escrever_celula_servico(celula, "", tamanho=13)
+        documento.save(caminho_docx)
+        return
 
 
 def extrair_link_localizacao(texto: str) -> str:
@@ -1037,8 +1133,8 @@ Você é redator técnico da Agres e deve transformar áudios/anotações de ate
 Use português técnico, claro e objetivo. Reescreva falas informais em linguagem profissional, sem inventar dados, versões, medidas, peças ou conclusões que não estejam no material recebido.
 {bloco_contexto}
 REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
-1. tipo_atendimento: retornar apenas uma opção entre "suporte", "instalacao" ou "treinamento". Nunca marcar mais de um tipo no relatório.
-2. suporte, instalacao e treinamento: retornar "X" somente no tipo principal do atendimento e retornar "" nos demais campos.
+1. tipo_atendimento: retornar apenas uma opção entre "suporte", "instalacao", "treinamento" ou "validacao_homologacao". Nunca marcar mais de um tipo no relatório.
+2. suporte, instalacao, treinamento e validacao_homologacao: retornar "X" somente no tipo principal do atendimento e retornar "" nos demais campos.
 3. data_visita: preserve intervalo de datas quando o atendimento ocorrer em mais de um dia, por exemplo "19 a 21/01/2026".
 4. cliente_local: informar cliente, cidade/UF, revenda, fábrica e propriedade quando existirem.
 5. localizacao_maps: informar somente o link do Google Maps, Maps ou coordenadas da fazenda quando existirem; caso contrário, retornar "".
@@ -1070,6 +1166,7 @@ Retorne apenas um JSON válido, sem markdown e sem comentários, com exatamente 
     "suporte": "",
     "instalacao": "",
     "treinamento": "",
+    "validacao_homologacao": "",
     "data_visita": "{hoje}",
     "tecnicos": "Henrique Chaves",
     "cliente_local": "",
@@ -1524,6 +1621,7 @@ def gerar_docx(
     caminho_saida = pasta_saida / nome_arquivo
     doc.render(dados_render)
     doc.save(str(caminho_saida))
+    aplicar_tipo_atendimento_word(caminho_saida, dados_render)
     aplicar_paragrafos_relato_docx(caminho_saida, dados_render.get("relato", ""))
     inserir_assinaturas_docx(caminho_saida, dados_render, caminhos_assinaturas)
     aplicar_formatacao_texto_tecnico(caminho_saida)
@@ -1762,6 +1860,7 @@ def aplicar_formatacao_texto_tecnico(caminho_docx: Path) -> None:
         "SUPORTE",
         "INSTALAÇÃO",
         "TREINAMENTO",
+        "VALIDAÇÃO/HOMOLOGAÇÃO",
         "X",
     }
 
@@ -2368,6 +2467,8 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
         "audios_recebidos": len(audios_recebidos),
         "audios_salvos": len(audios),
         "erros_audio": erros_audio[:3],
+        "exported_at": limpar_texto(pacote.get("exported_at", "")),
+        "app_version": limpar_texto(pacote.get("app_version", "")),
     }
 
     for chave, item in (pacote.get("cabecalho") or {}).items():
@@ -2890,6 +2991,116 @@ def contar_evidencias(manifesto: dict) -> int:
     return sum(len(itens or []) for itens in manifesto.get("evidencias", {}).values())
 
 
+def contar_linhas_legenda_manual(texto: str) -> int:
+    total = 0
+    for linha in linhas_metadados_preservando_vazios(texto):
+        titulo, legenda, fonte = separar_metadados_figura(linha)
+        if linha and linha != "||" and (titulo or legenda or fonte):
+            total += 1
+    return total
+
+
+def itens_checklist_pacote(manifesto: dict) -> list[dict]:
+    total_audios = len(manifesto.get("audios", []) or [])
+    total_cabecalho = sum(1 for item in manifesto.get("cabecalho", {}).values() if item)
+    total_evidencias = contar_evidencias(manifesto)
+    total_fotos_zip = len(manifesto.get("fotos_atendimento", []) or [])
+    assinaturas = normalizar_assinaturas_lista(manifesto)
+    assinaturas_com_imagem = sum(1 for item in assinaturas if item.get("imagem"))
+    assinaturas_com_nome = sum(1 for item in assinaturas if limpar_texto(item.get("nome", "")))
+    legendas_manuais = sum(
+        contar_linhas_legenda_manual(texto)
+        for texto in (manifesto.get("legendas_evidencias", {}) or {}).values()
+    )
+    texto_tecnico = limpar_texto(manifesto.get("observacoes", ""))
+    localizacao = limpar_texto(manifesto.get("localizacao_maps", ""))
+
+    itens = [
+        {
+            "ok": bool(total_audios or texto_tecnico),
+            "titulo": "Relato técnico",
+            "detalhe": (
+                f"{total_audios} áudio(s) importado(s) e complemento escrito preenchido."
+                if total_audios and texto_tecnico
+                else f"{total_audios} áudio(s) importado(s)."
+                if total_audios
+                else "Complemento escrito preenchido, sem áudio importado."
+                if texto_tecnico
+                else "Sem áudio e sem complemento técnico. A IA terá pouco contexto para redigir o relato."
+            ),
+        },
+        {
+            "ok": bool(localizacao),
+            "titulo": "Localização",
+            "detalhe": "Link/coordenada importado do pacote offline." if localizacao else "Sem link de localização da fazenda.",
+        },
+        {
+            "ok": total_cabecalho >= 1,
+            "titulo": "Cabeçalho",
+            "detalhe": f"{total_cabecalho}/3 foto(s) de cabeçalho importada(s).",
+        },
+        {
+            "ok": total_evidencias >= 1,
+            "titulo": "Evidências para o Word",
+            "detalhe": f"{total_evidencias} foto(s) serão inserida(s) no relatório.",
+        },
+        {
+            "ok": bool(total_fotos_zip or total_evidencias or total_cabecalho),
+            "titulo": "Fotos no ZIP",
+            "detalhe": f"{total_fotos_zip} foto(s) extras, além de cabeçalho/evidências/assinaturas.",
+        },
+        {
+            "ok": True,
+            "titulo": "Legendas",
+            "detalhe": (
+                f"{legendas_manuais} legenda(s) manual(is) importada(s); as demais usam o padrão técnico."
+                if legendas_manuais
+                else "Nenhuma legenda manual importada; o relatório usará legendas técnicas padrão."
+            ),
+            "tipo": "info",
+        },
+    ]
+
+    if manifesto.get("assinaturas_habilitadas", True):
+        itens.append(
+            {
+                "ok": assinaturas_com_imagem >= 1,
+                "titulo": "Assinaturas",
+                "detalhe": f"{assinaturas_com_imagem} assinatura(s) com imagem e {assinaturas_com_nome} nome(s) preenchido(s).",
+            }
+        )
+    else:
+        itens.append(
+            {
+                "ok": True,
+                "titulo": "Assinaturas",
+                "detalhe": "Assinaturas desabilitadas no pacote offline.",
+                "tipo": "info",
+            }
+        )
+
+    return itens
+
+
+def renderizar_checklist_pacote(manifesto: dict) -> None:
+    linhas = []
+    for item in itens_checklist_pacote(manifesto):
+        status = "ok" if item.get("ok") else "warn"
+        if item.get("tipo") == "info":
+            status = "info"
+        rotulo = "Pronto" if status == "ok" else "Info" if status == "info" else "Ajustar"
+        linhas.append(
+            "<div class='package-check'>"
+            f"<span class='package-badge {status}'>{escape(rotulo)}</span>"
+            "<div>"
+            f"<div class='package-check-title'>{escape(item['titulo'])}</div>"
+            f"<div class='package-check-detail'>{escape(item['detalhe'])}</div>"
+            "</div>"
+            "</div>"
+        )
+    st.markdown("<div class='package-checklist'>" + "".join(linhas) + "</div>", unsafe_allow_html=True)
+
+
 def manifesto_tem_conteudo_para_gerar(manifesto: dict) -> bool:
     if limpar_texto(manifesto.get("observacoes", "")) or manifesto.get("audios"):
         return True
@@ -3166,7 +3377,7 @@ with st.container(border=True):
 
 with st.container(border=True):
     st.markdown(
-        "<p class='section-title'>2. Conferir pacote</p>",
+        "<p class='section-title'>2. Pacote importado</p>",
         unsafe_allow_html=True,
     )
     total_audios = len(manifesto_rascunho.get("audios", []) or [])
@@ -3181,6 +3392,8 @@ with st.container(border=True):
     col_resumo_3.metric("Fotos do ZIP", total_cabecalho + total_evidencias + total_fotos_zip + total_assinaturas)
     col_resumo_4.metric("Assinaturas", total_assinaturas)
 
+    renderizar_checklist_pacote(manifesto_rascunho)
+
     tipo_atendimento_salvo = normalizar_tipo_atendimento(
         manifesto_rascunho.get("tipo_atendimento"),
         "suporte",
@@ -3189,6 +3402,14 @@ with st.container(border=True):
     st.caption(f"Tipo de atendimento: {TIPOS_ATENDIMENTO.get(tipo_atendimento_salvo, 'Suporte')}")
     if localizacao_maps_salva:
         st.caption(f"Localização: {localizacao_maps_salva}")
+    importacao_offline = manifesto_rascunho.get("importacao_offline", {}) or {}
+    if importacao_offline.get("exported_at") or importacao_offline.get("app_version"):
+        partes_importacao = []
+        if importacao_offline.get("exported_at"):
+            partes_importacao.append(f"exportado em {importacao_offline['exported_at']}")
+        if importacao_offline.get("app_version"):
+            partes_importacao.append(f"versão offline {importacao_offline['app_version']}")
+        st.caption("Pacote " + " | ".join(partes_importacao))
 
     observacoes_texto = st.text_area(
         "Ajuste opcional antes de gerar",
