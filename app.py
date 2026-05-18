@@ -182,7 +182,7 @@ ASSINATURAS_RESPONSAVEIS = {
     },
 }
 
-MIN_ASSINATURAS = 2
+MIN_ASSINATURAS = 0
 MAX_ASSINATURAS = 5
 
 
@@ -233,7 +233,8 @@ def normalizar_assinaturas_lista(manifesto: dict) -> list[dict]:
                 }
             )
 
-    quantidade = quantidade_assinaturas_normalizada(manifesto.get("quantidade_assinaturas") or len(registros))
+    quantidade_bruta = manifesto.get("quantidade_assinaturas")
+    quantidade = quantidade_assinaturas_normalizada(len(registros) if quantidade_bruta is None else quantidade_bruta)
     normalizadas = []
     por_id = {str(item.get("id") or f"assinatura_{indice}"): item for indice, item in enumerate(registros, start=1) if isinstance(item, dict)}
     for indice in range(1, quantidade + 1):
@@ -1010,10 +1011,16 @@ def aplicar_tipo_atendimento_word(caminho_docx: Path, dados: dict) -> None:
             continue
 
         celulas = primeira_linha.cells
-        escrever_celula_servico(celulas[0], "VALIDAÇÃO/HOMOLOGAÇÃO", tamanho=13)
-        escrever_celula_servico(celulas[1], "X", tamanho=14)
-        for celula in celulas[2:]:
-            escrever_celula_servico(celula, "", tamanho=13)
+        try:
+            celula_rotulo = celulas[0].merge(celulas[4])
+            celula_marcador = celulas[5]
+            escrever_celula_servico(celula_rotulo, "VALIDAÇÃO/HOMOLOGAÇÃO", tamanho=13)
+            escrever_celula_servico(celula_marcador, "X", tamanho=14)
+        except Exception:
+            escrever_celula_servico(celulas[0], "VALIDAÇÃO/HOMOLOGAÇÃO", tamanho=11)
+            escrever_celula_servico(celulas[1], "X", tamanho=14)
+            for celula in celulas[2:]:
+                escrever_celula_servico(celula, "", tamanho=13)
         documento.save(caminho_docx)
         return
 
@@ -1135,6 +1142,7 @@ Use português técnico, claro e objetivo. Reescreva falas informais em linguage
 REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 1. tipo_atendimento: retornar apenas uma opção entre "suporte", "instalacao", "treinamento" ou "validacao_homologacao". Nunca marcar mais de um tipo no relatório.
 2. suporte, instalacao, treinamento e validacao_homologacao: retornar "X" somente no tipo principal do atendimento e retornar "" nos demais campos.
+   Use "validacao_homologacao" quando o atendimento tiver objetivo de validar, homologar, aprovar funcionamento, acompanhar testes de aceitação ou confirmar desempenho de equipamento/sistema.
 3. data_visita: preserve intervalo de datas quando o atendimento ocorrer em mais de um dia, por exemplo "19 a 21/01/2026".
 4. cliente_local: informar cliente, cidade/UF, revenda, fábrica e propriedade quando existirem.
 5. localizacao_maps: informar somente o link do Google Maps, Maps ou coordenadas da fazenda quando existirem; caso contrário, retornar "".
@@ -2515,7 +2523,8 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
 
     assinaturas_lista = pacote.get("assinaturas_lista")
     if isinstance(assinaturas_lista, list):
-        quantidade = quantidade_assinaturas_normalizada(pacote.get("quantidade_assinaturas") or len(assinaturas_lista))
+        quantidade_bruta = pacote.get("quantidade_assinaturas")
+        quantidade = quantidade_assinaturas_normalizada(len(assinaturas_lista) if quantidade_bruta is None else quantidade_bruta)
         registros = []
         for indice in range(1, quantidade + 1):
             padrao = assinatura_padrao(indice)

@@ -31,10 +31,10 @@ O preenchimento de campo deve ser feito pela PWA offline. O Streamlit fica como 
 
 Quando voltar internet:
 
-1. Na PWA, toque em `Copiar pacote para colar no app online` ou exporte o arquivo JSON.
+1. Na PWA, toque em `Exportar Pacote Relatorio Offline`.
 2. Abra o app Streamlit online.
-3. Use `Carregar arquivo JSON` ou `Colar pacote copiado`.
-4. Clique em `Carregar arquivo JSON` ou `Importar texto copiado`.
+3. Use `Carregar arquivo JSON`.
+4. Clique em `Carregar arquivo JSON`.
 5. Confira o pacote importado e clique em `Gerar relatorio tecnico`.
 
 O ZIP final contem o arquivo Word e uma pasta unica `FOTOS DO ATENDIMENTO` com todas as fotos do atendimento.

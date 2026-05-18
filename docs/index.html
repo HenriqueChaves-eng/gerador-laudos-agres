@@ -292,11 +292,32 @@
     }
     .thumb-actions {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
+      grid-template-columns: minmax(0, 1fr) minmax(72px, auto);
       gap: 5px;
+      align-items: end;
     }
     .thumb-actions button {
       width: 100%;
+    }
+    .order-control {
+      display: grid;
+      gap: 3px;
+    }
+    .order-control span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .order-control select {
+      min-height: 32px;
+      width: 100%;
+      border: 1px solid #c9ccd1;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 800;
     }
     .caption-control {
       display: grid;
@@ -629,13 +650,11 @@
     <section>
       <h2>4. Assinaturas</h2>
       <div class="signature-settings">
-        <label class="check-row">
-          <input id="assinaturas_habilitadas" type="checkbox">
-          Incluir assinaturas no relatório
-        </label>
         <div class="field">
           <label for="quantidade_assinaturas">Quantidade de assinaturas</label>
           <select id="quantidade_assinaturas">
+            <option value="0">0 assinaturas</option>
+            <option value="1">1 assinatura</option>
             <option value="2">2 assinaturas</option>
             <option value="3">3 assinaturas</option>
             <option value="4">4 assinaturas</option>
@@ -649,21 +668,12 @@
     <section>
       <h2>5. Sincronização</h2>
       <div class="sync-panel">
-        <label for="onlineAppUrl">Link do app online Streamlit</label>
-        <input id="onlineAppUrl" type="text" placeholder="https://seu-app.streamlit.app">
-        <button type="button" id="copyPackageBtn">Copiar pacote para colar no app online</button>
-        <button type="button" id="selectPackageBtn">Selecionar pacote manualmente</button>
-        <button type="button" id="sharePackageBtn">Compartilhar pacote JSON</button>
-        <button type="button" id="openOnlineBtn">Abrir app online</button>
-        <textarea class="sync-output" id="packageText" readonly aria-label="Pacote offline para copiar"></textarea>
         <div class="offline-checklist" id="offlineChecklist" aria-live="polite"></div>
-        <div class="sync-message" id="syncMessage"></div>
-      </div>
-      <div class="footer-actions">
         <div class="actions">
-          <button type="button" class="primary" id="exportBtn">Exportar pacote offline</button>
+          <button type="button" class="primary" id="exportBtn">Exportar Pacote Relatório Offline</button>
           <button type="button" class="danger" id="clearBtn">Limpar coleta</button>
         </div>
+        <div class="sync-message" id="syncMessage"></div>
       </div>
     </section>
   </main>
@@ -686,16 +696,16 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.05.18.2";
+    const APP_VERSION = "2026.05.18.8";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v17"
+      ? "agres-offline-v21"
       : location.pathname.includes("/static/coleta/")
-      ? "agres-coleta-v10"
-      : "agres-pages-offline-v11";
+      ? "agres-coleta-v14"
+      : "agres-pages-offline-v17";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
-    const MIN_SIGNATURES = 2;
+    const MIN_SIGNATURES = 0;
     const MAX_SIGNATURES = 5;
     const HEADER_LABELS = {
       info_equip: "Informações do equipamento",
@@ -753,7 +763,7 @@
         responsaveis: { revenda_fabrica: "", fazenda: "" },
         documentos: { revenda_fabrica: "", fazenda: "" },
         assinaturas: { revenda_fabrica: null, fazenda: null },
-        assinaturas_habilitadas: true,
+        assinaturas_habilitadas: false,
         quantidade_assinaturas: MIN_SIGNATURES,
         assinaturas_lista: defaultSignatures(MIN_SIGNATURES)
       };
@@ -796,7 +806,10 @@
         }
       ];
       const source = Array.isArray(draft.assinaturas_lista) ? draft.assinaturas_lista : legacy;
-      draft.quantidade_assinaturas = clampSignatureCount(draft.quantidade_assinaturas || source.length);
+      const quantidadeInformada = draft.quantidade_assinaturas;
+      draft.quantidade_assinaturas = clampSignatureCount(
+        quantidadeInformada === undefined || quantidadeInformada === null ? source.length : quantidadeInformada
+      );
       draft.assinaturas_lista = defaultSignatures(draft.quantidade_assinaturas).map((fallback, index) => {
         const item = source[index] || fallback;
         return {
@@ -819,6 +832,7 @@
         revenda_fabrica: draft.assinaturas_lista[0]?.imagem || null,
         fazenda: draft.assinaturas_lista[1]?.imagem || null
       };
+      draft.assinaturas_habilitadas = draft.quantidade_assinaturas > 0 && draft.assinaturas_habilitadas !== false;
     }
 
     function openDb() {
@@ -877,18 +891,6 @@
       return readFile(file);
     }
 
-    function updateNetwork() {
-      const badge = document.getElementById("networkStatus");
-      if (!badge) return;
-      if (navigator.onLine) {
-        badge.textContent = "Online";
-        badge.className = "badge online";
-      } else {
-        badge.textContent = "Offline";
-        badge.className = "badge offline";
-      }
-    }
-
     function updateSecureNotice() {
       const notice = document.getElementById("secureNotice");
       if (!notice) return;
@@ -917,9 +919,9 @@
           removeMetadataLine(key, index);
           updateCounts();
           scheduleSave();
-        }, key, (index, direction) => {
-          moveItem(draft.evidencias[key], index, direction);
-          moveMetadataLine(key, index, direction);
+        }, key, (index, targetIndex) => {
+          reorderItem(draft.evidencias[key], index, targetIndex);
+          reorderMetadataLine(key, index, targetIndex);
           updateCounts();
           scheduleSave();
         });
@@ -930,8 +932,8 @@
         draft.fotos_atendimento.splice(index, 1);
         updateCounts();
         scheduleSave();
-      }, "", (index, direction) => {
-        moveItem(draft.fotos_atendimento, index, direction);
+      }, "", (index, targetIndex) => {
+        reorderItem(draft.fotos_atendimento, index, targetIndex);
         updateCounts();
         scheduleSave();
       });
@@ -969,17 +971,16 @@
       if (legacy) legacy.value = draft.legendas_evidencias[key];
     }
 
-    function moveItem(items, index, direction) {
-      const target = index + direction;
-      if (!Array.isArray(items) || target < 0 || target >= items.length) return;
+    function reorderItem(items, index, target) {
+      if (!Array.isArray(items) || target < 0 || target >= items.length || target === index) return;
       const [item] = items.splice(index, 1);
       items.splice(target, 0, item);
     }
 
-    function moveMetadataLine(key, index, direction) {
+    function reorderMetadataLine(key, index, target) {
       const lines = metadataLines(key);
       while (lines.length < draft.evidencias[key].length) lines.push("||");
-      moveItem(lines, index, direction);
+      reorderItem(lines, index, target);
       draft.legendas_evidencias[key] = lines.join("\n");
       const legacy = document.getElementById(`legenda_${key}`);
       if (legacy) legacy.value = draft.legendas_evidencias[key];
@@ -1006,19 +1007,22 @@
         const actions = document.createElement("div");
         actions.className = "thumb-actions";
         if (onMove) {
-          const up = document.createElement("button");
-          up.type = "button";
-          up.textContent = "Subir";
-          up.disabled = index === 0;
-          up.addEventListener("click", () => onMove(index, -1));
-          actions.appendChild(up);
-
-          const down = document.createElement("button");
-          down.type = "button";
-          down.textContent = "Descer";
-          down.disabled = index === items.length - 1;
-          down.addEventListener("click", () => onMove(index, 1));
-          actions.appendChild(down);
+          const orderControl = document.createElement("label");
+          orderControl.className = "order-control";
+          const orderLabel = document.createElement("span");
+          orderLabel.textContent = "Ordem no relatório";
+          const select = document.createElement("select");
+          for (let position = 0; position < items.length; position += 1) {
+            const option = document.createElement("option");
+            option.value = String(position);
+            option.textContent = String(position + 1);
+            option.selected = position === index;
+            select.appendChild(option);
+          }
+          select.addEventListener("change", () => onMove(index, Number.parseInt(select.value, 10)));
+          orderControl.appendChild(orderLabel);
+          orderControl.appendChild(select);
+          actions.appendChild(orderControl);
         }
         const remove = document.createElement("button");
         remove.type = "button";
@@ -1338,7 +1342,7 @@
       }
     }
 
-    function setupDrawingCanvas(canvas, getKey) {
+    function setupDrawingCanvas(canvas, getKey, readOnly = false) {
       const ctx = canvas.getContext("2d");
       let drawing = false;
       let dirty = false;
@@ -1360,34 +1364,36 @@
         refreshSignatureCanvases(key, canvas);
       }
 
-      canvas.addEventListener("pointerdown", (event) => {
-        const key = getKey();
-        if (!key) return;
-        drawing = true;
-        dirty = true;
-        canvas.setPointerCapture(event.pointerId);
-        const p = point(event);
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-      });
-      canvas.addEventListener("pointermove", (event) => {
-        if (!drawing) return;
-        const p = point(event);
-        ctx.lineWidth = 3;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.strokeStyle = "#25272b";
-        ctx.lineTo(p.x, p.y);
-        ctx.stroke();
-      });
-      canvas.addEventListener("pointerup", () => {
-        drawing = false;
-        saveSignature();
-      });
-      canvas.addEventListener("pointercancel", () => {
-        drawing = false;
-        saveSignature();
-      });
+      if (!readOnly) {
+        canvas.addEventListener("pointerdown", (event) => {
+          const key = getKey();
+          if (!key) return;
+          drawing = true;
+          dirty = true;
+          canvas.setPointerCapture(event.pointerId);
+          const p = point(event);
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+        });
+        canvas.addEventListener("pointermove", (event) => {
+          if (!drawing) return;
+          const p = point(event);
+          ctx.lineWidth = 3;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.strokeStyle = "#25272b";
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+        });
+        canvas.addEventListener("pointerup", () => {
+          drawing = false;
+          saveSignature();
+        });
+        canvas.addEventListener("pointercancel", () => {
+          drawing = false;
+          saveSignature();
+        });
+      }
 
       resize();
       window.addEventListener("resize", resize);
@@ -1410,6 +1416,9 @@
     }
 
     function openSignatureModal(key) {
+      const assinatura = signatureById(key);
+      const mensagem = assinatura?.imagem?.dataUrl ? "Deseja editar esta assinatura?" : "Deseja assinar agora?";
+      if (!confirm(mensagem)) return;
       activeSignatureKey = key;
       document.getElementById("signatureModalTitle").textContent = signatureLabel(key);
       document.getElementById("signatureModal").classList.add("open");
@@ -1551,7 +1560,7 @@
       const container = document.getElementById("signatureFields");
       container.innerHTML = "";
       mainSignaturePads = {};
-      if (!draft.assinaturas_habilitadas) {
+      if (!draft.assinaturas_habilitadas || draft.quantidade_assinaturas === 0) {
         container.innerHTML = '<p class="hint">As assinaturas não serão inseridas no relatório.</p>';
         renderOfflineChecklist();
         return;
@@ -1588,7 +1597,8 @@
         });
         mainSignaturePads[assinatura.id] = setupDrawingCanvas(
           card.querySelector(`#canvas_${assinatura.id}`),
-          () => assinatura.id
+          () => assinatura.id,
+          true
         );
         card.querySelector(`[data-clear-signature="${assinatura.id}"]`).addEventListener("click", () => mainSignaturePads[assinatura.id].clear());
         card.querySelector(`[data-open-signature="${assinatura.id}"]`).addEventListener("click", () => openSignatureModal(assinatura.id));
@@ -1602,13 +1612,10 @@
       if (tipoInput) tipoInput.checked = true;
       document.getElementById("localizacao_maps").value = draft.localizacao_maps || "";
       document.getElementById("observacoes").value = draft.observacoes || "";
-      document.getElementById("onlineAppUrl").value = localStorage.getItem("agresOnlineAppUrl") || "";
       CATEGORIES.forEach((key) => {
         document.getElementById(`legenda_${key}`).value = draft.legendas_evidencias[key] || "";
       });
-      document.getElementById("assinaturas_habilitadas").checked = draft.assinaturas_habilitadas !== false;
       document.getElementById("quantidade_assinaturas").value = String(clampSignatureCount(draft.quantidade_assinaturas));
-      document.getElementById("quantidade_assinaturas").disabled = draft.assinaturas_habilitadas === false;
       renderSignatureFields();
       updateCounts();
     }
@@ -1630,17 +1637,9 @@
         draft.observacoes = event.target.value;
         scheduleSave();
       });
-      document.getElementById("onlineAppUrl").addEventListener("input", (event) => {
-        localStorage.setItem("agresOnlineAppUrl", event.target.value.trim());
-      });
-      document.getElementById("assinaturas_habilitadas").addEventListener("change", (event) => {
-        draft.assinaturas_habilitadas = event.target.checked;
-        document.getElementById("quantidade_assinaturas").disabled = !event.target.checked;
-        renderSignatureFields();
-        scheduleSave();
-      });
       document.getElementById("quantidade_assinaturas").addEventListener("change", (event) => {
         draft.quantidade_assinaturas = clampSignatureCount(event.target.value);
+        draft.assinaturas_habilitadas = draft.quantidade_assinaturas > 0;
         normalizeSignatures();
         renderSignatureFields();
         scheduleSave();
@@ -1653,8 +1652,7 @@
         });
         document.getElementById(key).addEventListener("change", async (event) => {
           const arquivos = await Promise.all([...event.target.files].map(readFile));
-          draft.evidencias[key] = arquivos;
-          draft.legendas_evidencias[key] = "";
+          draft.evidencias[key] = [...(draft.evidencias[key] || []), ...arquivos];
           event.target.value = "";
           updateCounts();
           scheduleSave();
@@ -1663,7 +1661,7 @@
 
       document.getElementById(ATTENDANCE_PHOTOS).addEventListener("change", async (event) => {
         const arquivos = await Promise.all([...event.target.files].map(readFile));
-        draft.fotos_atendimento = arquivos;
+        draft.fotos_atendimento = [...(draft.fotos_atendimento || []), ...arquivos];
         event.target.value = "";
         updateCounts();
         scheduleSave();
@@ -1720,10 +1718,6 @@
         }
       });
 
-      document.getElementById("copyPackageBtn").addEventListener("click", copyPackage);
-      document.getElementById("selectPackageBtn").addEventListener("click", selectPackageText);
-      document.getElementById("sharePackageBtn").addEventListener("click", sharePackage);
-      document.getElementById("openOnlineBtn").addEventListener("click", openOnlineApp);
       document.getElementById("currentLocationBtn").addEventListener("click", useCurrentLocation);
       document.getElementById("openMapsBtn").addEventListener("click", openMaps);
       document.getElementById("exportBtn").addEventListener("click", exportDraft);
@@ -1836,39 +1830,6 @@
       }
     }
 
-    function revealPackageText(text) {
-      const output = document.getElementById("packageText");
-      output.value = text || packageTextSync();
-      output.classList.add("visible");
-      return output;
-    }
-
-    function selectPackageText() {
-      const output = revealPackageText();
-      output.focus({ preventScroll: false });
-      output.select();
-      output.setSelectionRange(0, output.value.length);
-      setSyncMessage("Pacote selecionado. Toque em Copiar e depois cole no campo de sincronização do app online.");
-    }
-
-    function copyPackageWithLegacyFallback(output) {
-      const wasReadOnly = output.hasAttribute("readonly");
-      if (wasReadOnly) output.removeAttribute("readonly");
-      output.focus({ preventScroll: false });
-      output.select();
-      output.setSelectionRange(0, output.value.length);
-
-      let copied = false;
-      try {
-        copied = document.execCommand("copy");
-      } catch (error) {
-        copied = false;
-      }
-
-      if (wasReadOnly) output.setAttribute("readonly", "readonly");
-      return copied;
-    }
-
     async function exportDraft() {
       const blob = await packageBlob();
       const url = URL.createObjectURL(blob);
@@ -1879,64 +1840,7 @@
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      setSyncMessage("Pacote exportado. No iPad ele normalmente fica em Arquivos > Downloads.");
-    }
-
-    async function copyPackage() {
-      const text = packageTextSync();
-      const output = revealPackageText(text);
-      putDraft().catch(() => {});
-
-      try {
-        if (!navigator.clipboard?.writeText) {
-          throw new Error("Clipboard indisponível");
-        }
-        await navigator.clipboard.writeText(text);
-        setSyncMessage("Pacote copiado. Volte ao app online e cole no campo de sincronização.");
-      } catch (error) {
-        if (copyPackageWithLegacyFallback(output)) {
-          setSyncMessage("Pacote copiado pelo modo compatível. Volte ao app online e cole no campo de sincronização.");
-        } else {
-          selectPackageText();
-          setSyncMessage("O Safari bloqueou a cópia automática. O pacote ficou selecionado: toque em Copiar e cole no app online.");
-        }
-      }
-    }
-
-    async function sharePackage() {
-      const blob = await packageBlob();
-      const file = new File([blob], packageFileName(), { type: "application/json" });
-      try {
-        if (navigator.canShare?.({ files: [file] }) && navigator.share) {
-          await navigator.share({
-            title: "Pacote offline Agres",
-            text: "Pacote offline para sincronizar no app Agres.",
-            files: [file]
-          });
-          setSyncMessage("Pacote compartilhado. Salve em Arquivos ou envie para onde preferir.");
-        } else if (navigator.share) {
-          await navigator.share({
-            title: "Pacote offline Agres",
-            text: await packageText()
-          });
-          setSyncMessage("Pacote compartilhado como texto.");
-        } else {
-          await copyPackage();
-        }
-      } catch (error) {
-        setSyncMessage("Compartilhamento cancelado ou indisponível. Use Copiar pacote ou Exportar pacote offline.");
-      }
-    }
-
-    function openOnlineApp() {
-      const url = (document.getElementById("onlineAppUrl").value || localStorage.getItem("agresOnlineAppUrl") || "").trim();
-      if (!url || !/^https:\/\//i.test(url)) {
-        setSyncMessage("Informe o link HTTPS do app Streamlit antes de abrir o app online.");
-        document.getElementById("onlineAppUrl").focus();
-        return;
-      }
-      localStorage.setItem("agresOnlineAppUrl", url);
-      window.open(url, "_blank", "noopener");
+      setSyncMessage("Pacote relatório offline exportado. No iPad ele normalmente fica em Arquivos > Downloads.");
     }
 
     async function clearDraft() {
@@ -1947,17 +1851,10 @@
     }
 
     async function init() {
-      updateNetwork();
       updateSecureNotice();
-      window.addEventListener("online", updateNetwork);
-      window.addEventListener("offline", updateNetwork);
       ensureOfflineReady().catch(() => {});
       if (navigator.storage?.persist) {
-        const persisted = await navigator.storage.persist();
-        const storageStatus = document.getElementById("storageStatus");
-        if (storageStatus) {
-          storageStatus.textContent = persisted ? "Armazenamento local protegido." : "Armazenamento local ativo.";
-        }
+        await navigator.storage.persist();
       }
       db = await openDb();
       draft = { ...defaultDraft(), ...(await getDraft()) };
