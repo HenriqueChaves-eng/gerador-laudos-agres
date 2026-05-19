@@ -296,8 +296,15 @@
       gap: 5px;
       align-items: end;
     }
+    .thumb-actions.single-action {
+      grid-template-columns: 1fr;
+    }
     .thumb-actions button {
       width: 100%;
+      min-width: 0;
+      padding: 0 6px;
+      line-height: 1.15;
+      white-space: normal;
     }
     .order-control {
       display: grid;
@@ -696,12 +703,12 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.05.18.8";
+    const APP_VERSION = "2026.05.19.1";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v21"
+      ? "agres-offline-v22"
       : location.pathname.includes("/static/coleta/")
-      ? "agres-coleta-v14"
-      : "agres-pages-offline-v17";
+        ? "agres-coleta-v15"
+        : "agres-pages-offline-v18";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
@@ -736,6 +743,7 @@
     let wakeLock;
     let saveTimer;
     let locationWatchId = null;
+    let lastExportUrl = "";
 
     function defaultDraft() {
       return {
@@ -1005,7 +1013,7 @@
         name.className = "thumb-name";
         name.textContent = item.name || `Imagem ${index + 1}`;
         const actions = document.createElement("div");
-        actions.className = "thumb-actions";
+        actions.className = onMove ? "thumb-actions" : "thumb-actions single-action";
         if (onMove) {
           const orderControl = document.createElement("label");
           orderControl.className = "order-control";
@@ -1600,7 +1608,11 @@
           () => assinatura.id,
           true
         );
-        card.querySelector(`[data-clear-signature="${assinatura.id}"]`).addEventListener("click", () => mainSignaturePads[assinatura.id].clear());
+        card.querySelector(`[data-clear-signature="${assinatura.id}"]`).addEventListener("click", () => {
+          if (confirm(`Limpar a assinatura ${index + 1}?`)) {
+            mainSignaturePads[assinatura.id].clear();
+          }
+        });
         card.querySelector(`[data-open-signature="${assinatura.id}"]`).addEventListener("click", () => openSignatureModal(assinatura.id));
       });
       renderOfflineChecklist();
@@ -1709,7 +1721,11 @@
         () => activeSignatureKey
       );
 
-      document.getElementById("clearSignatureModal").addEventListener("click", () => modalSignaturePad.clear());
+      document.getElementById("clearSignatureModal").addEventListener("click", () => {
+        if (confirm("Limpar a assinatura aberta?")) {
+          modalSignaturePad.clear();
+        }
+      });
       document.getElementById("closeSignatureModal").addEventListener("click", closeSignatureModal);
       document.getElementById("finishSignatureModal").addEventListener("click", closeSignatureModal);
       document.addEventListener("keydown", (event) => {
@@ -1744,8 +1760,24 @@
       return new Blob([await packageText()], { type: "application/json" });
     }
 
+    function packageBlobSync() {
+      return new Blob([packageTextSync()], { type: "application/json" });
+    }
+
     function setSyncMessage(texto) {
       document.getElementById("syncMessage").textContent = texto || "";
+    }
+
+    function showDownloadFallback(url, fileName) {
+      const container = document.getElementById("syncMessage");
+      container.innerHTML = "";
+      container.appendChild(document.createTextNode("Pacote relatório offline pronto. Se não baixar automaticamente, toque em "));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.textContent = "baixar pacote JSON";
+      container.appendChild(link);
+      container.appendChild(document.createTextNode("."));
     }
 
     function setLocationHint(texto) {
@@ -1831,20 +1863,50 @@
     }
 
     async function exportDraft() {
-      const blob = await packageBlob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = packageFileName();
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-      setSyncMessage("Pacote relatório offline exportado. No iPad ele normalmente fica em Arquivos > Downloads.");
+      try {
+        normalizeSignatures();
+        const fileName = packageFileName();
+        const blob = packageBlobSync();
+        putDraft().catch(() => {});
+
+        if (typeof File === "function" && navigator.share) {
+          const file = new File([blob], fileName, { type: "application/json" });
+          const canShareFile = !navigator.canShare || navigator.canShare({ files: [file] });
+          if (canShareFile) {
+            try {
+              await navigator.share({
+                title: "Pacote Relatório Offline",
+                text: "Pacote JSON da coleta offline Agres.",
+                files: [file]
+              });
+              setSyncMessage("Pacote relatório offline exportado.");
+              return;
+            } catch (error) {
+              if (error?.name === "AbortError") {
+                setSyncMessage("Exportação cancelada. Toque novamente para exportar o pacote.");
+                return;
+              }
+            }
+          }
+        }
+
+        if (lastExportUrl) URL.revokeObjectURL(lastExportUrl);
+        lastExportUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = lastExportUrl;
+        link.download = fileName;
+        link.rel = "noopener";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        showDownloadFallback(lastExportUrl, fileName);
+      } catch (error) {
+        setSyncMessage(`Não foi possível exportar o pacote: ${error.message}`);
+      }
     }
 
     async function clearDraft() {
-      if (!confirm("Limpar todos os dados desta coleta?")) return;
+      if (!confirm("Limpar toda a coleta deste aparelho? Esta ação apaga textos, áudios, fotos e assinaturas salvos no modo offline.")) return;
       draft = defaultDraft();
       await putDraft();
       location.reload();
