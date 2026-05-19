@@ -163,6 +163,16 @@
       color: var(--ink);
       font: inherit;
     }
+    .file-pair {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .file-pair input[type="file"] {
+      min-width: 0;
+      padding: 10px;
+      font-size: 13px;
+    }
     .field { margin-bottom: 12px; }
     .hint {
       margin: 6px 0 0;
@@ -581,19 +591,28 @@
       <div class="grid">
         <div class="field">
           <label for="info_equip">Informações do equipamento</label>
-          <input id="info_equip" type="file" accept="image/*">
+          <div class="file-pair">
+            <input id="info_equip_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto das informações do equipamento">
+            <input id="info_equip" type="file" accept="image/*" aria-label="Selecionar foto das informações do equipamento">
+          </div>
           <p class="hint" id="info_equip_status"></p>
           <div class="preview-grid" id="info_equip_preview"></div>
         </div>
         <div class="field">
           <label for="maquina">Máquina</label>
-          <input id="maquina" type="file" accept="image/*">
+          <div class="file-pair">
+            <input id="maquina_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto da máquina">
+            <input id="maquina" type="file" accept="image/*" aria-label="Selecionar foto da máquina">
+          </div>
           <p class="hint" id="maquina_status"></p>
           <div class="preview-grid" id="maquina_preview"></div>
         </div>
         <div class="field">
           <label for="implemento">Implemento</label>
-          <input id="implemento" type="file" accept="image/*">
+          <div class="file-pair">
+            <input id="implemento_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto do implemento">
+            <input id="implemento" type="file" accept="image/*" aria-label="Selecionar foto do implemento">
+          </div>
           <p class="hint" id="implemento_status"></p>
           <div class="preview-grid" id="implemento_preview"></div>
         </div>
@@ -605,31 +624,46 @@
       <div class="grid">
         <div class="field">
           <label for="fotos_equipamento">Equipamento Agres</label>
-          <input id="fotos_equipamento" type="file" accept="image/*" multiple>
+          <div class="file-pair">
+            <input id="fotos_equipamento_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto do equipamento Agres">
+            <input id="fotos_equipamento" type="file" accept="image/*" multiple aria-label="Selecionar fotos do equipamento Agres">
+          </div>
           <p class="hint" id="fotos_equipamento_status"></p>
           <div class="preview-grid" id="fotos_equipamento_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_instalacao">Instalação</label>
-          <input id="fotos_instalacao" type="file" accept="image/*" multiple>
+          <div class="file-pair">
+            <input id="fotos_instalacao_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto da instalação">
+            <input id="fotos_instalacao" type="file" accept="image/*" multiple aria-label="Selecionar fotos da instalação">
+          </div>
           <p class="hint" id="fotos_instalacao_status"></p>
           <div class="preview-grid" id="fotos_instalacao_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_configuracao">Configurações</label>
-          <input id="fotos_configuracao" type="file" accept="image/*" multiple>
+          <div class="file-pair">
+            <input id="fotos_configuracao_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto das configurações">
+            <input id="fotos_configuracao" type="file" accept="image/*" multiple aria-label="Selecionar fotos das configurações">
+          </div>
           <p class="hint" id="fotos_configuracao_status"></p>
           <div class="preview-grid" id="fotos_configuracao_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_outros">Outros registros</label>
-          <input id="fotos_outros" type="file" accept="image/*" multiple>
+          <div class="file-pair">
+            <input id="fotos_outros_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto de outros registros">
+            <input id="fotos_outros" type="file" accept="image/*" multiple aria-label="Selecionar fotos de outros registros">
+          </div>
           <p class="hint" id="fotos_outros_status"></p>
           <div class="preview-grid" id="fotos_outros_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_atendimento">Fotos do atendimento (somente ZIP)</label>
-          <input id="fotos_atendimento" type="file" accept="image/*" multiple>
+          <div class="file-pair">
+            <input id="fotos_atendimento_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto do atendimento">
+            <input id="fotos_atendimento" type="file" accept="image/*" multiple aria-label="Selecionar fotos do atendimento">
+          </div>
           <p class="hint" id="fotos_atendimento_status"></p>
           <div class="preview-grid" id="fotos_atendimento_preview"></div>
         </div>
@@ -703,17 +737,19 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.05.19.1";
+    const APP_VERSION = "2026.05.19.2";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v22"
+      ? "agres-offline-v23"
       : location.pathname.includes("/static/coleta/")
-        ? "agres-coleta-v15"
-        : "agres-pages-offline-v18";
+        ? "agres-coleta-v16"
+        : "agres-pages-offline-v19";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
     const MIN_SIGNATURES = 0;
     const MAX_SIGNATURES = 5;
+    const IMAGE_MAX_SIDE = 1600;
+    const IMAGE_JPEG_QUALITY = 0.78;
     const HEADER_LABELS = {
       info_equip: "Informações do equipamento",
       maquina: "Máquina",
@@ -876,11 +912,15 @@
       renderOfflineChecklist();
       clearTimeout(saveTimer);
       saveTimer = setTimeout(async () => {
-        await putDraft();
+        try {
+          await putDraft();
+        } catch (error) {
+          setSyncMessage("Não foi possível salvar no aparelho. Se houver muitas fotos, exporte o pacote agora ou remova imagens muito pesadas.");
+        }
       }, 250);
     }
 
-    function readFile(file) {
+    function readRawFile(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve({
@@ -894,9 +934,90 @@
       });
     }
 
+    function blobToDataUrl(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function loadImage(dataUrl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("Não foi possível ler a imagem selecionada."));
+        img.src = dataUrl;
+      });
+    }
+
+    function canvasToBlob(canvas, type, quality) {
+      return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Não foi possível compactar a imagem."));
+        }, type, quality);
+      });
+    }
+
+    function jpgName(fileName) {
+      return String(fileName || "imagem").replace(/\.[^.]+$/, "") + ".jpg";
+    }
+
+    async function readImageFile(file) {
+      const original = await readRawFile(file);
+      const img = await loadImage(original.dataUrl);
+      const sourceWidth = img.naturalWidth || img.width;
+      const sourceHeight = img.naturalHeight || img.height;
+      const scale = Math.min(1, IMAGE_MAX_SIDE / Math.max(sourceWidth, sourceHeight));
+      const width = Math.max(1, Math.round(sourceWidth * scale));
+      const height = Math.max(1, Math.round(sourceHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d", { alpha: false });
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      const blob = await canvasToBlob(canvas, "image/jpeg", IMAGE_JPEG_QUALITY);
+      return {
+        name: jpgName(file.name),
+        originalName: file.name,
+        type: "image/jpeg",
+        size: blob.size,
+        originalSize: file.size,
+        dataUrl: await blobToDataUrl(blob)
+      };
+    }
+
+    async function readFile(file) {
+      if (file?.type?.startsWith("image/")) {
+        try {
+          return await readImageFile(file);
+        } catch (error) {
+          return readRawFile(file);
+        }
+      }
+      return readRawFile(file);
+    }
+
+    async function readSelectedFiles(fileList, statusId = "") {
+      const files = [...(fileList || [])];
+      const items = [];
+      for (let index = 0; index < files.length; index += 1) {
+        if (statusId) {
+          document.getElementById(statusId).textContent = `Processando ${index + 1}/${files.length}...`;
+        }
+        items.push(await readFile(files[index]));
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+      return items;
+    }
+
     function blobToItem(blob, name) {
       const file = new File([blob], name, { type: blob.type || "audio/mp4" });
-      return readFile(file);
+      return readRawFile(file);
     }
 
     function updateSecureNotice() {
@@ -1663,29 +1784,80 @@
           scheduleSave();
         });
         document.getElementById(key).addEventListener("change", async (event) => {
-          const arquivos = await Promise.all([...event.target.files].map(readFile));
-          draft.evidencias[key] = [...(draft.evidencias[key] || []), ...arquivos];
-          event.target.value = "";
-          updateCounts();
-          scheduleSave();
+          try {
+            const arquivos = await readSelectedFiles(event.target.files, `${key}_status`);
+            draft.evidencias[key] = [...(draft.evidencias[key] || []), ...arquivos];
+            updateCounts();
+            scheduleSave();
+          } catch (error) {
+            document.getElementById(`${key}_status`).textContent = `Erro ao importar imagens: ${error.message}`;
+          } finally {
+            event.target.value = "";
+          }
+        });
+        document.getElementById(`${key}_camera`).addEventListener("change", async (event) => {
+          try {
+            const arquivos = await readSelectedFiles(event.target.files, `${key}_status`);
+            draft.evidencias[key] = [...(draft.evidencias[key] || []), ...arquivos];
+            updateCounts();
+            scheduleSave();
+          } catch (error) {
+            document.getElementById(`${key}_status`).textContent = `Erro ao importar imagem: ${error.message}`;
+          } finally {
+            event.target.value = "";
+          }
         });
       });
 
       document.getElementById(ATTENDANCE_PHOTOS).addEventListener("change", async (event) => {
-        const arquivos = await Promise.all([...event.target.files].map(readFile));
-        draft.fotos_atendimento = [...(draft.fotos_atendimento || []), ...arquivos];
-        event.target.value = "";
-        updateCounts();
-        scheduleSave();
+        try {
+          const arquivos = await readSelectedFiles(event.target.files, `${ATTENDANCE_PHOTOS}_status`);
+          draft.fotos_atendimento = [...(draft.fotos_atendimento || []), ...arquivos];
+          updateCounts();
+          scheduleSave();
+        } catch (error) {
+          document.getElementById(`${ATTENDANCE_PHOTOS}_status`).textContent = `Erro ao importar imagens: ${error.message}`;
+        } finally {
+          event.target.value = "";
+        }
+      });
+      document.getElementById(`${ATTENDANCE_PHOTOS}_camera`).addEventListener("change", async (event) => {
+        try {
+          const arquivos = await readSelectedFiles(event.target.files, `${ATTENDANCE_PHOTOS}_status`);
+          draft.fotos_atendimento = [...(draft.fotos_atendimento || []), ...arquivos];
+          updateCounts();
+          scheduleSave();
+        } catch (error) {
+          document.getElementById(`${ATTENDANCE_PHOTOS}_status`).textContent = `Erro ao importar imagem: ${error.message}`;
+        } finally {
+          event.target.value = "";
+        }
       });
 
       HEADERS.forEach((key) => {
         document.getElementById(key).addEventListener("change", async (event) => {
-          const file = event.target.files[0];
-          draft.cabecalho[key] = file ? await readFile(file) : null;
-          event.target.value = "";
-          updateCounts();
-          scheduleSave();
+          try {
+            const file = event.target.files[0];
+            draft.cabecalho[key] = file ? await readFile(file) : null;
+            updateCounts();
+            scheduleSave();
+          } catch (error) {
+            document.getElementById(`${key}_status`).textContent = `Erro ao importar imagem: ${error.message}`;
+          } finally {
+            event.target.value = "";
+          }
+        });
+        document.getElementById(`${key}_camera`).addEventListener("change", async (event) => {
+          try {
+            const file = event.target.files[0];
+            draft.cabecalho[key] = file ? await readFile(file) : null;
+            updateCounts();
+            scheduleSave();
+          } catch (error) {
+            document.getElementById(`${key}_status`).textContent = `Erro ao importar imagem: ${error.message}`;
+          } finally {
+            event.target.value = "";
+          }
         });
       });
 
