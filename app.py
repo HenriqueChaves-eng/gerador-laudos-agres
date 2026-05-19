@@ -252,6 +252,33 @@ def normalizar_assinaturas_lista(manifesto: dict) -> list[dict]:
     return normalizadas
 
 
+def assinatura_tem_conteudo(assinatura: dict) -> bool:
+    return bool(
+        limpar_texto(assinatura.get("nome", ""))
+        or limpar_texto(assinatura.get("documento", ""))
+        or assinatura.get("imagem")
+        or assinatura.get("caminho")
+    )
+
+
+def sincronizar_assinaturas_legadas(manifesto: dict) -> None:
+    manifesto["assinaturas_lista"] = normalizar_assinaturas_lista(manifesto)
+    manifesto["quantidade_assinaturas"] = len(manifesto["assinaturas_lista"])
+    manifesto.setdefault("responsaveis", {chave: "" for chave in ASSINATURAS_RESPONSAVEIS})
+    manifesto.setdefault("documentos", {chave: "" for chave in ASSINATURAS_RESPONSAVEIS})
+    manifesto.setdefault("assinaturas", {chave: None for chave in ASSINATURAS_RESPONSAVEIS})
+
+    for chave, indice in (("revenda_fabrica", 0), ("fazenda", 1)):
+        assinatura = (
+            manifesto["assinaturas_lista"][indice]
+            if indice < len(manifesto["assinaturas_lista"])
+            else assinatura_padrao(indice + 1)
+        )
+        manifesto["responsaveis"][chave] = assinatura.get("nome", "")
+        manifesto["documentos"][chave] = assinatura.get("documento", "")
+        manifesto["assinaturas"][chave] = assinatura.get("imagem")
+
+
 for chave, valor_inicial in {
     "lista_gravadores": [0],
     "proximo_id": 1,
@@ -2544,6 +2571,9 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
             )
         manifesto["quantidade_assinaturas"] = quantidade
         manifesto["assinaturas_lista"] = registros
+        if registros and any(assinatura_tem_conteudo(assinatura) for assinatura in registros):
+            manifesto["assinaturas_habilitadas"] = True
+        sincronizar_assinaturas_legadas(manifesto)
     else:
         for chave, item in (pacote.get("assinaturas") or {}).items():
             if chave in ASSINATURAS_RESPONSAVEIS:
@@ -2552,6 +2582,7 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
                     manifesto["assinaturas"][chave] = assinatura
         manifesto["assinaturas_lista"] = normalizar_assinaturas_lista(manifesto)
         manifesto["quantidade_assinaturas"] = len(manifesto["assinaturas_lista"])
+        sincronizar_assinaturas_legadas(manifesto)
 
     salvar_manifesto(draft_dir, manifesto)
     return manifesto
@@ -2957,12 +2988,7 @@ def atualizar_rascunho_atual(
         for indice in range(1, manifesto["quantidade_assinaturas"] + 1)
     ]
 
-    legados = [("revenda_fabrica", 0), ("fazenda", 1)]
-    for chave, indice in legados:
-        assinatura = manifesto["assinaturas_lista"][indice] if indice < len(manifesto["assinaturas_lista"]) else assinatura_padrao(indice + 1)
-        manifesto["responsaveis"][chave] = assinatura.get("nome", "")
-        manifesto["documentos"][chave] = assinatura.get("documento", "")
-        manifesto["assinaturas"][chave] = assinatura.get("imagem")
+    sincronizar_assinaturas_legadas(manifesto)
 
     salvar_manifesto(draft_dir, manifesto)
     return manifesto
@@ -2988,8 +3014,10 @@ def caminhos_salvos_rascunho(draft_dir: Path, manifesto: dict) -> tuple[list[Pat
         if (caminho := resolver_arquivo_rascunho(draft_dir, item))
     ]
     assinaturas = []
-    if manifesto.get("assinaturas_habilitadas", True):
-        for assinatura in normalizar_assinaturas_lista(manifesto):
+    assinaturas_normalizadas = normalizar_assinaturas_lista(manifesto)
+    assinaturas_com_conteudo = any(assinatura_tem_conteudo(item) for item in assinaturas_normalizadas)
+    if manifesto.get("assinaturas_habilitadas", True) or assinaturas_com_conteudo:
+        for assinatura in assinaturas_normalizadas:
             caminho = resolver_arquivo_rascunho(draft_dir, assinatura.get("imagem"))
             if assinatura.get("nome") or assinatura.get("representa") or assinatura.get("documento") or caminho:
                 assinaturas.append({**assinatura, "caminho": caminho})
