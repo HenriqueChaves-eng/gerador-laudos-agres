@@ -163,16 +163,6 @@
       color: var(--ink);
       font: inherit;
     }
-    .file-pair {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-    }
-    .file-pair input[type="file"] {
-      min-width: 0;
-      padding: 10px;
-      font-size: 13px;
-    }
     .field { margin-bottom: 12px; }
     .hint {
       margin: 6px 0 0;
@@ -591,28 +581,19 @@
       <div class="grid">
         <div class="field">
           <label for="info_equip">Informações do equipamento</label>
-          <div class="file-pair">
-            <input id="info_equip_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto das informações do equipamento">
-            <input id="info_equip" type="file" accept="image/*" aria-label="Selecionar foto das informações do equipamento">
-          </div>
+          <input id="info_equip" type="file" accept="image/*">
           <p class="hint" id="info_equip_status"></p>
           <div class="preview-grid" id="info_equip_preview"></div>
         </div>
         <div class="field">
           <label for="maquina">Máquina</label>
-          <div class="file-pair">
-            <input id="maquina_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto da máquina">
-            <input id="maquina" type="file" accept="image/*" aria-label="Selecionar foto da máquina">
-          </div>
+          <input id="maquina" type="file" accept="image/*">
           <p class="hint" id="maquina_status"></p>
           <div class="preview-grid" id="maquina_preview"></div>
         </div>
         <div class="field">
           <label for="implemento">Implemento</label>
-          <div class="file-pair">
-            <input id="implemento_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto do implemento">
-            <input id="implemento" type="file" accept="image/*" aria-label="Selecionar foto do implemento">
-          </div>
+          <input id="implemento" type="file" accept="image/*">
           <p class="hint" id="implemento_status"></p>
           <div class="preview-grid" id="implemento_preview"></div>
         </div>
@@ -624,46 +605,31 @@
       <div class="grid">
         <div class="field">
           <label for="fotos_equipamento">Equipamento Agres</label>
-          <div class="file-pair">
-            <input id="fotos_equipamento_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto do equipamento Agres">
-            <input id="fotos_equipamento" type="file" accept="image/*" multiple aria-label="Selecionar fotos do equipamento Agres">
-          </div>
+          <input id="fotos_equipamento" type="file" accept="image/*" multiple>
           <p class="hint" id="fotos_equipamento_status"></p>
           <div class="preview-grid" id="fotos_equipamento_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_instalacao">Instalação</label>
-          <div class="file-pair">
-            <input id="fotos_instalacao_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto da instalação">
-            <input id="fotos_instalacao" type="file" accept="image/*" multiple aria-label="Selecionar fotos da instalação">
-          </div>
+          <input id="fotos_instalacao" type="file" accept="image/*" multiple>
           <p class="hint" id="fotos_instalacao_status"></p>
           <div class="preview-grid" id="fotos_instalacao_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_configuracao">Configurações</label>
-          <div class="file-pair">
-            <input id="fotos_configuracao_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto das configurações">
-            <input id="fotos_configuracao" type="file" accept="image/*" multiple aria-label="Selecionar fotos das configurações">
-          </div>
+          <input id="fotos_configuracao" type="file" accept="image/*" multiple>
           <p class="hint" id="fotos_configuracao_status"></p>
           <div class="preview-grid" id="fotos_configuracao_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_outros">Outros registros</label>
-          <div class="file-pair">
-            <input id="fotos_outros_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto de outros registros">
-            <input id="fotos_outros" type="file" accept="image/*" multiple aria-label="Selecionar fotos de outros registros">
-          </div>
+          <input id="fotos_outros" type="file" accept="image/*" multiple>
           <p class="hint" id="fotos_outros_status"></p>
           <div class="preview-grid" id="fotos_outros_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_atendimento">Fotos do atendimento (somente ZIP)</label>
-          <div class="file-pair">
-            <input id="fotos_atendimento_camera" type="file" accept="image/*" capture="environment" aria-label="Tirar foto do atendimento">
-            <input id="fotos_atendimento" type="file" accept="image/*" multiple aria-label="Selecionar fotos do atendimento">
-          </div>
+          <input id="fotos_atendimento" type="file" accept="image/*" multiple>
           <p class="hint" id="fotos_atendimento_status"></p>
           <div class="preview-grid" id="fotos_atendimento_preview"></div>
         </div>
@@ -737,12 +703,12 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.05.19.2";
+    const APP_VERSION = "2026.05.19.3";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v23"
+      ? "agres-offline-v24"
       : location.pathname.includes("/static/coleta/")
-        ? "agres-coleta-v16"
-        : "agres-pages-offline-v19";
+        ? "agres-coleta-v17"
+        : "agres-pages-offline-v20";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
@@ -1795,18 +1761,6 @@
             event.target.value = "";
           }
         });
-        document.getElementById(`${key}_camera`).addEventListener("change", async (event) => {
-          try {
-            const arquivos = await readSelectedFiles(event.target.files, `${key}_status`);
-            draft.evidencias[key] = [...(draft.evidencias[key] || []), ...arquivos];
-            updateCounts();
-            scheduleSave();
-          } catch (error) {
-            document.getElementById(`${key}_status`).textContent = `Erro ao importar imagem: ${error.message}`;
-          } finally {
-            event.target.value = "";
-          }
-        });
       });
 
       document.getElementById(ATTENDANCE_PHOTOS).addEventListener("change", async (event) => {
@@ -1821,33 +1775,8 @@
           event.target.value = "";
         }
       });
-      document.getElementById(`${ATTENDANCE_PHOTOS}_camera`).addEventListener("change", async (event) => {
-        try {
-          const arquivos = await readSelectedFiles(event.target.files, `${ATTENDANCE_PHOTOS}_status`);
-          draft.fotos_atendimento = [...(draft.fotos_atendimento || []), ...arquivos];
-          updateCounts();
-          scheduleSave();
-        } catch (error) {
-          document.getElementById(`${ATTENDANCE_PHOTOS}_status`).textContent = `Erro ao importar imagem: ${error.message}`;
-        } finally {
-          event.target.value = "";
-        }
-      });
-
       HEADERS.forEach((key) => {
         document.getElementById(key).addEventListener("change", async (event) => {
-          try {
-            const file = event.target.files[0];
-            draft.cabecalho[key] = file ? await readFile(file) : null;
-            updateCounts();
-            scheduleSave();
-          } catch (error) {
-            document.getElementById(`${key}_status`).textContent = `Erro ao importar imagem: ${error.message}`;
-          } finally {
-            event.target.value = "";
-          }
-        });
-        document.getElementById(`${key}_camera`).addEventListener("change", async (event) => {
           try {
             const file = event.target.files[0];
             draft.cabecalho[key] = file ? await readFile(file) : null;
