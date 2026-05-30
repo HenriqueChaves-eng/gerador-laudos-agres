@@ -209,27 +209,44 @@ def assinatura_padrao(indice: int) -> dict:
     }
 
 
+def texto_assinatura(item: dict, *chaves: str, padrao: str = "") -> str:
+    if not isinstance(item, dict):
+        return padrao
+    for chave in chaves:
+        valor = limpar_texto(item.get(chave, ""))
+        if valor:
+            return valor
+    return limpar_texto(padrao)
+
+
 def assinaturas_padrao_lista(quantidade: int = MIN_ASSINATURAS) -> list[dict]:
     return [assinatura_padrao(indice) for indice in range(1, quantidade_assinaturas_normalizada(quantidade) + 1)]
 
 
 def normalizar_assinaturas_lista(manifesto: dict) -> list[dict]:
     registros = manifesto.get("assinaturas_lista")
+    legados = [
+        {
+            "nome": limpar_texto(manifesto.get("responsaveis", {}).get("revenda_fabrica", "")),
+            "representa": "Responsável da Revenda/Fábrica",
+            "documento": limpar_texto(manifesto.get("documentos", {}).get("revenda_fabrica", "")),
+            "imagem": manifesto.get("assinaturas", {}).get("revenda_fabrica"),
+        },
+        {
+            "nome": limpar_texto(manifesto.get("responsaveis", {}).get("fazenda", "")),
+            "representa": "Responsável da Fazenda",
+            "documento": limpar_texto(manifesto.get("documentos", {}).get("fazenda", "")),
+            "imagem": manifesto.get("assinaturas", {}).get("fazenda"),
+        },
+    ]
 
     if not isinstance(registros, list):
         registros = []
-        legados = [
-            ("revenda_fabrica", "Responsável da Revenda/Fábrica"),
-            ("fazenda", "Responsável da Fazenda"),
-        ]
-        for indice, (chave, representa) in enumerate(legados, start=1):
+        for indice, legado in enumerate(legados, start=1):
             registros.append(
                 {
                     "id": f"assinatura_{indice}",
-                    "nome": limpar_texto(manifesto.get("responsaveis", {}).get(chave, "")),
-                    "representa": representa,
-                    "documento": limpar_texto(manifesto.get("documentos", {}).get(chave, "")),
-                    "imagem": manifesto.get("assinaturas", {}).get(chave),
+                    **legado,
                 }
             )
 
@@ -240,13 +257,41 @@ def normalizar_assinaturas_lista(manifesto: dict) -> list[dict]:
     for indice in range(1, quantidade + 1):
         padrao = assinatura_padrao(indice)
         item = por_id.get(padrao["id"], {})
+        legado = legados[indice - 1] if indice <= len(legados) else {}
         normalizadas.append(
             {
                 "id": padrao["id"],
-                "nome": limpar_texto(item.get("nome", padrao["nome"])),
-                "representa": limpar_texto(item.get("representa", padrao["representa"])) or padrao["representa"],
-                "documento": limpar_texto(item.get("documento", padrao["documento"])),
-                "imagem": item.get("imagem"),
+                "nome": texto_assinatura(
+                    item,
+                    "nome",
+                    "responsavel",
+                    "responsável",
+                    "nome_responsavel",
+                    "nomeResponsavel",
+                    padrao=legado.get("nome", padrao["nome"]),
+                ),
+                "representa": texto_assinatura(
+                    item,
+                    "representa",
+                    "funcao",
+                    "função",
+                    "cargo",
+                    "papel",
+                    "role",
+                    padrao=legado.get("representa", padrao["representa"]),
+                )
+                or padrao["representa"],
+                "documento": texto_assinatura(
+                    item,
+                    "documento",
+                    "cpf_rg",
+                    "cpfRg",
+                    "cpf",
+                    "rg",
+                    "doc",
+                    padrao=legado.get("documento", padrao["documento"]),
+                ),
+                "imagem": item.get("imagem") or legado.get("imagem"),
             }
         )
     return normalizadas
@@ -1661,7 +1706,32 @@ def inserir_assinaturas_docx(caminho_docx: Path, dados: dict, caminhos_assinatur
                     }
                 )
     else:
-        assinaturas_documento = caminhos_assinaturas
+        assinaturas_documento = [
+            {
+                **assinatura,
+                "nome": texto_assinatura(
+                    assinatura,
+                    "nome",
+                    "responsavel",
+                    "responsável",
+                    "nome_responsavel",
+                    "nomeResponsavel",
+                ),
+                "representa": texto_assinatura(
+                    assinatura,
+                    "representa",
+                    "funcao",
+                    "função",
+                    "cargo",
+                    "papel",
+                    "role",
+                    padrao=f"Responsável {indice}",
+                ),
+                "documento": texto_assinatura(assinatura, "documento", "cpf_rg", "cpfRg", "cpf", "rg", "doc"),
+            }
+            for indice, assinatura in enumerate(caminhos_assinaturas or [], start=1)
+            if isinstance(assinatura, dict)
+        ]
 
     assinaturas_documento = [
         assinatura
@@ -2650,9 +2720,26 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
             registros.append(
                 {
                     "id": padrao["id"],
-                    "nome": limpar_texto(item.get("nome", "")),
-                    "representa": limpar_texto(item.get("representa", padrao["representa"])) or padrao["representa"],
-                    "documento": limpar_texto(item.get("documento", "")),
+                    "nome": texto_assinatura(
+                        item,
+                        "nome",
+                        "responsavel",
+                        "responsável",
+                        "nome_responsavel",
+                        "nomeResponsavel",
+                    ),
+                    "representa": texto_assinatura(
+                        item,
+                        "representa",
+                        "funcao",
+                        "função",
+                        "cargo",
+                        "papel",
+                        "role",
+                        padrao=padrao["representa"],
+                    )
+                    or padrao["representa"],
+                    "documento": texto_assinatura(item, "documento", "cpf_rg", "cpfRg", "cpf", "rg", "doc"),
                     "imagem": imagem,
                 }
             )

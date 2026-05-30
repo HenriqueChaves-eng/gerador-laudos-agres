@@ -176,6 +176,11 @@
       display: grid;
       gap: 6px;
     }
+    .upload-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(118px, 0.75fr);
+      gap: 8px;
+    }
     .upload-control input[type="file"] {
       position: fixed;
       left: -9999px;
@@ -210,6 +215,11 @@
     .upload-button:active {
       transform: translateY(1px);
     }
+    .upload-button.camera {
+      grid-template-columns: 42px minmax(0, 1fr);
+      background: linear-gradient(180deg, #f8fffb 0%, #edf8f2 100%);
+      border-color: #9bc9b1;
+    }
     .upload-symbol {
       display: inline-flex;
       align-items: center;
@@ -222,6 +232,11 @@
       font-size: 26px;
       font-weight: 900;
       line-height: 1;
+    }
+    .upload-button.camera .upload-symbol {
+      background: var(--ok);
+      font-size: 12px;
+      letter-spacing: 0.03em;
     }
     .upload-main {
       display: block;
@@ -243,6 +258,47 @@
       color: var(--muted);
       font-size: 13px;
       line-height: 1.35;
+    }
+    .recording-banner {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      min-height: 48px;
+      margin-top: 10px;
+      padding: 11px 12px;
+      border: 1px solid #f1a4a4;
+      border-radius: 12px;
+      background: #fff1f1;
+      color: #8d2424;
+      font-weight: 900;
+      line-height: 1.25;
+    }
+    .recording-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: #d92d20;
+      box-shadow: 0 0 0 0 rgba(217, 45, 32, 0.55);
+      animation: recordingPulse 1.15s infinite;
+      flex: 0 0 auto;
+    }
+    body.is-recording .recording-banner {
+      display: flex;
+    }
+    body.is-recording #stopBtn {
+      background: #b42318;
+      border-color: #b42318;
+      color: #fff;
+      box-shadow: 0 10px 22px rgba(180, 35, 24, 0.24);
+    }
+    body.is-recording #recordHint {
+      color: #8d2424;
+      font-weight: 900;
+    }
+    @keyframes recordingPulse {
+      0% { box-shadow: 0 0 0 0 rgba(217, 45, 32, 0.55); }
+      70% { box-shadow: 0 0 0 11px rgba(217, 45, 32, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(217, 45, 32, 0); }
     }
     .actions {
       display: grid;
@@ -636,6 +692,9 @@
         min-height: 68px;
         border-radius: 14px;
       }
+      .upload-actions {
+        grid-template-columns: 1fr 0.82fr;
+      }
       .upload-symbol {
         width: 44px;
         height: 44px;
@@ -716,6 +775,9 @@
       .preview-grid {
         grid-template-columns: 1fr;
       }
+      .upload-actions {
+        grid-template-columns: 1fr;
+      }
       h1 { font-size: 25px; }
       h2 { font-size: 18px; }
     }
@@ -763,6 +825,10 @@
         <button type="button" class="primary" id="recordBtn">Gravar áudio</button>
         <button type="button" id="stopBtn" disabled>Parar gravação</button>
       </div>
+      <div class="recording-banner" id="recordingBanner" aria-live="assertive">
+        <span class="recording-dot"></span>
+        <span>Áudio sendo gravado. Toque em Parar gravação para finalizar.</span>
+      </div>
       <p class="hint" id="recordHint"></p>
       <div class="field">
         <label for="audioFiles">Áudios do celular</label>
@@ -786,14 +852,24 @@
         <div class="field">
           <label for="info_equip">Informações do equipamento</label>
           <div class="upload-control">
-            <label class="upload-button" for="info_equip">
-              <span class="upload-symbol">+</span>
-              <span>
-                <span class="upload-main">Adicionar foto</span>
-                <span class="upload-sub">Câmera ou galeria</span>
-              </span>
-            </label>
+            <div class="upload-actions">
+              <label class="upload-button" for="info_equip">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Escolher foto</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="info_equip_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Tirar foto</span>
+                  <span class="upload-sub">Câmera traseira</span>
+                </span>
+              </label>
+            </div>
             <input id="info_equip" type="file" accept="image/*">
+            <input id="info_equip_camera" type="file" accept="image/*" capture="environment">
           </div>
           <p class="hint" id="info_equip_status"></p>
           <div class="preview-grid" id="info_equip_preview"></div>
@@ -801,14 +877,24 @@
         <div class="field">
           <label for="maquina">Máquina</label>
           <div class="upload-control">
-            <label class="upload-button" for="maquina">
-              <span class="upload-symbol">+</span>
-              <span>
-                <span class="upload-main">Adicionar foto</span>
-                <span class="upload-sub">Câmera ou galeria</span>
-              </span>
-            </label>
+            <div class="upload-actions">
+              <label class="upload-button" for="maquina">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Escolher foto</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="maquina_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Tirar foto</span>
+                  <span class="upload-sub">Câmera traseira</span>
+                </span>
+              </label>
+            </div>
             <input id="maquina" type="file" accept="image/*">
+            <input id="maquina_camera" type="file" accept="image/*" capture="environment">
           </div>
           <p class="hint" id="maquina_status"></p>
           <div class="preview-grid" id="maquina_preview"></div>
@@ -816,14 +902,24 @@
         <div class="field">
           <label for="implemento">Implemento</label>
           <div class="upload-control">
-            <label class="upload-button" for="implemento">
-              <span class="upload-symbol">+</span>
-              <span>
-                <span class="upload-main">Adicionar foto</span>
-                <span class="upload-sub">Câmera ou galeria</span>
-              </span>
-            </label>
+            <div class="upload-actions">
+              <label class="upload-button" for="implemento">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Escolher foto</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="implemento_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Tirar foto</span>
+                  <span class="upload-sub">Câmera traseira</span>
+                </span>
+              </label>
+            </div>
             <input id="implemento" type="file" accept="image/*">
+            <input id="implemento_camera" type="file" accept="image/*" capture="environment">
           </div>
           <p class="hint" id="implemento_status"></p>
           <div class="preview-grid" id="implemento_preview"></div>
@@ -837,14 +933,24 @@
         <div class="field">
           <label for="fotos_equipamento">Equipamento Agres</label>
           <div class="upload-control">
-            <label class="upload-button" for="fotos_equipamento">
-              <span class="upload-symbol">+</span>
-              <span>
-                <span class="upload-main">Adicionar fotos</span>
-                <span class="upload-sub">Selecione uma ou várias imagens</span>
-              </span>
-            </label>
+            <div class="upload-actions">
+              <label class="upload-button" for="fotos_equipamento">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Uma ou várias imagens</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="fotos_equipamento_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Tirar foto</span>
+                  <span class="upload-sub">Adiciona 1 foto</span>
+                </span>
+              </label>
+            </div>
             <input id="fotos_equipamento" type="file" accept="image/*" multiple>
+            <input id="fotos_equipamento_camera" type="file" accept="image/*" capture="environment">
           </div>
           <p class="hint" id="fotos_equipamento_status"></p>
           <div class="preview-grid" id="fotos_equipamento_preview"></div>
@@ -852,14 +958,24 @@
         <div class="field">
           <label for="fotos_instalacao">Instalação</label>
           <div class="upload-control">
-            <label class="upload-button" for="fotos_instalacao">
-              <span class="upload-symbol">+</span>
-              <span>
-                <span class="upload-main">Adicionar fotos</span>
-                <span class="upload-sub">Selecione uma ou várias imagens</span>
-              </span>
-            </label>
+            <div class="upload-actions">
+              <label class="upload-button" for="fotos_instalacao">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Uma ou várias imagens</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="fotos_instalacao_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Tirar foto</span>
+                  <span class="upload-sub">Adiciona 1 foto</span>
+                </span>
+              </label>
+            </div>
             <input id="fotos_instalacao" type="file" accept="image/*" multiple>
+            <input id="fotos_instalacao_camera" type="file" accept="image/*" capture="environment">
           </div>
           <p class="hint" id="fotos_instalacao_status"></p>
           <div class="preview-grid" id="fotos_instalacao_preview"></div>
@@ -867,14 +983,24 @@
         <div class="field">
           <label for="fotos_configuracao">Configurações</label>
           <div class="upload-control">
-            <label class="upload-button" for="fotos_configuracao">
-              <span class="upload-symbol">+</span>
-              <span>
-                <span class="upload-main">Adicionar fotos</span>
-                <span class="upload-sub">Selecione uma ou várias imagens</span>
-              </span>
-            </label>
+            <div class="upload-actions">
+              <label class="upload-button" for="fotos_configuracao">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Uma ou várias imagens</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="fotos_configuracao_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Tirar foto</span>
+                  <span class="upload-sub">Adiciona 1 foto</span>
+                </span>
+              </label>
+            </div>
             <input id="fotos_configuracao" type="file" accept="image/*" multiple>
+            <input id="fotos_configuracao_camera" type="file" accept="image/*" capture="environment">
           </div>
           <p class="hint" id="fotos_configuracao_status"></p>
           <div class="preview-grid" id="fotos_configuracao_preview"></div>
@@ -882,14 +1008,24 @@
         <div class="field">
           <label for="fotos_outros">Outros registros</label>
           <div class="upload-control">
-            <label class="upload-button" for="fotos_outros">
-              <span class="upload-symbol">+</span>
-              <span>
-                <span class="upload-main">Adicionar fotos</span>
-                <span class="upload-sub">Selecione uma ou várias imagens</span>
-              </span>
-            </label>
+            <div class="upload-actions">
+              <label class="upload-button" for="fotos_outros">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Uma ou várias imagens</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="fotos_outros_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Tirar foto</span>
+                  <span class="upload-sub">Adiciona 1 foto</span>
+                </span>
+              </label>
+            </div>
             <input id="fotos_outros" type="file" accept="image/*" multiple>
+            <input id="fotos_outros_camera" type="file" accept="image/*" capture="environment">
           </div>
           <p class="hint" id="fotos_outros_status"></p>
           <div class="preview-grid" id="fotos_outros_preview"></div>
@@ -897,14 +1033,24 @@
         <div class="field">
           <label for="fotos_atendimento">Fotos do atendimento (somente ZIP)</label>
           <div class="upload-control">
-            <label class="upload-button" for="fotos_atendimento">
-              <span class="upload-symbol">+</span>
-              <span>
-                <span class="upload-main">Adicionar fotos</span>
-                <span class="upload-sub">Entram apenas na pasta de fotos</span>
-              </span>
-            </label>
+            <div class="upload-actions">
+              <label class="upload-button" for="fotos_atendimento">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Uma ou várias imagens</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="fotos_atendimento_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Tirar foto</span>
+                  <span class="upload-sub">Só vai para o ZIP</span>
+                </span>
+              </label>
+            </div>
             <input id="fotos_atendimento" type="file" accept="image/*" multiple>
+            <input id="fotos_atendimento_camera" type="file" accept="image/*" capture="environment">
           </div>
           <p class="hint" id="fotos_atendimento_status"></p>
           <div class="preview-grid" id="fotos_atendimento_preview"></div>
@@ -980,12 +1126,12 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.05.30.1";
+    const APP_VERSION = "2026.05.30.3";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v28"
+      ? "agres-offline-v30"
       : location.pathname.includes("/static/coleta/")
-        ? "agres-coleta-v21"
-        : "agres-pages-offline-v24";
+        ? "agres-coleta-v23"
+        : "agres-pages-offline-v26";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
@@ -1541,11 +1687,16 @@
       await releaseWakeLock();
       recorder = null;
       recorderMode = "";
-      document.getElementById("recordBtn").disabled = false;
-      document.getElementById("stopBtn").disabled = true;
+      setRecordingState(false);
       document.getElementById("recordHint").textContent = "Áudio salvo.";
       scheduleSave();
       renderAudios();
+    }
+
+    function setRecordingState(recording) {
+      document.body.classList.toggle("is-recording", Boolean(recording));
+      document.getElementById("recordBtn").disabled = Boolean(recording);
+      document.getElementById("stopBtn").disabled = !recording;
     }
 
     function stopAudioStream() {
@@ -1637,8 +1788,7 @@
         await startWavRecorder(audioStream);
       }
       await requestWakeLock();
-      document.getElementById("recordBtn").disabled = true;
-      document.getElementById("stopBtn").disabled = false;
+      setRecordingState(true);
       document.getElementById("recordHint").textContent = "Gravando...";
     }
 
@@ -1652,8 +1802,7 @@
         return;
       }
       stopAudioStream();
-      document.getElementById("recordBtn").disabled = false;
-      document.getElementById("stopBtn").disabled = true;
+      setRecordingState(false);
     }
 
     function clearCanvasSurface(canvas) {
@@ -1674,6 +1823,16 @@
 
     function signatureLabel(key) {
       return signatureById(key)?.representa || "Assinatura";
+    }
+
+    function updateSignatureField(key, field, value) {
+      normalizeSignatures();
+      const assinatura = draft.assinaturas_lista.find((item) => item.id === key);
+      if (!assinatura) return;
+      assinatura[field] = value;
+      normalizeSignatures();
+      renderOfflineChecklist();
+      scheduleSave();
     }
 
     function paintStoredSignature(canvas, key) {
@@ -2014,18 +2173,13 @@
         `;
         container.appendChild(card);
         card.querySelector(`[data-signature-name="${assinatura.id}"]`).addEventListener("input", (event) => {
-          assinatura.nome = event.target.value;
-          normalizeSignatures();
-          scheduleSave();
+          updateSignatureField(assinatura.id, "nome", event.target.value);
         });
         card.querySelector(`[data-signature-role="${assinatura.id}"]`).addEventListener("input", (event) => {
-          assinatura.representa = event.target.value;
-          scheduleSave();
+          updateSignatureField(assinatura.id, "representa", event.target.value);
         });
         card.querySelector(`[data-signature-doc="${assinatura.id}"]`).addEventListener("input", (event) => {
-          assinatura.documento = event.target.value;
-          normalizeSignatures();
-          scheduleSave();
+          updateSignatureField(assinatura.id, "documento", event.target.value);
         });
         mainSignaturePads[assinatura.id] = setupDrawingCanvas(
           card.querySelector(`#canvas_${assinatura.id}`),
@@ -2081,26 +2235,20 @@
         scheduleSave();
       });
 
-      CATEGORIES.forEach((key) => {
-        document.getElementById(`legenda_${key}`).addEventListener("input", (event) => {
-          draft.legendas_evidencias[key] = event.target.value;
+      async function importEvidenceInput(key, event) {
+        try {
+          const arquivos = await readSelectedFiles(event.target.files, `${key}_status`);
+          draft.evidencias[key] = [...(draft.evidencias[key] || []), ...arquivos];
+          updateCounts();
           scheduleSave();
-        });
-        document.getElementById(key).addEventListener("change", async (event) => {
-          try {
-            const arquivos = await readSelectedFiles(event.target.files, `${key}_status`);
-            draft.evidencias[key] = [...(draft.evidencias[key] || []), ...arquivos];
-            updateCounts();
-            scheduleSave();
-          } catch (error) {
-            document.getElementById(`${key}_status`).textContent = `Erro ao importar imagens: ${error.message}`;
-          } finally {
-            event.target.value = "";
-          }
-        });
-      });
+        } catch (error) {
+          document.getElementById(`${key}_status`).textContent = `Erro ao importar imagens: ${error.message}`;
+        } finally {
+          event.target.value = "";
+        }
+      }
 
-      document.getElementById(ATTENDANCE_PHOTOS).addEventListener("change", async (event) => {
+      async function importAttendanceInput(event) {
         try {
           const arquivos = await readSelectedFiles(event.target.files, `${ATTENDANCE_PHOTOS}_status`);
           draft.fotos_atendimento = [...(draft.fotos_atendimento || []), ...arquivos];
@@ -2111,20 +2259,35 @@
         } finally {
           event.target.value = "";
         }
-      });
-      HEADERS.forEach((key) => {
-        document.getElementById(key).addEventListener("change", async (event) => {
-          try {
-            const file = event.target.files[0];
-            draft.cabecalho[key] = file ? await readFile(file) : null;
-            updateCounts();
-            scheduleSave();
-          } catch (error) {
-            document.getElementById(`${key}_status`).textContent = `Erro ao importar imagem: ${error.message}`;
-          } finally {
-            event.target.value = "";
-          }
+      }
+
+      async function importHeaderInput(key, event) {
+        try {
+          const file = event.target.files[0];
+          draft.cabecalho[key] = file ? await readFile(file) : null;
+          updateCounts();
+          scheduleSave();
+        } catch (error) {
+          document.getElementById(`${key}_status`).textContent = `Erro ao importar imagem: ${error.message}`;
+        } finally {
+          event.target.value = "";
+        }
+      }
+
+      CATEGORIES.forEach((key) => {
+        document.getElementById(`legenda_${key}`).addEventListener("input", (event) => {
+          draft.legendas_evidencias[key] = event.target.value;
+          scheduleSave();
         });
+        document.getElementById(key).addEventListener("change", (event) => importEvidenceInput(key, event));
+        document.getElementById(`${key}_camera`).addEventListener("change", (event) => importEvidenceInput(key, event));
+      });
+
+      document.getElementById(ATTENDANCE_PHOTOS).addEventListener("change", importAttendanceInput);
+      document.getElementById(`${ATTENDANCE_PHOTOS}_camera`).addEventListener("change", importAttendanceInput);
+      HEADERS.forEach((key) => {
+        document.getElementById(key).addEventListener("change", (event) => importHeaderInput(key, event));
+        document.getElementById(`${key}_camera`).addEventListener("change", (event) => importHeaderInput(key, event));
       });
 
       document.getElementById("audioFiles").addEventListener("change", async (event) => {
@@ -2141,8 +2304,7 @@
         releaseWakeLock();
         recorder = null;
         recorderMode = "";
-        document.getElementById("recordBtn").disabled = false;
-        document.getElementById("stopBtn").disabled = true;
+        setRecordingState(false);
       }));
       document.getElementById("stopBtn").addEventListener("click", () => stopRecording().catch((error) => {
         document.getElementById("recordHint").textContent = `Erro ao salvar áudio: ${error.message}`;
@@ -2150,8 +2312,7 @@
         releaseWakeLock();
         recorder = null;
         recorderMode = "";
-        document.getElementById("recordBtn").disabled = false;
-        document.getElementById("stopBtn").disabled = true;
+        setRecordingState(false);
       }));
 
       modalSignaturePad = setupDrawingCanvas(
