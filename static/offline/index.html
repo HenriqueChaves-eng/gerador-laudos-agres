@@ -19,13 +19,17 @@
       --line: #d3d6da;
       --brand: #3f4247;
       --brand-2: #5d6065;
+      --brand-dark: #26282c;
+      --soft: #f7f8fa;
       --ok: #176b43;
       --warn: #985d00;
+      --danger: #8d2424;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Arial, Helvetica, sans-serif;
+      font-size: 16px;
       background:
         radial-gradient(circle at top left, rgba(120, 124, 130, 0.18), transparent 22rem),
         linear-gradient(180deg, #e6e8eb 0%, #f2f3f5 48%, #e3e5e8 100%);
@@ -136,7 +140,8 @@
       line-height: 1.25;
     }
     textarea,
-    input[type="text"] {
+    input[type="text"],
+    select {
       width: 100%;
       min-height: 46px;
       padding: 12px;
@@ -146,6 +151,19 @@
       color: var(--ink);
       font: inherit;
     }
+    select {
+      appearance: none;
+      background-image:
+        linear-gradient(45deg, transparent 50%, #3f4247 50%),
+        linear-gradient(135deg, #3f4247 50%, transparent 50%);
+      background-position:
+        calc(100% - 18px) 50%,
+        calc(100% - 12px) 50%;
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      padding-right: 36px;
+      font-weight: 800;
+    }
     .field input + input,
     .field input + canvas {
       margin-top: 8px;
@@ -154,14 +172,70 @@
       min-height: 128px;
       resize: vertical;
     }
-    input[type="file"] {
-      width: 100%;
-      padding: 12px;
-      border: 1px dashed #b7bbc1;
-      border-radius: 10px;
-      background: #f7f8f9;
+    .upload-control {
+      display: grid;
+      gap: 6px;
+    }
+    .upload-control input[type="file"] {
+      position: fixed;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+    .upload-button {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      min-height: 64px;
+      margin: 0;
+      padding: 12px 14px;
+      border: 1px solid #b9bec5;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #ffffff 0%, #f4f5f6 100%);
       color: var(--ink);
-      font: inherit;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .upload-control:focus-within .upload-button,
+    .upload-button:hover {
+      border-color: var(--brand);
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
+    }
+    .upload-button:active {
+      transform: translateY(1px);
+    }
+    .upload-symbol {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      background: var(--brand-dark);
+      color: #fff;
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .upload-main {
+      display: block;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.15;
+    }
+    .upload-sub {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.25;
     }
     .field { margin-bottom: 12px; }
     .hint {
@@ -185,45 +259,69 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      min-height: 44px;
+      min-height: 50px;
       margin: 0;
-      padding: 10px;
-      border: 1px solid #c9ccd1;
-      border-radius: 9px;
-      background: #f7f8f9;
+      padding: 12px;
+      border: 1px solid #bdc2c8;
+      border-radius: 11px;
+      background: var(--soft);
       font-weight: 800;
       min-width: 0;
       line-height: 1.2;
       overflow-wrap: anywhere;
+      cursor: pointer;
     }
     .radio-grid input {
       flex: 0 0 auto;
+      width: 18px;
+      height: 18px;
+      accent-color: var(--brand-dark);
+    }
+    .radio-grid label:has(input:checked) {
+      border-color: var(--brand-dark);
+      background: #eceef1;
+      box-shadow: inset 0 0 0 1px var(--brand-dark);
     }
     button,
     .button {
-      min-height: 46px;
+      min-height: 50px;
       padding: 0 14px;
-      border: 1px solid #c8cbd0;
-      border-radius: 9px;
+      border: 1px solid #b9bec5;
+      border-radius: 11px;
       background: #fff;
       color: var(--ink);
       font: inherit;
       font-weight: 800;
+      line-height: 1.15;
       cursor: pointer;
+      white-space: normal;
+      box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
+      -webkit-tap-highlight-color: transparent;
     }
     button.primary,
     .button.primary {
-      background: var(--brand);
-      border-color: var(--brand);
+      background: linear-gradient(180deg, #46494f 0%, #2c2e33 100%);
+      border-color: var(--brand-dark);
       color: #fff;
+      box-shadow: 0 10px 22px rgba(39, 42, 47, 0.22);
     }
     button.danger {
-      color: #8d2424;
+      color: var(--danger);
       border-color: #e2b7b7;
+      background: #fff8f8;
     }
     button:disabled {
       cursor: not-allowed;
       opacity: 0.55;
+      box-shadow: none;
+    }
+    button:focus-visible,
+    .button:focus-visible,
+    textarea:focus-visible,
+    input[type="text"]:focus-visible,
+    select:focus-visible {
+      outline: 3px solid rgba(63, 66, 71, 0.28);
+      outline-offset: 2px;
     }
     .list {
       display: grid;
@@ -419,6 +517,9 @@
       gap: 10px;
       margin-top: 12px;
     }
+    .sync-actions {
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 0.9fr);
+    }
     .sync-output {
       display: none;
       width: 100%;
@@ -499,17 +600,97 @@
       font-size: 13px;
     }
     @media (max-width: 680px) {
-      main { padding: 12px; }
+      body { font-size: 16px; }
+      main {
+        padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+          max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+      }
       .hero {
         align-items: flex-start;
         flex-direction: column;
-        padding: 16px;
+        gap: 10px;
+        padding: 14px;
+        border-radius: 14px;
       }
       .hero img { width: 150px; max-width: 74vw; }
+      h1 { font-size: 28px; line-height: 1.08; }
+      h2 { font-size: 20px; line-height: 1.18; }
+      .status {
+        align-items: stretch;
+        flex-direction: column;
+      }
       .grid,
       .actions,
       .radio-grid {
         grid-template-columns: 1fr;
+      }
+      .field { margin-bottom: 14px; }
+      label { font-size: 16px; }
+      textarea,
+      input[type="text"],
+      select {
+        font-size: 16px;
+      }
+      .upload-button {
+        grid-template-columns: 44px minmax(0, 1fr);
+        min-height: 68px;
+        border-radius: 14px;
+      }
+      .upload-symbol {
+        width: 44px;
+        height: 44px;
+      }
+      .upload-main {
+        font-size: 16px;
+      }
+      .upload-sub {
+        font-size: 13px;
+      }
+      button,
+      .button {
+        width: 100%;
+        min-height: 54px;
+        padding: 0 12px;
+        font-size: 16px;
+        border-radius: 12px;
+      }
+      .item {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .item button {
+        width: 100%;
+        min-height: 40px;
+      }
+      .preview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .thumb-footer {
+        padding: 8px;
+      }
+      .thumb-actions {
+        grid-template-columns: 1fr;
+      }
+      .thumb-name {
+        font-size: 12px;
+      }
+      .offline-check {
+        grid-template-columns: 1fr;
+      }
+      .offline-check-badge {
+        width: fit-content;
+        padding: 0 10px;
+      }
+      .sync-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 8;
+        margin: 14px -14px -14px;
+        padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+        border-top: 1px solid rgba(195, 199, 204, 0.9);
+        background: rgba(239, 241, 243, 0.98);
+        backdrop-filter: blur(12px);
       }
       .signature-actions,
       .signature-modal-actions {
@@ -522,7 +703,21 @@
         min-height: 62vh;
         height: calc(100dvh - 210px);
       }
-      section { padding: 14px; }
+      .signature-modal-header {
+        flex-direction: column;
+      }
+      section {
+        margin-top: 12px;
+        padding: 14px;
+        border-radius: 13px;
+      }
+    }
+    @media (max-width: 380px) {
+      .preview-grid {
+        grid-template-columns: 1fr;
+      }
+      h1 { font-size: 25px; }
+      h2 { font-size: 18px; }
     }
   </style>
 </head>
@@ -571,7 +766,16 @@
       <p class="hint" id="recordHint"></p>
       <div class="field">
         <label for="audioFiles">Áudios do celular</label>
-        <input id="audioFiles" type="file" accept="audio/*" multiple>
+        <div class="upload-control">
+          <label class="upload-button" for="audioFiles">
+            <span class="upload-symbol">+</span>
+            <span>
+              <span class="upload-main">Selecionar áudios</span>
+              <span class="upload-sub">Arquivos gravados no celular</span>
+            </span>
+          </label>
+          <input id="audioFiles" type="file" accept="audio/*" multiple>
+        </div>
       </div>
       <div class="list" id="audiosList"></div>
     </section>
@@ -581,19 +785,46 @@
       <div class="grid">
         <div class="field">
           <label for="info_equip">Informações do equipamento</label>
-          <input id="info_equip" type="file" accept="image/*">
+          <div class="upload-control">
+            <label class="upload-button" for="info_equip">
+              <span class="upload-symbol">+</span>
+              <span>
+                <span class="upload-main">Adicionar foto</span>
+                <span class="upload-sub">Câmera ou galeria</span>
+              </span>
+            </label>
+            <input id="info_equip" type="file" accept="image/*">
+          </div>
           <p class="hint" id="info_equip_status"></p>
           <div class="preview-grid" id="info_equip_preview"></div>
         </div>
         <div class="field">
           <label for="maquina">Máquina</label>
-          <input id="maquina" type="file" accept="image/*">
+          <div class="upload-control">
+            <label class="upload-button" for="maquina">
+              <span class="upload-symbol">+</span>
+              <span>
+                <span class="upload-main">Adicionar foto</span>
+                <span class="upload-sub">Câmera ou galeria</span>
+              </span>
+            </label>
+            <input id="maquina" type="file" accept="image/*">
+          </div>
           <p class="hint" id="maquina_status"></p>
           <div class="preview-grid" id="maquina_preview"></div>
         </div>
         <div class="field">
           <label for="implemento">Implemento</label>
-          <input id="implemento" type="file" accept="image/*">
+          <div class="upload-control">
+            <label class="upload-button" for="implemento">
+              <span class="upload-symbol">+</span>
+              <span>
+                <span class="upload-main">Adicionar foto</span>
+                <span class="upload-sub">Câmera ou galeria</span>
+              </span>
+            </label>
+            <input id="implemento" type="file" accept="image/*">
+          </div>
           <p class="hint" id="implemento_status"></p>
           <div class="preview-grid" id="implemento_preview"></div>
         </div>
@@ -605,31 +836,76 @@
       <div class="grid">
         <div class="field">
           <label for="fotos_equipamento">Equipamento Agres</label>
-          <input id="fotos_equipamento" type="file" accept="image/*" multiple>
+          <div class="upload-control">
+            <label class="upload-button" for="fotos_equipamento">
+              <span class="upload-symbol">+</span>
+              <span>
+                <span class="upload-main">Adicionar fotos</span>
+                <span class="upload-sub">Selecione uma ou várias imagens</span>
+              </span>
+            </label>
+            <input id="fotos_equipamento" type="file" accept="image/*" multiple>
+          </div>
           <p class="hint" id="fotos_equipamento_status"></p>
           <div class="preview-grid" id="fotos_equipamento_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_instalacao">Instalação</label>
-          <input id="fotos_instalacao" type="file" accept="image/*" multiple>
+          <div class="upload-control">
+            <label class="upload-button" for="fotos_instalacao">
+              <span class="upload-symbol">+</span>
+              <span>
+                <span class="upload-main">Adicionar fotos</span>
+                <span class="upload-sub">Selecione uma ou várias imagens</span>
+              </span>
+            </label>
+            <input id="fotos_instalacao" type="file" accept="image/*" multiple>
+          </div>
           <p class="hint" id="fotos_instalacao_status"></p>
           <div class="preview-grid" id="fotos_instalacao_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_configuracao">Configurações</label>
-          <input id="fotos_configuracao" type="file" accept="image/*" multiple>
+          <div class="upload-control">
+            <label class="upload-button" for="fotos_configuracao">
+              <span class="upload-symbol">+</span>
+              <span>
+                <span class="upload-main">Adicionar fotos</span>
+                <span class="upload-sub">Selecione uma ou várias imagens</span>
+              </span>
+            </label>
+            <input id="fotos_configuracao" type="file" accept="image/*" multiple>
+          </div>
           <p class="hint" id="fotos_configuracao_status"></p>
           <div class="preview-grid" id="fotos_configuracao_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_outros">Outros registros</label>
-          <input id="fotos_outros" type="file" accept="image/*" multiple>
+          <div class="upload-control">
+            <label class="upload-button" for="fotos_outros">
+              <span class="upload-symbol">+</span>
+              <span>
+                <span class="upload-main">Adicionar fotos</span>
+                <span class="upload-sub">Selecione uma ou várias imagens</span>
+              </span>
+            </label>
+            <input id="fotos_outros" type="file" accept="image/*" multiple>
+          </div>
           <p class="hint" id="fotos_outros_status"></p>
           <div class="preview-grid" id="fotos_outros_preview"></div>
         </div>
         <div class="field">
           <label for="fotos_atendimento">Fotos do atendimento (somente ZIP)</label>
-          <input id="fotos_atendimento" type="file" accept="image/*" multiple>
+          <div class="upload-control">
+            <label class="upload-button" for="fotos_atendimento">
+              <span class="upload-symbol">+</span>
+              <span>
+                <span class="upload-main">Adicionar fotos</span>
+                <span class="upload-sub">Entram apenas na pasta de fotos</span>
+              </span>
+            </label>
+            <input id="fotos_atendimento" type="file" accept="image/*" multiple>
+          </div>
           <p class="hint" id="fotos_atendimento_status"></p>
           <div class="preview-grid" id="fotos_atendimento_preview"></div>
         </div>
@@ -676,7 +952,7 @@
       <h2>5. Sincronização</h2>
       <div class="sync-panel">
         <div class="offline-checklist" id="offlineChecklist" aria-live="polite"></div>
-        <div class="actions">
+        <div class="actions sync-actions">
           <button type="button" class="primary" id="exportBtn">Exportar Pacote Relatório Offline</button>
           <button type="button" class="danger" id="clearBtn">Limpar coleta</button>
         </div>
@@ -689,6 +965,7 @@
     <div class="signature-modal-header">
       <div>
         <h2 class="signature-modal-title" id="signatureModalTitle">Assinatura</h2>
+        <p class="signature-modal-subtitle" id="signatureModalSubtitle">Assine com o aparelho na horizontal.</p>
       </div>
       <button type="button" id="closeSignatureModal">Fechar</button>
     </div>
@@ -703,12 +980,12 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.05.19.3";
+    const APP_VERSION = "2026.05.30.1";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v24"
+      ? "agres-offline-v28"
       : location.pathname.includes("/static/coleta/")
-        ? "agres-coleta-v17"
-        : "agres-pages-offline-v20";
+        ? "agres-coleta-v21"
+        : "agres-pages-offline-v24";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
@@ -745,6 +1022,8 @@
     let wakeLock;
     let saveTimer;
     let locationWatchId = null;
+    let locationAttemptId = 0;
+    let signatureFullscreenRequested = false;
     let lastExportUrl = "";
 
     function defaultDraft() {
@@ -1430,10 +1709,10 @@
     function refreshSignatureCanvases(key, sourceCanvas) {
       const mainPad = mainSignaturePads[key];
       if (mainPad && mainPad.canvas !== sourceCanvas) {
-        mainPad.resize();
+        mainPad.resize(true);
       }
       if (modalSignaturePad && activeSignatureKey === key && modalSignaturePad.canvas !== sourceCanvas) {
-        modalSignaturePad.resize();
+        modalSignaturePad.resize(true);
       }
     }
 
@@ -1441,9 +1720,25 @@
       const ctx = canvas.getContext("2d");
       let drawing = false;
       let dirty = false;
+      let lastCanvasWidth = 0;
+      let lastCanvasHeight = 0;
+      let resizeTimer = null;
 
-      function resize() {
+      function resize(force = false) {
+        const rect = canvas.getBoundingClientRect();
+        const currentWidth = Math.round(rect.width);
+        const currentHeight = Math.round(rect.height);
+        if (!force && currentWidth === lastCanvasWidth && currentHeight === lastCanvasHeight) {
+          return;
+        }
+        lastCanvasWidth = currentWidth;
+        lastCanvasHeight = currentHeight;
         paintStoredSignature(canvas, getKey());
+      }
+
+      function scheduleCanvasResize() {
+        window.clearTimeout(resizeTimer);
+        resizeTimer = window.setTimeout(() => resize(false), 120);
       }
 
       function point(event) {
@@ -1490,8 +1785,8 @@
         });
       }
 
-      resize();
-      window.addEventListener("resize", resize);
+      resize(true);
+      window.addEventListener("resize", scheduleCanvasResize);
       return {
         canvas,
         resize,
@@ -1510,7 +1805,47 @@
       };
     }
 
-    function openSignatureModal(key) {
+    function setSignatureModalHint(text) {
+      const element = document.getElementById("signatureModalSubtitle");
+      if (element) element.textContent = text;
+    }
+
+    async function requestSignatureLandscape() {
+      signatureFullscreenRequested = false;
+      setSignatureModalHint("Solicitando modo horizontal para assinar.");
+      try {
+        if (document.fullscreenEnabled && !document.fullscreenElement && window.innerWidth < window.innerHeight) {
+          await document.documentElement.requestFullscreen();
+          signatureFullscreenRequested = true;
+        }
+      } catch (error) {}
+
+      try {
+        if (screen.orientation?.lock) {
+          await screen.orientation.lock("landscape");
+          setSignatureModalHint("Modo horizontal ativo. Assine na área branca.");
+          return;
+        }
+      } catch (error) {}
+
+      setSignatureModalHint("Se a tela não girar, desative o bloqueio de rotação e vire o aparelho para horizontal.");
+    }
+
+    async function releaseSignatureLandscape() {
+      try {
+        if (screen.orientation?.unlock) {
+          screen.orientation.unlock();
+        }
+      } catch (error) {}
+      try {
+        if (signatureFullscreenRequested && document.fullscreenElement) {
+          await document.exitFullscreen();
+        }
+      } catch (error) {}
+      signatureFullscreenRequested = false;
+    }
+
+    async function openSignatureModal(key) {
       const assinatura = signatureById(key);
       const mensagem = assinatura?.imagem?.dataUrl ? "Deseja editar esta assinatura?" : "Deseja assinar agora?";
       if (!confirm(mensagem)) return;
@@ -1518,12 +1853,14 @@
       document.getElementById("signatureModalTitle").textContent = signatureLabel(key);
       document.getElementById("signatureModal").classList.add("open");
       document.body.classList.add("signature-open");
-      window.setTimeout(() => modalSignaturePad.resize(), 60);
+      await requestSignatureLandscape();
+      window.setTimeout(() => modalSignaturePad.resize(true), 60);
     }
 
-    function closeSignatureModal() {
+    async function closeSignatureModal() {
       document.getElementById("signatureModal").classList.remove("open");
       document.body.classList.remove("signature-open");
+      await releaseSignatureLandscape();
       if (activeSignatureKey) {
         refreshSignatureCanvases(activeSignatureKey, null);
       }
@@ -1842,8 +2179,50 @@
     }
 
     function packageFileName() {
-      const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
-      return `agres_coleta_offline_${stamp}.json`;
+      return `${automaticReportBaseName()}.json`;
+    }
+
+    function normalizeFilePart(text, fallback = "") {
+      const cleaned = String(text || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[\\/*?:"<>|]/g, " ")
+        .replace(/[^0-9A-Za-z]+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .toUpperCase();
+      return cleaned || fallback;
+    }
+
+    function dateForFileName() {
+      const text = String(draft.observacoes || "");
+      const br = text.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+      if (br) {
+        const [, day, month, year] = br;
+        return `${year.padStart(4, "0")}${month.padStart(2, "0")}${day.padStart(2, "0")}`;
+      }
+      const iso = text.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+      if (iso) {
+        const [, year, month, day] = iso;
+        return `${year.padStart(4, "0")}${month.padStart(2, "0")}${day.padStart(2, "0")}`;
+      }
+      return new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    }
+
+    function extractKnownTerms(pattern, fallback) {
+      const text = normalizeFilePart(draft.observacoes || "");
+      const match = text.match(pattern);
+      return match ? match[0] : fallback;
+    }
+
+    function automaticReportBaseName() {
+      const data = dateForFileName();
+      const equipamento = extractKnownTerms(/\b(?:ISO|ISOBUS|GEONAVE|AGRONAVE|NORDIAN|ISOPILOT|ISOBOX)[A-Z0-9_]*\b/, "ATENDIMENTO");
+      const texto = normalizeFilePart(draft.observacoes || "");
+      const tecnico = extractKnownTerms(/\b(?:HENRIQUE|CAYKI|CAIKI|CRISTIAN|PHELIPPE|FELIPE|ARTUR|ARTHUR)\b/, "TECNICO");
+      const localMatch = texto.match(/\b([A-Z]{4,}(?:_[A-Z]{2,}){0,3})_(PR|SC|RS|SP|MG|GO|MT|MS|BA|TO|PA|RO|ARGENTINA)\b/);
+      const local = localMatch ? `${localMatch[1]}_${localMatch[2]}` : "LOCAL";
+      return `${data}_RELATORIO_ATIVIDADES_${equipamento}_${tecnico}_${local}`.slice(0, 150);
     }
 
     function packageTextSync() {
@@ -1899,48 +2278,112 @@
       draft.localizacao_maps = link;
       document.getElementById("localizacao_maps").value = link;
       scheduleSave();
-      setLocationHint(`Localização atualizada: ${lat}, ${lng}.`);
+      const precisao = Number.isFinite(position.coords.accuracy)
+        ? ` Precisão aproximada: ${Math.round(position.coords.accuracy)} m.`
+        : "";
+      setLocationHint(`Localização atualizada: ${lat}, ${lng}.${precisao}`);
     }
 
-    function useCurrentLocation() {
+    function clearLocationWatch() {
+      if (locationWatchId !== null) {
+        navigator.geolocation.clearWatch(locationWatchId);
+        locationWatchId = null;
+      }
+    }
+
+    function locationErrorMessage(error) {
+      const code = Number(error?.code || 0);
+      if (!window.isSecureContext) {
+        return "Localização bloqueada em HTTP. No celular, abra a coleta offline instalada pelo link HTTPS publicado antes de ficar sem internet.";
+      }
+      if (code === 1) {
+        return "Permissão de localização negada. No celular, ative Localização para o navegador/app da Agres e toque novamente em Atualizar localização atual.";
+      }
+      if (code === 2) {
+        return "O aparelho não conseguiu encontrar a posição. Ative GPS/localização, saia para área aberta e tente novamente.";
+      }
+      if (code === 3) {
+        return "Tempo esgotado ao buscar localização. Verifique se o GPS está ativo e tente novamente.";
+      }
+      return "Não foi possível obter a localização. Cole o link do Maps ou tente novamente em área aberta.";
+    }
+
+    function getPositionOnce(options) {
+      return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, options);
+      });
+    }
+
+    function watchPositionOnce(options, maxWaitMs = 30000) {
+      return new Promise((resolve, reject) => {
+        let finished = false;
+        const finish = (position, error) => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timer);
+          clearLocationWatch();
+          if (position) resolve(position);
+          else reject(error || new Error("Tempo esgotado"));
+        };
+        const timer = window.setTimeout(() => finish(null, { code: 3 }), maxWaitMs);
+        locationWatchId = navigator.geolocation.watchPosition(
+          (position) => finish(position, null),
+          (error) => finish(null, error),
+          options
+        );
+      });
+    }
+
+    async function useCurrentLocation() {
       if (!navigator.geolocation) {
         setLocationHint("Localização indisponível. Cole o link do Maps.");
         return;
       }
 
-      if (locationWatchId !== null) {
-        navigator.geolocation.clearWatch(locationWatchId);
-        locationWatchId = null;
+      if (!window.isSecureContext) {
+        setLocationHint(locationErrorMessage({ code: 0 }));
+        return;
       }
 
+      const attemptId = ++locationAttemptId;
+      clearLocationWatch();
       setLocationButtonBusy(true);
       setLocationHint("Buscando localização...");
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
+
+      try {
+        let position;
+        try {
+          position = await getPositionOnce({ enableHighAccuracy: true, timeout: 25000, maximumAge: 60000 });
+        } catch (firstError) {
+          if (Number(firstError?.code || 0) === 1) throw firstError;
+          if (attemptId !== locationAttemptId) return;
+          setLocationHint("Primeira tentativa não localizou. Tentando modo compatível...");
+          try {
+            position = await getPositionOnce({ enableHighAccuracy: false, timeout: 20000, maximumAge: 600000 });
+          } catch (secondError) {
+            if (Number(secondError?.code || 0) === 1) throw secondError;
+            if (attemptId !== locationAttemptId) return;
+            setLocationHint("Aguardando sinal de GPS...");
+            position = await watchPositionOnce(
+              { enableHighAccuracy: false, timeout: 30000, maximumAge: 600000 },
+              32000
+            );
+          }
+        }
+
+        if (attemptId === locationAttemptId) {
           applyCurrentPosition(position);
+        }
+      } catch (error) {
+        if (attemptId === locationAttemptId) {
+          setLocationHint(locationErrorMessage(error));
+        }
+      } finally {
+        if (attemptId === locationAttemptId) {
+          clearLocationWatch();
           setLocationButtonBusy(false);
-        },
-        () => {
-          locationWatchId = navigator.geolocation.watchPosition(
-            (position) => {
-              applyCurrentPosition(position);
-              navigator.geolocation.clearWatch(locationWatchId);
-              locationWatchId = null;
-              setLocationButtonBusy(false);
-            },
-            () => {
-              if (locationWatchId !== null) {
-                navigator.geolocation.clearWatch(locationWatchId);
-                locationWatchId = null;
-              }
-              setLocationHint("Não foi possível obter a localização. Tente novamente ou cole o link do Maps.");
-              setLocationButtonBusy(false);
-            },
-            { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-          );
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-      );
+        }
+      }
     }
     function openMaps() {
       const link = (draft.localizacao_maps || document.getElementById("localizacao_maps").value || "").trim();

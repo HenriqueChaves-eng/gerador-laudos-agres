@@ -318,6 +318,11 @@ st.markdown(
             padding-top: 1.4rem;
             padding-bottom: 3rem;
         }
+        html,
+        body,
+        .stApp {
+            font-size: 16px;
+        }
         .stApp,
         .stApp p,
         .stApp span,
@@ -338,12 +343,14 @@ st.markdown(
         div.stButton > button,
         div.stDownloadButton > button {
             border-radius: 8px;
-            min-height: 46px;
+            min-height: 48px;
             font-weight: 700;
+            line-height: 1.18;
             border: 1px solid #c8cbd0;
             background: #ffffff;
             color: #303236;
             transition: all 0.18s ease;
+            white-space: normal;
         }
         div.stButton > button:hover,
         div.stDownloadButton > button:hover {
@@ -358,6 +365,7 @@ st.markdown(
             background: #ffffff !important;
             color: #25272b !important;
             border-color: #c9ccd1 !important;
+            font-size: 1rem !important;
         }
         .stTextInput input::placeholder,
         .stTextArea textarea::placeholder {
@@ -527,11 +535,15 @@ st.markdown(
         [data-testid="stFileUploaderDropzone"] {
             background: #f7f8f9 !important;
             border-color: #c9ccd1 !important;
+            border-radius: 10px !important;
+            min-height: 5.6rem;
         }
         [data-testid="stFileUploaderDropzone"] button {
             background: #25272b !important;
             border-color: #3f4247 !important;
             color: #ffffff !important;
+            min-height: 2.6rem;
+            border-radius: 8px !important;
         }
         [data-testid="stFileUploaderDropzone"] button *,
         [data-testid="stFileUploaderDropzone"] button svg,
@@ -544,11 +556,16 @@ st.markdown(
         label, .stTextInput label, .stTextArea label, .stFileUploader label {
             color: #25272b !important;
             font-weight: 700 !important;
+            line-height: 1.25 !important;
         }
         iframe[title*="streamlit_drawable_canvas"] {
             max-width: 100% !important;
         }
         @media (max-width: 640px) {
+            .block-container {
+                padding: 0.8rem 0.75rem 2.6rem !important;
+                max-width: 100% !important;
+            }
             [data-testid="stToolbar"],
             [data-testid="stDecoration"],
             [data-testid="stStatusWidget"],
@@ -567,12 +584,82 @@ st.markdown(
                 flex-direction: column;
                 padding: 1.05rem;
                 gap: 0.8rem;
+                border-radius: 14px;
             }
             .brand-logo { width: 150px; max-width: 70vw; }
-            .brand-hero .brand-title { font-size: 1.45rem; }
+            .brand-hero .brand-title,
+            section.brand-hero div.brand-copy div.brand-title {
+                font-size: 1.55rem !important;
+                line-height: 1.08 !important;
+            }
+            .section-title {
+                font-size: 1.08rem;
+                line-height: 1.2;
+            }
+            .section-caption {
+                font-size: 0.92rem;
+                line-height: 1.35;
+            }
+            div.stButton > button,
+            div.stDownloadButton > button {
+                width: 100%;
+                min-height: 3.1rem;
+                padding: 0.55rem 0.75rem;
+                font-size: 1rem;
+            }
+            .stTextInput input,
+            .stTextArea textarea,
+            [data-baseweb="input"] input,
+            [data-baseweb="textarea"] textarea {
+                min-height: 2.9rem;
+                font-size: 1rem !important;
+            }
+            [data-testid="stFileUploaderDropzone"] {
+                min-height: 5.2rem;
+                padding: 0.75rem !important;
+            }
+            [data-testid="stFileUploaderDropzone"] button {
+                width: 100%;
+                min-height: 2.75rem;
+            }
+            [data-testid="stFileUploaderDropzone"] small,
+            [data-testid="stFileUploaderDropzone"] span,
+            [data-testid="stFileUploaderDropzone"] p {
+                font-size: 0.88rem !important;
+                line-height: 1.25 !important;
+            }
+            [data-testid="stHorizontalBlock"] {
+                gap: 0.65rem !important;
+            }
+            [data-testid="column"] {
+                min-width: 0 !important;
+            }
             .status-strip { grid-template-columns: 1fr; }
             .package-check { grid-template-columns: 1fr; }
             .package-badge { width: fit-content; padding: 0 0.72rem; }
+            .stTabs [data-baseweb="tab-list"] {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                scrollbar-width: thin;
+            }
+            .stTabs [data-baseweb="tab"] {
+                min-width: max-content;
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+            iframe[title*="streamlit_drawable_canvas"] {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+        }
+        @media (max-width: 380px) {
+            .brand-hero .brand-title,
+            section.brand-hero div.brand-copy div.brand-title {
+                font-size: 1.35rem !important;
+            }
+            .package-check-detail {
+                font-size: 0.8rem;
+            }
         }
     </style>
     """,
