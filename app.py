@@ -1694,6 +1694,10 @@ def elemento_paragrafo_tem_conteudo(elemento) -> bool:
     return bool(elemento.xpath(".//*[local-name()='drawing' or local-name()='pict' or local-name()='br']"))
 
 
+def elemento_tem_quebra_pagina(elemento) -> bool:
+    return bool(elemento.xpath(".//*[local-name()='br' and @*[local-name()='type']='page']"))
+
+
 def remover_paragrafos_vazios_antes(paragraph) -> None:
     parent = paragraph._p.getparent()
     anterior = paragraph._p.getprevious()
@@ -1707,13 +1711,17 @@ def paragrafo_tem_quebra_pagina_imediata_antes(paragraph) -> bool:
     anterior = paragraph._p.getprevious()
     if anterior is None or not anterior.tag.endswith("}p"):
         return False
-    return bool(anterior.xpath(".//*[local-name()='br' and @*[local-name()='type']='page']"))
+    return elemento_tem_quebra_pagina(anterior)
 
 
 def inserir_quebra_pagina_antes_paragrafo(paragraph) -> None:
     remover_paragrafos_vazios_antes(paragraph)
+    anterior = paragraph._p.getprevious()
+    if anterior is not None and elemento_tem_quebra_pagina(anterior):
+        paragraph.paragraph_format.page_break_before = False
+        return
     if not paragrafo_tem_quebra_pagina_imediata_antes(paragraph):
-        paragraph._p.addprevious(criar_elemento_quebra_pagina())
+        paragraph.paragraph_format.page_break_before = True
 
 
 def impedir_quebra_linha_tabela(row) -> None:
@@ -1781,9 +1789,10 @@ def inserir_assinaturas_docx(caminho_docx: Path, dados: dict, caminhos_assinatur
         return
 
     titulo = documento.add_paragraph()
+    titulo.paragraph_format.page_break_before = True
     titulo.paragraph_format.keep_with_next = True
     titulo.paragraph_format.keep_together = True
-    titulo.paragraph_format.space_before = Pt(8)
+    titulo.paragraph_format.space_before = Pt(0)
     titulo.paragraph_format.space_after = Pt(6)
     run_titulo = titulo.add_run("Assinaturas:")
     run_titulo.font.name = "Arial"
@@ -1794,9 +1803,6 @@ def inserir_assinaturas_docx(caminho_docx: Path, dados: dict, caminhos_assinatur
     tabela = documento.add_table(rows=linhas, cols=2)
     tabela.alignment = WD_TABLE_ALIGNMENT.CENTER
     remover_bordas_tabela(tabela)
-
-    for row in tabela.rows:
-        impedir_quebra_linha_tabela(row)
 
     for indice, assinatura in enumerate(assinaturas_documento):
         linha = indice // 2
@@ -1809,17 +1815,8 @@ def inserir_assinaturas_docx(caminho_docx: Path, dados: dict, caminhos_assinatur
             assinatura.get("caminho"),
         )
 
-    quebra_assinaturas = criar_elemento_quebra_pagina()
-    assinaturas_movidas = False
-    for paragraph in iterar_paragrafos_word(documento):
-        if limpar_texto(paragraph.text).startswith("Fotos"):
-            inserir_elemento_antes_paragrafo(quebra_assinaturas, paragraph)
-            inserir_elemento_antes_paragrafo(titulo._p, paragraph)
-            inserir_elemento_antes_paragrafo(tabela._tbl, paragraph)
-            assinaturas_movidas = True
-            break
-    if not assinaturas_movidas:
-        titulo._p.addprevious(quebra_assinaturas)
+    for row in tabela.rows:
+        impedir_quebra_linha_tabela(row)
 
     documento.save(str(caminho_docx))
 
@@ -2202,12 +2199,13 @@ def consolidar_bloco_figura(
     titulo_paragraph.add_run().add_break()
     adicionar_run_formatado(titulo_paragraph, legenda, tamanho_fonte=8)
     titulo_paragraph.add_run().add_break()
+    titulo_paragraph.add_run().add_break()
     if inserir_quebra_pagina:
         titulo_paragraph.add_run().add_break(WD_BREAK.PAGE)
 
     formatar_paragrafo_figura(titulo_paragraph, keep_with_next=False, tamanho_fonte=None)
     titulo_paragraph.paragraph_format.space_before = Pt(6)
-    titulo_paragraph.paragraph_format.space_after = Pt(12)
+    titulo_paragraph.paragraph_format.space_after = Pt(0)
 
 
 def consolidar_figuras_em_blocos_unicos(paragrafos: list) -> None:
@@ -2284,7 +2282,6 @@ def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
             paragraph.paragraph_format.keep_with_next = True
             paragraph.paragraph_format.keep_together = True
             paragraph.paragraph_format.widow_control = True
-            paragraph.paragraph_format.page_break_before = False
             paragraph.paragraph_format.space_before = Pt(0)
             paragraph.paragraph_format.space_after = Pt(2)
 
@@ -2335,7 +2332,7 @@ def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
             numero_figura += 1
             formatar_paragrafo_figura(paragraph, keep_with_next=False)
             paragraph.paragraph_format.space_before = Pt(6)
-            paragraph.paragraph_format.space_after = Pt(12)
+            paragraph.paragraph_format.space_after = Pt(0)
             dentro_bloco_figura = False
             continue
 
