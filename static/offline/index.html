@@ -1152,12 +1152,12 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.06.01.5";
+    const APP_VERSION = "2026.06.01.6";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v35"
+      ? "agres-offline-v36"
       : location.pathname.includes("/static/coleta/")
-        ? "agres-coleta-v28"
-        : "agres-pages-offline-v31";
+        ? "agres-coleta-v29"
+        : "agres-pages-offline-v32";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
@@ -1427,7 +1427,28 @@
       return new File([blob], name, { type: blob.type || "image/jpeg" });
     }
 
+    function hasAndroidGalleryBridge() {
+      return Boolean(window.AgresAndroid && typeof window.AgresAndroid.saveImage === "function");
+    }
+
+    function savePhotoWithAndroidBridge(item) {
+      if (!hasAndroidGalleryBridge() || !item?.dataUrl) return false;
+      const name = item.name || `foto_agres_${Date.now()}.jpg`;
+      const saved = window.AgresAndroid.saveImage(item.dataUrl, name);
+      return saved === true || saved === "true";
+    }
+
     async function sharePhotoFiles(files, fallbackItems = []) {
+      if (hasAndroidGalleryBridge() && fallbackItems.length) {
+        const saved = fallbackItems.filter(savePhotoWithAndroidBridge).length;
+        setSyncMessage(
+          saved
+            ? `${saved} foto(s) salva(s) na galeria do Android.`
+            : "Não foi possível salvar a foto na galeria do Android."
+        );
+        return saved > 0;
+      }
+
       if (!files.length && fallbackItems.length) {
         files = fallbackItems.map(itemToFile);
       }
@@ -1472,6 +1493,15 @@
     async function offerGallerySaveForCameraItems(items) {
       const fotos = (items || []).filter((item) => item?.dataUrl);
       if (!fotos.length) return;
+      if (hasAndroidGalleryBridge()) {
+        const saved = fotos.filter(savePhotoWithAndroidBridge).length;
+        setSyncMessage(
+          saved
+            ? `${saved} foto(s) salva(s) na coleta e na galeria do Android.`
+            : "Foto salva na coleta, mas não foi possível gravar uma cópia na galeria."
+        );
+        return;
+      }
       const plural = fotos.length > 1 ? "fotos tiradas" : "foto tirada";
       if (!confirm(`A ${plural} pela câmera foi salva na coleta. Deseja abrir a opção para salvar uma cópia na galeria do aparelho?`)) {
         return;

@@ -1,0 +1,19 @@
+{
+  "name": "Agres Coleta Offline",
+  "short_name": "Agres Offline",
+  "description": "Coleta offline de dados para relatórios técnicos Agres.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#e7e9ec",
+  "theme_color": "#3f4247",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./logo_agres.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
