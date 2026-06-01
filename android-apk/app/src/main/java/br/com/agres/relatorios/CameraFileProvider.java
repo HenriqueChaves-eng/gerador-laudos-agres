@@ -38,6 +38,9 @@ public class CameraFileProvider extends ContentProvider {
     public String getType(Uri uri) {
         String name = uri.getLastPathSegment();
         String extension = name == null ? "" : MimeTypeMap.getFileExtensionFromUrl(name);
+        if ("json".equalsIgnoreCase(extension)) {
+            return "application/json";
+        }
         String type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
         return type == null ? "image/jpeg" : type;
     }
@@ -45,8 +48,9 @@ public class CameraFileProvider extends ContentProvider {
     @Override
     public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
         File file = resolve(uri);
-        int flags = ParcelFileDescriptor.MODE_READ_WRITE | ParcelFileDescriptor.MODE_CREATE;
+        int flags = ParcelFileDescriptor.MODE_READ_ONLY;
         if (mode != null && mode.contains("w")) {
+            flags = ParcelFileDescriptor.MODE_READ_WRITE | ParcelFileDescriptor.MODE_CREATE;
             flags |= ParcelFileDescriptor.MODE_TRUNCATE;
         }
         return ParcelFileDescriptor.open(file, flags);

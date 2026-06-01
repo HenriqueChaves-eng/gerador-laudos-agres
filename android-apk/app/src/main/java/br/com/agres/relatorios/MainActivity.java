@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.ClipData;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -29,6 +30,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -318,6 +320,60 @@ public class MainActivity extends Activity {
                 return false;
             }
         }
+
+        @JavascriptInterface
+        public boolean saveJson(String jsonText, String requestedName) {
+            try {
+                String fileName = normalizedJsonName(requestedName);
+                byte[] bytes = (jsonText == null ? "" : jsonText).getBytes(StandardCharsets.UTF_8);
+                if (bytes.length == 0) return false;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    return saveJsonModern(bytes, fileName);
+                }
+                return saveJsonLegacy(bytes, fileName);
+            } catch (Exception error) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface
+        public boolean shareJson(String jsonText, String requestedName) {
+            try {
+                String fileName = normalizedJsonName(requestedName);
+                byte[] bytes = (jsonText == null ? "" : jsonText).getBytes(StandardCharsets.UTF_8);
+                if (bytes.length == 0) return false;
+                Uri uri = writeJsonShareFile(bytes, fileName);
+
+                Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                shareIntent.setType("*/*");
+                shareIntent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/json", "text/plain"});
+                shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
+                shareIntent.putExtra(Intent.EXTRA_TEXT, "Pacote JSON da coleta offline Agres.");
+                shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                shareIntent.setClipData(ClipData.newUri(getContentResolver(), "Pacote Relatorio Offline", uri));
+
+                Intent chooser = Intent.createChooser(shareIntent, "Compartilhar pacote relatorio offline");
+                chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                runOnUiThread(() -> {
+                    try {
+                        startActivity(chooser);
+                    } catch (Exception ignored) {
+                    }
+                });
+                return true;
+            } catch (Exception error) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface
+        public void setSignatureLandscape(boolean enabled) {
+            runOnUiThread(() -> setRequestedOrientation(
+                enabled
+                    ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                    : ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            ));
+        }
     }
 
     private static class DecodedImage {
@@ -393,5 +449,65 @@ public class MainActivity extends Activity {
         }
         sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file)));
         return true;
+    }
+
+    private String normalizedJsonName(String requestedName) {
+        String name = requestedName == null ? "" : requestedName.trim();
+        name = name.replaceAll("[\\\\/:*?\"<>|]+", "_").replaceAll("\\s+", "_");
+        if (name.isEmpty()) {
+            name = "pacote_relatorio_offline_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ROOT).format(new Date());
+        }
+        if (!name.toLowerCase(Locale.ROOT).endsWith(".json")) {
+            name = name.replaceFirst("\\.[^.]+$", "") + ".json";
+        }
+        return name;
+    }
+
+    private boolean saveJsonModern(byte[] bytes, String fileName) throws Exception {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+        values.put(MediaStore.MediaColumns.MIME_TYPE, "application/json");
+        values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Agres Relatorios");
+        values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+
+        Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+        if (uri == null) return false;
+
+        try (OutputStream output = getContentResolver().openOutputStream(uri)) {
+            if (output == null) return false;
+            output.write(bytes);
+        }
+
+        values.clear();
+        values.put(MediaStore.MediaColumns.IS_PENDING, 0);
+        getContentResolver().update(uri, values, null, null);
+        return true;
+    }
+
+    private boolean saveJsonLegacy(byte[] bytes, String fileName) throws Exception {
+        File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Agres Relatorios");
+        if (!dir.exists() && !dir.mkdirs()) return false;
+        File file = new File(dir, fileName);
+        try (FileOutputStream output = new FileOutputStream(file)) {
+            output.write(bytes);
+        }
+        sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file)));
+        return true;
+    }
+
+    private Uri writeJsonShareFile(byte[] bytes, String fileName) throws Exception {
+        File dir = new File(getCacheDir(), "camera");
+        if (!dir.exists() && !dir.mkdirs()) {
+            throw new IllegalStateException("Não foi possível preparar o compartilhamento.");
+        }
+        File file = new File(dir, fileName);
+        try (FileOutputStream output = new FileOutputStream(file, false)) {
+            output.write(bytes);
+        }
+        return new Uri.Builder()
+            .scheme("content")
+            .authority(getPackageName() + ".camera")
+            .appendPath(fileName)
+            .build();
     }
 }

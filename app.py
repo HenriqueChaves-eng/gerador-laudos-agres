@@ -219,6 +219,17 @@ def texto_assinatura(item: dict, *chaves: str, padrao: str = "") -> str:
     return limpar_texto(padrao)
 
 
+TECNICOS_AGRES_ALIASES = {
+    "Cristian Lima Araujo": "Cristian Lima",
+    "Ronaldo Hiromi Kishida Junior": "Ronaldo Kishida",
+}
+
+
+def normalizar_tecnico_agres_responsavel(texto: str) -> str:
+    tecnico = limpar_texto(texto)
+    return TECNICOS_AGRES_ALIASES.get(tecnico, tecnico)
+
+
 def assinaturas_padrao_lista(quantidade: int = MIN_ASSINATURAS) -> list[dict]:
     return [assinatura_padrao(indice) for indice in range(1, quantidade_assinaturas_normalizada(quantidade) + 1)]
 
@@ -656,22 +667,42 @@ st.markdown(
             color: #303236 !important;
         }
         [data-testid="stFileUploaderDropzone"] {
-            background: #f7f8f9 !important;
-            border-color: #c9ccd1 !important;
-            border-radius: 10px !important;
-            min-height: 5.6rem;
+            background: linear-gradient(180deg, #ffffff 0%, #f6f7f8 100%) !important;
+            border: 1px dashed #b8bdc4 !important;
+            border-radius: 14px !important;
+            min-height: 5.8rem;
+            padding: 0.85rem !important;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
         }
         [data-testid="stFileUploaderFile"] {
-            border: 1px solid #cfd3d8 !important;
-            border-radius: 12px !important;
-            background: #ffffff !important;
-            padding: 0.35rem 0.45rem !important;
+            border: 1px solid #87bea1 !important;
+            border-radius: 14px !important;
+            background: #f4fbf7 !important;
+            padding: 0.48rem 0.55rem !important;
+            box-shadow: 0 10px 22px rgba(23, 107, 67, 0.08) !important;
+        }
+        [data-testid="stFileUploaderFile"] [data-testid="stFileUploaderFileName"],
+        [data-testid="stFileUploaderFile"] [data-testid="stFileUploaderFileSize"],
+        [data-testid="stFileUploaderFile"] span,
+        [data-testid="stFileUploaderFile"] div {
+            color: #263b2f !important;
+            font-weight: 650 !important;
         }
         [data-testid="stFileUploaderFile"] svg,
         [data-testid="stFileUploaderFile"] svg *,
         [data-testid="stFileUploaderFile"] path {
             color: #176b43 !important;
             stroke: #176b43 !important;
+        }
+        [data-testid="stFileUploaderDropzone"] [data-testid="stFileUploaderFile"] ~ button,
+        [data-testid="stFileUploaderDropzone"] [data-testid="stFileUploaderFile"] + button,
+        [data-testid="stFileUploaderDropzone"] button[aria-label*="Add"],
+        [data-testid="stFileUploaderDropzone"] button[title*="Add"],
+        [data-testid="stFileUploaderDropzone"] button[aria-label*="Adicionar"],
+        [data-testid="stFileUploaderDropzone"] button[title*="Adicionar"] {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
         }
         [data-testid="stFileUploaderFile"] button,
         [data-testid="stFileUploaderDeleteBtn"],
@@ -703,19 +734,32 @@ st.markdown(
             stroke: #ffffff !important;
         }
         [data-testid="stFileUploaderDropzone"] button {
-            background: #25272b !important;
-            border-color: #3f4247 !important;
-            color: #ffffff !important;
+            background: #ffffff !important;
+            border: 1px solid #b8bdc4 !important;
+            color: #25272b !important;
             min-height: 2.6rem;
-            border-radius: 8px !important;
+            border-radius: 10px !important;
+            font-weight: 800 !important;
+            box-shadow: 0 6px 16px rgba(37, 39, 43, 0.08) !important;
+        }
+        [data-testid="stFileUploaderDropzone"] button:hover {
+            border-color: #176b43 !important;
+            background: #f4fbf7 !important;
+            color: #174d32 !important;
         }
         [data-testid="stFileUploaderDropzone"] button *,
         [data-testid="stFileUploaderDropzone"] button svg,
         [data-testid="stFileUploaderDropzone"] button svg *,
         [data-testid="stFileUploaderDropzone"] button path {
-            color: #ffffff !important;
+            color: #25272b !important;
             fill: none !important;
-            stroke: #ffffff !important;
+            stroke: #5a5e63 !important;
+        }
+        [data-testid="stFileUploaderDropzone"] button:hover *,
+        [data-testid="stFileUploaderDropzone"] button:hover svg,
+        [data-testid="stFileUploaderDropzone"] button:hover path {
+            color: #174d32 !important;
+            stroke: #176b43 !important;
         }
         label, .stTextInput label, .stTextArea label, .stFileUploader label {
             color: #25272b !important;
@@ -981,6 +1025,32 @@ def ativar_wake_lock_audio_mobile() -> None:
                 }
             }
 
+            function melhorarUploadersJson() {
+                const documentos = [parentDoc];
+                try {
+                    if (window.top?.document && window.top.document !== parentDoc) {
+                        documentos.push(window.top.document);
+                    }
+                } catch (erro) {}
+
+                for (const docAlvo of documentos) {
+                    docAlvo.querySelectorAll("[data-testid='stFileUploaderDropzone']").forEach((dropzone) => {
+                        const arquivo = dropzone.querySelector("[data-testid='stFileUploaderFile']");
+                        if (!arquivo) {
+                            return;
+                        }
+                        dropzone.querySelectorAll("button").forEach((botao) => {
+                            if (arquivo.contains(botao)) {
+                                return;
+                            }
+                            botao.style.setProperty("display", "none", "important");
+                            botao.style.setProperty("visibility", "hidden", "important");
+                            botao.style.setProperty("pointer-events", "none", "important");
+                        });
+                    });
+                }
+            }
+
             function marcarUsoDeAudio(evento) {
                 if (!pareceControleDeAudio(evento.target)) {
                     return;
@@ -993,7 +1063,11 @@ def ativar_wake_lock_audio_mobile() -> None:
             parentDoc.addEventListener("touchstart", marcarUsoDeAudio, true);
             parentDoc.addEventListener("pointerdown", marcarUsoDeAudio, true);
             ocultarIconesStreamlitMobile();
-            window.setInterval(ocultarIconesStreamlitMobile, 1000);
+            melhorarUploadersJson();
+            window.setInterval(() => {
+                ocultarIconesStreamlitMobile();
+                melhorarUploadersJson();
+            }, 1000);
             parentDoc.addEventListener("visibilitychange", () => {
                 if (parentDoc.visibilityState === "visible" && Date.now() < manterAtivoAte) {
                     solicitarWakeLock();
@@ -2602,6 +2676,7 @@ def salvar_upload(
 def novo_manifesto_rascunho() -> dict:
     return {
         "tipo_atendimento": "suporte",
+        "tecnico_agres_responsavel": "",
         "localizacao_maps": "",
         "audios": [],
         "cabecalho": {"info_equip": None, "maquina": None, "implemento": None},
@@ -2653,6 +2728,9 @@ def carregar_manifesto(draft_dir: Path) -> dict:
             dados = json.loads(caminho.read_text(encoding="utf-8"))
             if isinstance(dados, dict):
                 manifesto.update(dados)
+                manifesto["tecnico_agres_responsavel"] = normalizar_tecnico_agres_responsavel(
+                    manifesto.get("tecnico_agres_responsavel", "")
+                )
                 manifesto["cabecalho"] = {**novo_manifesto_rascunho()["cabecalho"], **manifesto.get("cabecalho", {})}
                 manifesto["evidencias"] = {**novo_manifesto_rascunho()["evidencias"], **manifesto.get("evidencias", {})}
                 manifesto["fotos_atendimento"] = manifesto.get("fotos_atendimento", [])
@@ -2851,6 +2929,9 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
         raise ValueError("Pacote offline incompatível com esta versão do aplicativo.")
 
     manifesto["tipo_atendimento"] = normalizar_tipo_atendimento(pacote.get("tipo_atendimento"), manifesto.get("tipo_atendimento", "suporte"))
+    manifesto["tecnico_agres_responsavel"] = normalizar_tecnico_agres_responsavel(
+        pacote.get("tecnico_agres_responsavel", manifesto.get("tecnico_agres_responsavel", ""))
+    )
     manifesto["localizacao_maps"] = limpar_texto(pacote.get("localizacao_maps", ""))
     manifesto["observacoes"] = limpar_texto(pacote.get("observacoes", ""))
 
@@ -3136,18 +3217,18 @@ def renderizar_coleta_streamlit() -> None:
     with st.container(border=True):
         st.markdown("### 1. Relato técnico")
         coleta_tipo_atendimento = st.radio(
-            "Tipo de atendimento",
+            "Tipo de Atendimento",
             options=list(TIPOS_ATENDIMENTO),
             format_func=lambda chave: TIPOS_ATENDIMENTO[chave],
             horizontal=True,
             key="coleta_tipo_atendimento",
         )
         coleta_localizacao_maps = st.text_input(
-            "Link de localização da fazenda no Maps",
+            "Link de Localização do Atendimento",
             key="coleta_localizacao_maps",
         )
         coleta_observacoes = st.text_area(
-            "Complemento técnico",
+            "Complemento Técnico",
             height=150,
             key="coleta_observacoes",
         )
@@ -3160,20 +3241,20 @@ def renderizar_coleta_streamlit() -> None:
         )
 
     with st.container(border=True):
-        st.markdown("### 2. Cabeçalho")
+        st.markdown("### 2. Cabeçalho do Relatório")
         col1, col2, col3 = st.columns(3)
-        coleta_info = col1.file_uploader("Informações do equipamento", type=list(EXTENSOES_IMAGEM), key="coleta_info")
+        coleta_info = col1.file_uploader("Informações do Equipamento", type=list(EXTENSOES_IMAGEM), key="coleta_info")
         coleta_maquina = col2.file_uploader("Máquina", type=list(EXTENSOES_IMAGEM), key="coleta_maquina")
         coleta_implemento = col3.file_uploader("Implemento", type=list(EXTENSOES_IMAGEM), key="coleta_implemento")
 
     with st.container(border=True):
-        st.markdown("### 3. Evidências fotográficas")
+        st.markdown("### 3. Evidências Fotográficas")
         col_e1, col_e2 = st.columns(2)
         coleta_equipamento = col_e1.file_uploader("Equipamento Agres", type=list(EXTENSOES_IMAGEM), accept_multiple_files=True, key="coleta_equipamento")
         coleta_instalacao = col_e1.file_uploader("Instalação", type=list(EXTENSOES_IMAGEM), accept_multiple_files=True, key="coleta_instalacao")
         coleta_configuracao = col_e2.file_uploader("Configurações", type=list(EXTENSOES_IMAGEM), accept_multiple_files=True, key="coleta_configuracao")
         coleta_outros = col_e2.file_uploader("Outros registros", type=list(EXTENSOES_IMAGEM), accept_multiple_files=True, key="coleta_outros")
-        coleta_fotos_atendimento = st.file_uploader("Fotos do atendimento (somente ZIP)", type=list(EXTENSOES_IMAGEM), accept_multiple_files=True, key="coleta_fotos_atendimento")
+        coleta_fotos_atendimento = st.file_uploader("Fotos do Atendimento (Somente ZIP)", type=list(EXTENSOES_IMAGEM), accept_multiple_files=True, key="coleta_fotos_atendimento")
 
         coleta_legendas = {
             "fotos_equipamento": st.text_area("Legendas - Equipamento", height=80, key="coleta_leg_equipamento"),
@@ -3631,7 +3712,10 @@ def contexto_manifesto_para_geracao(manifesto: dict) -> str:
 
     tipo = normalizar_tipo_atendimento(manifesto.get("tipo_atendimento"), "")
     if tipo:
-        linhas.append(f"Tipo de atendimento selecionado: {TIPOS_ATENDIMENTO.get(tipo, tipo)}.")
+        linhas.append(f"Tipo de Atendimento selecionado: {TIPOS_ATENDIMENTO.get(tipo, tipo)}.")
+    tecnico_agres = normalizar_tecnico_agres_responsavel(manifesto.get("tecnico_agres_responsavel", ""))
+    if tecnico_agres:
+        linhas.append(f"Técnico Responsável Agres: {tecnico_agres}.")
     localizacao = limpar_texto(manifesto.get("localizacao_maps", ""))
     if localizacao:
         linhas.append(f"Localização informada no Maps: {localizacao}.")
@@ -3982,7 +4066,12 @@ with st.container(border=True):
         "suporte",
     )
     localizacao_maps_salva = manifesto_rascunho.get("localizacao_maps", "")
-    st.caption(f"Tipo de atendimento: {TIPOS_ATENDIMENTO.get(tipo_atendimento_salvo, 'Suporte')}")
+    tecnico_agres_salvo = normalizar_tecnico_agres_responsavel(
+        manifesto_rascunho.get("tecnico_agres_responsavel", "")
+    )
+    st.caption(f"Tipo de Atendimento: {TIPOS_ATENDIMENTO.get(tipo_atendimento_salvo, 'Suporte')}")
+    if tecnico_agres_salvo:
+        st.caption(f"Técnico Responsável Agres: {tecnico_agres_salvo}")
     if localizacao_maps_salva:
         st.caption(f"Localização: {localizacao_maps_salva}")
     importacao_offline = manifesto_rascunho.get("importacao_offline", {}) or {}
@@ -4040,6 +4129,9 @@ tipo_atendimento_salvo = normalizar_tipo_atendimento(
     "suporte",
 )
 localizacao_maps_salva = manifesto_rascunho.get("localizacao_maps", "")
+tecnico_agres_salvo = normalizar_tecnico_agres_responsavel(
+    manifesto_rascunho.get("tecnico_agres_responsavel", "")
+)
 
 entrada_disponivel = (
     bool(caminhos_audio_salvos)
@@ -4077,6 +4169,8 @@ with st.container(border=True):
                 with st.status("Gerando relatório...", expanded=False) as status:
                     dados = processar_atendimento_completo(caminhos_audio_salvos, observacoes_salvas)
                     dados["localizacao_maps"] = localizacao_maps_salva or dados.get("localizacao_maps", "")
+                    if tecnico_agres_salvo:
+                        dados["tecnicos"] = tecnico_agres_salvo
                     aplicar_tipo_atendimento_unico(dados, tipo_atendimento_salvo)
                     for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
                         responsavel = limpar_texto(responsaveis_salvos.get(chave, ""))
