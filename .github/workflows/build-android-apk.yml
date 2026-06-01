@@ -1,0 +1,53 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "android-apk/**"
+      - "docs/**"
+      - ".github/workflows/build-android-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Gerar APK Android
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Sincronizar offline web com APK
+        shell: bash
+        run: |
+          cp docs/index.html android-apk/app/src/main/assets/offline/index.html
+          cp docs/sw.js android-apk/app/src/main/assets/offline/sw.js
+          cp docs/manifest.webmanifest android-apk/app/src/main/assets/offline/manifest.webmanifest
+          cp docs/logo_agres.png android-apk/app/src/main/assets/offline/logo_agres.png
+
+      - name: Compilar APK debug
+        working-directory: android-apk
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Enviar APK para download
+        uses: actions/upload-artifact@v4
+        with:
+          name: agres-offline-debug-apk
+          path: android-apk/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
