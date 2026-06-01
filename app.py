@@ -419,9 +419,10 @@ st.markdown(
         }
         div.stButton > button[kind="primary"],
         div.stDownloadButton > button[kind="primary"] {
-            background: #3f4247;
+            background: #176b43;
             color: #ffffff;
-            border: 1px solid #3f4247;
+            border: 1px solid #176b43;
+            box-shadow: 0 10px 24px rgba(23, 107, 67, 0.22);
         }
         div.stButton > button[kind="primary"] *,
         div.stDownloadButton > button[kind="primary"] * {
@@ -429,9 +430,10 @@ st.markdown(
         }
         div.stButton > button[kind="primary"]:hover,
         div.stDownloadButton > button[kind="primary"]:hover {
-            background: #55585c;
+            background: #21804f;
             color: #ffffff;
-            border-color: #55585c;
+            border-color: #21804f;
+            box-shadow: 0 14px 30px rgba(23, 107, 67, 0.28);
         }
         .brand-hero {
             display: flex;
@@ -531,6 +533,82 @@ st.markdown(
             line-height: 1.35;
             margin-top: 0.1rem;
         }
+        .json-import-card {
+            display: grid;
+            grid-template-columns: 3rem minmax(0, 1fr);
+            align-items: center;
+            gap: 0.75rem;
+            border: 1px solid #d6d8dc;
+            border-radius: 12px;
+            padding: 0.8rem 0.9rem;
+            margin: 0.75rem 0 0.75rem;
+            background: #ffffff;
+        }
+        .json-import-card .json-file-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.55rem;
+            height: 2.55rem;
+            border-radius: 10px;
+            font-size: 1.25rem;
+            font-weight: 900;
+            border: 1px solid #cfd3d8;
+            background: #f4f5f6;
+            color: #3f4247 !important;
+        }
+        .json-import-card .json-title {
+            color: #25272b !important;
+            font-weight: 850;
+            line-height: 1.25;
+        }
+        .json-import-card .json-detail {
+            color: #5a5e63 !important;
+            font-size: 0.86rem;
+            line-height: 1.35;
+            margin-top: 0.1rem;
+            word-break: break-word;
+        }
+        .json-import-card.ok {
+            border-color: #8bc5a5;
+            background: #f0faf4;
+        }
+        .json-import-card.ok .json-file-icon {
+            border-color: #6bb58d;
+            background: #dff4e8;
+            color: #176b43 !important;
+        }
+        .json-import-card.error {
+            border-color: #f0a7a7;
+            background: #fff1f1;
+        }
+        .json-import-card.error .json-file-icon {
+            border-color: #e87b7b;
+            background: #ffe1e1;
+            color: #b42318 !important;
+        }
+        .json-import-card.selected {
+            border-color: #b9bdc4;
+            background: #fbfcfd;
+        }
+        .generate-callout {
+            border: 1px solid #b7c9bd;
+            border-radius: 12px;
+            padding: 0.9rem 1rem;
+            margin: 0.5rem 0 0.85rem;
+            background: linear-gradient(180deg, #f6fbf8 0%, #eef8f2 100%);
+        }
+        .generate-callout-title {
+            color: #174d32 !important;
+            font-weight: 850;
+            line-height: 1.25;
+        }
+        .generate-callout-detail {
+            color: #375846 !important;
+            font-size: 0.9rem;
+            line-height: 1.35;
+            margin-top: 0.2rem;
+        }
         .status-strip {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -582,6 +660,47 @@ st.markdown(
             border-color: #c9ccd1 !important;
             border-radius: 10px !important;
             min-height: 5.6rem;
+        }
+        [data-testid="stFileUploaderFile"] {
+            border: 1px solid #cfd3d8 !important;
+            border-radius: 12px !important;
+            background: #ffffff !important;
+            padding: 0.35rem 0.45rem !important;
+        }
+        [data-testid="stFileUploaderFile"] svg,
+        [data-testid="stFileUploaderFile"] svg *,
+        [data-testid="stFileUploaderFile"] path {
+            color: #176b43 !important;
+            stroke: #176b43 !important;
+        }
+        [data-testid="stFileUploaderFile"] button,
+        [data-testid="stFileUploaderDeleteBtn"],
+        [data-testid="stFileUploaderFile"] button[aria-label*="Remove"],
+        [data-testid="stFileUploaderFile"] button[title*="Remove"],
+        [data-testid="stFileUploaderFile"] button[aria-label*="Excluir"],
+        [data-testid="stFileUploaderFile"] button[title*="Excluir"] {
+            background: #d92d20 !important;
+            border-color: #d92d20 !important;
+            color: #ffffff !important;
+            min-width: 2.1rem !important;
+            width: 2.1rem !important;
+            height: 2.1rem !important;
+            border-radius: 999px !important;
+            box-shadow: 0 6px 14px rgba(217, 45, 32, 0.22) !important;
+        }
+        [data-testid="stFileUploaderFile"] button:hover,
+        [data-testid="stFileUploaderDeleteBtn"]:hover {
+            background: #b42318 !important;
+            border-color: #b42318 !important;
+        }
+        [data-testid="stFileUploaderFile"] button *,
+        [data-testid="stFileUploaderDeleteBtn"] *,
+        [data-testid="stFileUploaderFile"] button svg,
+        [data-testid="stFileUploaderDeleteBtn"] svg,
+        [data-testid="stFileUploaderFile"] button path,
+        [data-testid="stFileUploaderDeleteBtn"] path {
+            color: #ffffff !important;
+            stroke: #ffffff !important;
         }
         [data-testid="stFileUploaderDropzone"] button {
             background: #25272b !important;
@@ -1316,7 +1435,7 @@ REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 14. responsavel_fazenda: informar o nome do responsável da fazenda, cliente, operador, encarregado ou proprietário que validou/acompanhou o atendimento, quando mencionado.
 15. documento_fazenda: informar CPF, RG ou documento do responsável da fazenda quando mencionado; caso contrário, retornar "".
 16. relato: concentrar todo o detalhamento técnico e cronológico. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
-17. nome_arquivo_sugerido: montar no padrão "AAAAMMDD_RELATÓRIO_ATIVIDADES_EQUIPAMENTO_TÉCNICO_CIDADE_UF". Use a data inicial quando houver intervalo. Exemplo: "20250115_RELATÓRIO_ATIVIDADES_ISO34C_HENRIQUE_IPIRANGA_PR".
+17. nome_arquivo_sugerido: montar no padrão "AAAAMMDD_RELATÓRIO_ATIVIDADES_EQUIPAMENTO_TÉCNICO_CIDADE_UF". Use sempre a data final quando houver intervalo. Exemplo: atendimento de 15 a 19/05/2026 deve usar "20260519_RELATÓRIO_ATIVIDADES_...".
 
 PADRÃO DO RELATO:
 - Escrever em terceira pessoa.
@@ -1434,20 +1553,43 @@ def componente_nome_arquivo(texto: str, padrao: str) -> str:
 
 def data_para_nome_arquivo(data_visita: str) -> str:
     texto = limpar_texto(data_visita)
-    intervalo = re.search(r"\b(\d{1,2})\s*(?:a|até|-)\s*\d{1,2}/(\d{1,2})/(\d{4})\b", texto, flags=re.I)
-    if intervalo:
-        dia, mes, ano = intervalo.groups()
-        return f"{int(ano):04d}{int(mes):02d}{int(dia):02d}"
+    candidatos: list[tuple[int, str]] = []
 
-    data_br = re.search(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b", texto)
-    if data_br:
-        dia, mes, ano = data_br.groups()
-        return f"{int(ano):04d}{int(mes):02d}{int(dia):02d}"
+    for match in re.finditer(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b", texto):
+        dia, mes, ano = match.groups()
+        candidatos.append((match.start(), f"{int(ano):04d}{int(mes):02d}{int(dia):02d}"))
 
-    data_iso = re.search(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b", texto)
-    if data_iso:
-        ano, mes, dia = data_iso.groups()
-        return f"{int(ano):04d}{int(mes):02d}{int(dia):02d}"
+    for match in re.finditer(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b", texto):
+        ano, mes, dia = match.groups()
+        candidatos.append((match.start(), f"{int(ano):04d}{int(mes):02d}{int(dia):02d}"))
+
+    meses = {
+        "janeiro": 1,
+        "fevereiro": 2,
+        "marco": 3,
+        "março": 3,
+        "abril": 4,
+        "maio": 5,
+        "junho": 6,
+        "julho": 7,
+        "agosto": 8,
+        "setembro": 9,
+        "outubro": 10,
+        "novembro": 11,
+        "dezembro": 12,
+    }
+    padrao_intervalo_extenso = (
+        r"\b\d{1,2}\s*(?:a|até|-)\s*(\d{1,2})\s*(?:de\s+)?"
+        r"(janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
+        r"\s*(?:de\s+)?(\d{4})\b"
+    )
+    for match in re.finditer(padrao_intervalo_extenso, texto, flags=re.I):
+        dia, mes_nome, ano = match.groups()
+        mes = meses[mes_nome.lower().replace("ç", "c")]
+        candidatos.append((match.start(), f"{int(ano):04d}{mes:02d}{int(dia):02d}"))
+
+    if candidatos:
+        return sorted(candidatos, key=lambda item: item[0])[-1][1]
 
     return data_atual_brasil().strftime("%Y%m%d")
 
@@ -1543,10 +1685,10 @@ def tecnico_para_nome_arquivo(dados: dict) -> str:
 def gerar_nome_arquivo_relatorio(dados: dict) -> str:
     sugerido = componente_nome_arquivo(dados.get("nome_arquivo_sugerido", ""), "")
     sugerido_valido = re.match(r"^\d{8}_RELAT[ÓO]RIO_ATIVIDADES_", sugerido, flags=re.I)
-    if sugerido_valido:
-        return sugerido[:150]
-
     data_nome = data_para_nome_arquivo(dados.get("data_visita", ""))
+    if sugerido_valido:
+        return f"{data_nome}_{sugerido[9:]}".strip("_")[:150]
+
     cidade, uf = extrair_cidade_uf(dados.get("cliente_local", ""))
     partes = [
         data_nome,
@@ -2673,6 +2815,32 @@ def salvar_item_offline_rascunho(
     }
 
 
+def salvar_item_offline_seguro(
+    item: dict | None,
+    draft_dir: Path,
+    subpasta: str,
+    prefixo: str,
+    extensoes_permitidas: set[str],
+    extensao_padrao: str,
+    erros: list[str],
+    rotulo: str,
+    padronizar_figura: bool = False,
+) -> dict | None:
+    try:
+        return salvar_item_offline_rascunho(
+            item,
+            draft_dir,
+            subpasta,
+            prefixo,
+            extensoes_permitidas,
+            extensao_padrao,
+            padronizar_figura,
+        )
+    except Exception as erro:
+        erros.append(f"{rotulo}: {erro}")
+        return None
+
+
 def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: dict) -> dict:
     try:
         pacote = json.loads(texto_pacote)
@@ -2701,6 +2869,9 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
     audios = []
     audios_recebidos = pacote.get("audios") or []
     erros_audio = []
+    erros_imagem = []
+    imagens_recebidas = 0
+    imagens_salvas = 0
     for indice, item in enumerate(audios_recebidos):
         try:
             audio = salvar_item_offline_rascunho(
@@ -2729,8 +2900,21 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
 
     for chave, item in (pacote.get("cabecalho") or {}).items():
         if chave in manifesto["cabecalho"]:
-            arquivo = salvar_item_offline_rascunho(item, draft_dir, "cabecalho", chave, EXTENSOES_IMAGEM, "jpg")
+            manifesto["cabecalho"][chave] = None
+            if item:
+                imagens_recebidas += 1
+            arquivo = salvar_item_offline_seguro(
+                item,
+                draft_dir,
+                "cabecalho",
+                chave,
+                EXTENSOES_IMAGEM,
+                "jpg",
+                erros_imagem,
+                f"Cabeçalho {chave}",
+            )
             if arquivo:
+                imagens_salvas += 1
                 manifesto["cabecalho"][chave] = arquivo
 
     for categoria, itens in (pacote.get("evidencias") or {}).items():
@@ -2738,30 +2922,40 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
             continue
         evidencias = []
         for indice, item in enumerate(itens or []):
-            arquivo = salvar_item_offline_rascunho(
+            if item:
+                imagens_recebidas += 1
+            arquivo = salvar_item_offline_seguro(
                 item,
                 draft_dir,
                 categoria,
                 f"offline_{categoria}_{indice}",
                 EXTENSOES_IMAGEM,
                 "jpg",
+                erros_imagem,
+                f"{CATEGORIAS_EVIDENCIAS[categoria]['nome']} {indice + 1}",
                 padronizar_figura=True,
             )
             if arquivo:
+                imagens_salvas += 1
                 evidencias.append(arquivo)
         manifesto["evidencias"][categoria] = evidencias
 
     fotos_atendimento = []
     for indice, item in enumerate(pacote.get("fotos_atendimento") or []):
-        foto = salvar_item_offline_rascunho(
+        if item:
+            imagens_recebidas += 1
+        foto = salvar_item_offline_seguro(
             item,
             draft_dir,
             "fotos_atendimento",
             f"offline_foto_atendimento_{indice}",
             EXTENSOES_IMAGEM,
             "jpg",
+            erros_imagem,
+            f"Foto do atendimento {indice + 1}",
         )
         if foto:
+            imagens_salvas += 1
             fotos_atendimento.append(foto)
     if fotos_atendimento or "fotos_atendimento" in pacote:
         manifesto["fotos_atendimento"] = fotos_atendimento
@@ -2780,7 +2974,19 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
             imagem = None
             imagem_item = item.get("imagem") or item.get("assinatura")
             if imagem_item:
-                imagem = salvar_item_offline_rascunho(imagem_item, draft_dir, "assinaturas", padrao["id"], EXTENSOES_IMAGEM, "png")
+                imagens_recebidas += 1
+                imagem = salvar_item_offline_seguro(
+                    imagem_item,
+                    draft_dir,
+                    "assinaturas",
+                    padrao["id"],
+                    EXTENSOES_IMAGEM,
+                    "png",
+                    erros_imagem,
+                    f"Assinatura {indice}",
+                )
+                if imagem:
+                    imagens_salvas += 1
             registros.append(
                 {
                     "id": padrao["id"],
@@ -2815,12 +3021,33 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
     else:
         for chave, item in (pacote.get("assinaturas") or {}).items():
             if chave in ASSINATURAS_RESPONSAVEIS:
-                assinatura = salvar_item_offline_rascunho(item, draft_dir, "assinaturas", chave, EXTENSOES_IMAGEM, "png")
+                manifesto["assinaturas"][chave] = None
+                if item:
+                    imagens_recebidas += 1
+                assinatura = salvar_item_offline_seguro(
+                    item,
+                    draft_dir,
+                    "assinaturas",
+                    chave,
+                    EXTENSOES_IMAGEM,
+                    "png",
+                    erros_imagem,
+                    f"Assinatura {chave}",
+                )
                 if assinatura:
+                    imagens_salvas += 1
                     manifesto["assinaturas"][chave] = assinatura
         manifesto["assinaturas_lista"] = normalizar_assinaturas_lista(manifesto)
         manifesto["quantidade_assinaturas"] = len(manifesto["assinaturas_lista"])
         sincronizar_assinaturas_legadas(manifesto)
+
+    manifesto["importacao_offline"].update(
+        {
+            "imagens_recebidas": imagens_recebidas,
+            "imagens_salvas": imagens_salvas,
+            "erros_imagem": erros_imagem[:8],
+        }
+    )
 
     salvar_manifesto(draft_dir, manifesto)
     return manifesto
@@ -3471,7 +3698,90 @@ def finalizar_importacao_offline(manifesto: dict) -> None:
     aplicar_manifesto_na_sessao(manifesto)
     st.session_state.importacao_offline_ok = True
     st.session_state.importacao_offline_stats = manifesto.get("importacao_offline", {})
+    st.session_state.json_import_status = "ok"
+    st.session_state.json_import_message = "JSON importado e validado."
     st.rerun()
+
+
+def atualizar_status_upload_json() -> None:
+    arquivo = st.session_state.get("pacote_offline")
+    if arquivo:
+        st.session_state.json_import_status = "selected"
+        st.session_state.json_import_message = f"{getattr(arquivo, 'name', 'arquivo.json')} selecionado. Clique em Importar JSON."
+    else:
+        st.session_state.pop("json_import_status", None)
+        st.session_state.pop("json_import_message", None)
+
+
+def renderizar_status_upload_json(arquivo) -> None:
+    estado = st.session_state.get("json_import_status", "empty")
+    if estado == "error":
+        st.markdown(
+            """
+            <style>
+                [data-testid="stFileUploaderFile"] svg,
+                [data-testid="stFileUploaderFile"] svg *,
+                [data-testid="stFileUploaderFile"] path {
+                    color: #b42318 !important;
+                    stroke: #b42318 !important;
+                }
+                [data-testid="stFileUploaderFile"] {
+                    border-color: #f0a7a7 !important;
+                    background: #fff8f8 !important;
+                }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+    elif estado in {"ok", "selected"}:
+        st.markdown(
+            """
+            <style>
+                [data-testid="stFileUploaderFile"] svg,
+                [data-testid="stFileUploaderFile"] svg *,
+                [data-testid="stFileUploaderFile"] path {
+                    color: #176b43 !important;
+                    stroke: #176b43 !important;
+                }
+                [data-testid="stFileUploaderFile"] {
+                    border-color: #8bc5a5 !important;
+                    background: #fbfffc !important;
+                }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+    nome_arquivo = escape(getattr(arquivo, "name", "") or "")
+    mensagem = escape(st.session_state.get("json_import_message", "Nenhum JSON importado."))
+    classes = {
+        "ok": "json-import-card ok",
+        "error": "json-import-card error",
+        "selected": "json-import-card selected",
+    }
+    titulos = {
+        "ok": "JSON importado corretamente",
+        "error": "Erro ao importar JSON",
+        "selected": "JSON selecionado",
+    }
+    icones = {"ok": "✓", "error": "!", "selected": "JSON"}
+    classe = classes.get(estado, "json-import-card")
+    titulo = escape(titulos.get(estado, "Aguardando arquivo JSON"))
+    icone = escape(icones.get(estado, "JSON"))
+    detalhe = mensagem if estado in {"ok", "error", "selected"} else "Selecione o arquivo exportado pelo modo offline."
+    if estado == "selected" and nome_arquivo:
+        detalhe = f"{nome_arquivo} selecionado. Clique em Importar JSON."
+    st.markdown(
+        f"""
+        <div class="{classe}">
+            <div class="json-file-icon">{icone}</div>
+            <div>
+                <div class="json-title">{titulo}</div>
+                <div class="json-detail">{detalhe}</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def linhas_metadados_preservando_vazios(texto: str) -> list[str]:
@@ -3595,16 +3905,27 @@ if st.session_state.pop("importacao_offline_ok", False):
     estatisticas_importacao = st.session_state.pop("importacao_offline_stats", {}) or {}
     audios_recebidos = int(estatisticas_importacao.get("audios_recebidos") or 0)
     audios_salvos = int(estatisticas_importacao.get("audios_salvos") or 0)
+    imagens_recebidas = int(estatisticas_importacao.get("imagens_recebidas") or 0)
+    imagens_salvas = int(estatisticas_importacao.get("imagens_salvas") or 0)
     if audios_recebidos:
         st.success(f"Pacote offline sincronizado. Áudios importados: {audios_salvos}/{audios_recebidos}.")
     else:
         st.success("Pacote offline sincronizado.")
+    if imagens_recebidas:
+        st.caption(f"Imagens importadas: {imagens_salvas}/{imagens_recebidas}.")
     if audios_recebidos and audios_salvos == 0:
         st.warning(
             "O pacote informa áudio, mas nenhum arquivo de áudio pôde ser salvo neste navegador. "
             "O relatório ainda pode ser gerado usando o texto e os dados coletados; para usar a fala, exporte o pacote novamente pelo iPad."
         )
+    if imagens_recebidas and imagens_salvas < imagens_recebidas:
+        st.warning(
+            "Algumas imagens do pacote offline não puderam ser importadas. "
+            "O relatório será gerado com as imagens válidas; reexporte o pacote se precisar recuperar alguma foto."
+        )
     for mensagem in estatisticas_importacao.get("erros_audio", []) or []:
+        st.caption(mensagem)
+    for mensagem in estatisticas_importacao.get("erros_imagem", []) or []:
         st.caption(mensagem)
 
 with st.container(border=True):
@@ -3613,42 +3934,29 @@ with st.container(border=True):
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<p class='section-caption'>Importe o JSON exportado pelo iPad para gerar o relatório técnico.</p>",
+        "<p class='section-caption'>Importe o JSON para gerar o relatório técnico.</p>",
         unsafe_allow_html=True,
     )
-    aba_pacote_arquivo, aba_pacote_texto = st.tabs(["Carregar arquivo JSON", "Colar pacote copiado"])
-
-    with aba_pacote_arquivo:
-        pacote_offline = st.file_uploader(
-            "Selecione o arquivo JSON exportado pela coleta offline",
-            type=["json", "txt"],
-            key="pacote_offline",
-        )
-        if st.button("Carregar arquivo JSON", use_container_width=True, key="btn_importar_pacote_arquivo"):
-            if not pacote_offline:
-                st.warning("Selecione o arquivo JSON da coleta offline antes de carregar.")
-            else:
-                try:
-                    manifesto_rascunho = importar_pacote_offline(pacote_offline, draft_dir, manifesto_rascunho)
-                    finalizar_importacao_offline(manifesto_rascunho)
-                except Exception as erro:
-                    st.error(f"Erro ao sincronizar pacote offline: {erro}")
-
-    with aba_pacote_texto:
-        pacote_offline_texto = st.text_area(
-            "Cole aqui o pacote copiado no modo offline",
-            height=150,
-            key="pacote_offline_texto",
-        )
-        if st.button("Importar texto copiado", use_container_width=True, key="btn_importar_pacote_texto"):
-            if not limpar_texto(pacote_offline_texto):
-                st.warning("Cole o pacote copiado pela coleta offline antes de importar.")
-            else:
-                try:
-                    manifesto_rascunho = importar_pacote_offline_json(pacote_offline_texto, draft_dir, manifesto_rascunho)
-                    finalizar_importacao_offline(manifesto_rascunho)
-                except Exception as erro:
-                    st.error(f"Erro ao sincronizar pacote offline: {erro}")
+    pacote_offline = st.file_uploader(
+        "Selecione o arquivo JSON",
+        type=["json"],
+        key="pacote_offline",
+        on_change=atualizar_status_upload_json,
+    )
+    if st.button("Importar JSON", type="primary", use_container_width=True, key="btn_importar_pacote_arquivo"):
+        if not pacote_offline:
+            st.session_state.json_import_status = "error"
+            st.session_state.json_import_message = "Selecione o arquivo JSON antes de importar."
+            st.warning("Selecione o arquivo JSON antes de importar.")
+        else:
+            try:
+                manifesto_rascunho = importar_pacote_offline(pacote_offline, draft_dir, manifesto_rascunho)
+                finalizar_importacao_offline(manifesto_rascunho)
+            except Exception as erro:
+                st.session_state.json_import_status = "error"
+                st.session_state.json_import_message = f"Não foi possível importar: {erro}"
+                st.error(f"Erro ao sincronizar pacote offline: {erro}")
+    renderizar_status_upload_json(pacote_offline)
 
 with st.container(border=True):
     st.markdown(
@@ -3696,6 +4004,8 @@ with st.container(border=True):
         salvar_manifesto(draft_dir, manifesto_rascunho)
 
     if st.button("Limpar pacote importado", use_container_width=True):
+        st.session_state.pop("json_import_status", None)
+        st.session_state.pop("json_import_message", None)
         limpar_rascunho_atual()
         st.rerun()
 
@@ -3743,7 +4053,18 @@ with st.container(border=True):
         unsafe_allow_html=True,
     )
 
-    if entrada_disponivel and st.button("Gerar relatório técnico", type="primary", use_container_width=True):
+    if entrada_disponivel:
+        st.markdown(
+            """
+            <div class="generate-callout">
+                <div class="generate-callout-title">Pacote pronto para geração</div>
+                <div class="generate-callout-detail">Clique para gerar o Word e o ZIP com as fotos do atendimento.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    if entrada_disponivel and st.button("Gerar relatório técnico agora", type="primary", use_container_width=True):
         st.session_state.relatorio_pronto = None
         st.session_state.pacote_zip_pronto = None
         st.session_state.nome_arquivo_pronto = None
@@ -3793,7 +4114,7 @@ with st.container(border=True):
             st.error(f"Erro no processamento: {erro}")
             st.exception(erro)
     elif not entrada_disponivel:
-        st.caption("Importe o pacote offline exportado pelo iPad para gerar o relatório técnico.")
+        st.caption("Importe o JSON para liberar a geração do relatório técnico.")
 
     if st.session_state.relatorio_pronto:
         st.success("✅ O laudo está pronto para download!")

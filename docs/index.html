@@ -446,7 +446,7 @@
     }
     .thumb-actions {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(72px, auto);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 5px;
       align-items: end;
     }
@@ -460,9 +460,16 @@
       line-height: 1.15;
       white-space: normal;
     }
+    .thumb-actions .gallery-save-button {
+      border-color: #9bc9b1;
+      background: #edf8f2;
+      color: #14583a;
+      font-weight: 900;
+    }
     .order-control {
       display: grid;
       gap: 3px;
+      grid-column: 1 / -1;
     }
     .order-control span {
       color: var(--muted);
@@ -809,6 +816,25 @@
         </div>
       </div>
       <div class="field">
+        <label for="tecnico_agres_responsavel">Técnico Agres responsável</label>
+        <select id="tecnico_agres_responsavel">
+          <option value="">Selecione o técnico</option>
+          <option value="Caiky Lima">Caiky Lima</option>
+          <option value="Cristian Lima Araujo">Cristian Lima Araujo</option>
+          <option value="Denis Ledur">Denis Ledur</option>
+          <option value="Derick Dutra">Derick Dutra</option>
+          <option value="Edison Coltro">Edison Coltro</option>
+          <option value="Guilherme Zancan">Guilherme Zancan</option>
+          <option value="Gustavo Buff">Gustavo Buff</option>
+          <option value="Henrique Chaves">Henrique Chaves</option>
+          <option value="Luiz Henrique Alves">Luiz Henrique Alves</option>
+          <option value="Mauro Hubscher">Mauro Hubscher</option>
+          <option value="Phelippe Ruaro">Phelippe Ruaro</option>
+          <option value="Rodrigo de Souza">Rodrigo de Souza</option>
+          <option value="Ronaldo Hiromi Kishida Junior">Ronaldo Hiromi Kishida Junior</option>
+        </select>
+      </div>
+      <div class="field">
         <label for="localizacao_maps">Link de localização da fazenda no Maps</label>
         <input id="localizacao_maps" type="text" placeholder="Cole o link do Google Maps/Apple Maps ou as coordenadas">
         <div class="actions">
@@ -1126,19 +1152,42 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.05.30.3";
+    const APP_VERSION = "2026.06.01.5";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v30"
+      ? "agres-offline-v35"
       : location.pathname.includes("/static/coleta/")
-        ? "agres-coleta-v23"
-        : "agres-pages-offline-v26";
+        ? "agres-coleta-v28"
+        : "agres-pages-offline-v31";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
     const MIN_SIGNATURES = 0;
     const MAX_SIGNATURES = 5;
-    const IMAGE_MAX_SIDE = 1600;
-    const IMAGE_JPEG_QUALITY = 0.78;
+    const IMAGE_MAX_SIDE = 1440;
+    const IMAGE_JPEG_QUALITY = 0.72;
+    const ATTENDANCE_TYPE_FILE_LABELS = {
+      suporte: "SUPORTE",
+      instalacao: "INSTALACAO",
+      treinamento: "TREINAMENTO",
+      validacao_homologacao: "VALIDACAO"
+    };
+    const AGRES_TECHNICIANS = [
+      "CAIKY",
+      "CAYKI",
+      "CRISTIAN",
+      "DENIS",
+      "DERICK",
+      "EDISON",
+      "GUILHERME",
+      "GUSTAVO",
+      "LUIZ",
+      "HENRIQUE",
+      "MAURO",
+      "PHELIPPE",
+      "FELIPE",
+      "RODRIGO",
+      "RONALDO"
+    ];
     const HEADER_LABELS = {
       info_equip: "Informações do equipamento",
       maquina: "Máquina",
@@ -1178,6 +1227,7 @@
         app_version: APP_VERSION,
         updated_at: new Date().toISOString(),
         tipo_atendimento: "suporte",
+        tecnico_agres_responsavel: "",
         localizacao_maps: "",
         observacoes: "",
         audios: [],
@@ -1299,15 +1349,38 @@
       });
     }
 
+    function formatBytes(bytes) {
+      const value = Number(bytes || 0);
+      if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
+      return `${(value / (1024 * 1024)).toFixed(value < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+    }
+
+    function packageSizeBytesSync() {
+      try {
+        return new Blob([packageTextSync()]).size;
+      } catch (error) {
+        return 0;
+      }
+    }
+
+    async function saveDraftNow(successMessage = "") {
+      try {
+        await putDraft();
+        if (successMessage) setSyncMessage(successMessage);
+        return true;
+      } catch (error) {
+        setSyncMessage(
+          `Não foi possível salvar no aparelho. Exporte o pacote agora ou remova fotos muito pesadas. Detalhe: ${error.message || error}`
+        );
+        return false;
+      }
+    }
+
     function scheduleSave() {
       renderOfflineChecklist();
       clearTimeout(saveTimer);
       saveTimer = setTimeout(async () => {
-        try {
-          await putDraft();
-        } catch (error) {
-          setSyncMessage("Não foi possível salvar no aparelho. Se houver muitas fotos, exporte o pacote agora ou remova imagens muito pesadas.");
-        }
+        await saveDraftNow();
       }, 250);
     }
 
@@ -1332,6 +1405,82 @@
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(blob);
       });
+    }
+
+    function dataUrlToBlob(dataUrl) {
+      const [header, content] = String(dataUrl || "").split(",");
+      if (!content) throw new Error("Imagem sem conteúdo para salvar.");
+      const mimeMatch = header.match(/^data:([^;]+);base64$/);
+      const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
+      const binary = atob(content);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+      return new Blob([bytes], { type: mime });
+    }
+
+    function itemToFile(item) {
+      const blob = dataUrlToBlob(item?.dataUrl);
+      const extension = blob.type === "image/png" ? "png" : "jpg";
+      const name = item?.name || `foto_agres_${Date.now()}.${extension}`;
+      return new File([blob], name, { type: blob.type || "image/jpeg" });
+    }
+
+    async function sharePhotoFiles(files, fallbackItems = []) {
+      if (!files.length && fallbackItems.length) {
+        files = fallbackItems.map(itemToFile);
+      }
+      if (!files.length) return false;
+
+      if (typeof File === "function" && navigator.share) {
+        const canShare = !navigator.canShare || navigator.canShare({ files });
+        if (canShare) {
+          await navigator.share({
+            title: "Fotos do atendimento Agres",
+            text: "Para salvar na galeria, escolha Salvar imagem/Fotos na tela de compartilhamento.",
+            files
+          });
+          setSyncMessage("Compartilhamento aberto. Escolha Salvar imagem/Fotos para gravar na galeria.");
+          return true;
+        }
+      }
+
+      files.forEach((file) => {
+        const url = URL.createObjectURL(file);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = file.name || `foto_agres_${Date.now()}.jpg`;
+        link.rel = "noopener";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+      });
+      setSyncMessage("Foto enviada para Downloads/Arquivos. No iPhone/iPad, mova para Fotos se necessário.");
+      return false;
+    }
+
+    async function savePhotoToDevice(item) {
+      try {
+        await sharePhotoFiles([], [item]);
+      } catch (error) {
+        setSyncMessage(`Não foi possível abrir o salvamento da foto: ${error.message || error}`);
+      }
+    }
+
+    async function offerGallerySaveForCameraItems(items) {
+      const fotos = (items || []).filter((item) => item?.dataUrl);
+      if (!fotos.length) return;
+      const plural = fotos.length > 1 ? "fotos tiradas" : "foto tirada";
+      if (!confirm(`A ${plural} pela câmera foi salva na coleta. Deseja abrir a opção para salvar uma cópia na galeria do aparelho?`)) {
+        return;
+      }
+      try {
+        await sharePhotoFiles([], fotos);
+      } catch (error) {
+        setSyncMessage(`Foto salva na coleta, mas o navegador não liberou salvar na galeria: ${error.message || error}`);
+      }
     }
 
     function loadImage(dataUrl) {
@@ -1382,13 +1531,16 @@
       };
     }
 
+    function isImageFile(file) {
+      return Boolean(
+        file?.type?.startsWith("image/") ||
+        /\.(png|jpe?g|webp|heic|heif)$/i.test(String(file?.name || ""))
+      );
+    }
+
     async function readFile(file) {
-      if (file?.type?.startsWith("image/")) {
-        try {
-          return await readImageFile(file);
-        } catch (error) {
-          return readRawFile(file);
-        }
+      if (isImageFile(file)) {
+        return readImageFile(file);
       }
       return readRawFile(file);
     }
@@ -1396,12 +1548,26 @@
     async function readSelectedFiles(fileList, statusId = "") {
       const files = [...(fileList || [])];
       const items = [];
+      const errors = [];
+      const status = statusId ? document.getElementById(statusId) : null;
       for (let index = 0; index < files.length; index += 1) {
-        if (statusId) {
-          document.getElementById(statusId).textContent = `Processando ${index + 1}/${files.length}...`;
+        if (status) {
+          status.textContent = `Processando ${index + 1}/${files.length}...`;
         }
-        items.push(await readFile(files[index]));
+        try {
+          items.push(await readFile(files[index]));
+        } catch (error) {
+          errors.push(`${files[index].name || `Arquivo ${index + 1}`}: ${error.message || error}`);
+        }
         await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+      items.errors = errors;
+      if (status) {
+        status.textContent = errors.length
+          ? `${items.length}/${files.length} arquivo(s) importado(s). ${errors.length} erro(s).`
+          : items.length
+          ? `${items.length} arquivo(s) importado(s).`
+          : "";
       }
       return items;
     }
@@ -1517,6 +1683,8 @@
         const img = document.createElement("img");
         img.src = item.dataUrl;
         img.alt = item.name || "Imagem selecionada";
+        img.loading = "lazy";
+        img.decoding = "async";
         card.appendChild(img);
 
         const footer = document.createElement("div");
@@ -1525,7 +1693,7 @@
         name.className = "thumb-name";
         name.textContent = item.name || `Imagem ${index + 1}`;
         const actions = document.createElement("div");
-        actions.className = onMove ? "thumb-actions" : "thumb-actions single-action";
+        actions.className = "thumb-actions";
         if (onMove) {
           const orderControl = document.createElement("label");
           orderControl.className = "order-control";
@@ -1544,6 +1712,12 @@
           orderControl.appendChild(select);
           actions.appendChild(orderControl);
         }
+        const saveDevice = document.createElement("button");
+        saveDevice.type = "button";
+        saveDevice.className = "gallery-save-button";
+        saveDevice.textContent = "Salvar no aparelho";
+        saveDevice.addEventListener("click", () => savePhotoToDevice(item));
+        actions.appendChild(saveDevice);
         const remove = document.createElement("button");
         remove.type = "button";
         remove.textContent = "Remover";
@@ -1689,7 +1863,7 @@
       recorderMode = "";
       setRecordingState(false);
       document.getElementById("recordHint").textContent = "Áudio salvo.";
-      scheduleSave();
+      await saveDraftNow("Áudio gravado e salvo no aparelho.");
       renderAudios();
     }
 
@@ -2200,6 +2374,7 @@
       const tipo = draft.tipo_atendimento || "suporte";
       const tipoInput = document.querySelector(`input[name="tipo_atendimento"][value="${tipo}"]`);
       if (tipoInput) tipoInput.checked = true;
+      document.getElementById("tecnico_agres_responsavel").value = draft.tecnico_agres_responsavel || "";
       document.getElementById("localizacao_maps").value = draft.localizacao_maps || "";
       document.getElementById("observacoes").value = draft.observacoes || "";
       CATEGORIES.forEach((key) => {
@@ -2219,6 +2394,10 @@
           }
         });
       });
+      document.getElementById("tecnico_agres_responsavel").addEventListener("change", (event) => {
+        draft.tecnico_agres_responsavel = event.target.value.trim();
+        scheduleSave();
+      });
       document.getElementById("localizacao_maps").addEventListener("input", (event) => {
         draft.localizacao_maps = event.target.value.trim();
         scheduleSave();
@@ -2235,12 +2414,24 @@
         scheduleSave();
       });
 
-      async function importEvidenceInput(key, event) {
+      async function importEvidenceInput(key, event, fromCamera = false) {
         try {
           const arquivos = await readSelectedFiles(event.target.files, `${key}_status`);
-          draft.evidencias[key] = [...(draft.evidencias[key] || []), ...arquivos];
+          if (arquivos.length) {
+            draft.evidencias[key] = [...(draft.evidencias[key] || []), ...arquivos];
+          }
           updateCounts();
-          scheduleSave();
+          await saveDraftNow(
+            arquivos.length
+              ? `${arquivos.length} foto(s) adicionada(s) em ${CATEGORY_LABELS[key]}.`
+              : "Nenhuma foto foi adicionada."
+          );
+          if (arquivos.errors?.length) {
+            setSyncMessage(`Algumas fotos não foram importadas: ${arquivos.errors.slice(0, 2).join(" | ")}`);
+          }
+          if (fromCamera && arquivos.length) {
+            await offerGallerySaveForCameraItems(arquivos);
+          }
         } catch (error) {
           document.getElementById(`${key}_status`).textContent = `Erro ao importar imagens: ${error.message}`;
         } finally {
@@ -2248,12 +2439,24 @@
         }
       }
 
-      async function importAttendanceInput(event) {
+      async function importAttendanceInput(event, fromCamera = false) {
         try {
           const arquivos = await readSelectedFiles(event.target.files, `${ATTENDANCE_PHOTOS}_status`);
-          draft.fotos_atendimento = [...(draft.fotos_atendimento || []), ...arquivos];
+          if (arquivos.length) {
+            draft.fotos_atendimento = [...(draft.fotos_atendimento || []), ...arquivos];
+          }
           updateCounts();
-          scheduleSave();
+          await saveDraftNow(
+            arquivos.length
+              ? `${arquivos.length} foto(s) adicionada(s) em Fotos do atendimento.`
+              : "Nenhuma foto foi adicionada."
+          );
+          if (arquivos.errors?.length) {
+            setSyncMessage(`Algumas fotos não foram importadas: ${arquivos.errors.slice(0, 2).join(" | ")}`);
+          }
+          if (fromCamera && arquivos.length) {
+            await offerGallerySaveForCameraItems(arquivos);
+          }
         } catch (error) {
           document.getElementById(`${ATTENDANCE_PHOTOS}_status`).textContent = `Erro ao importar imagens: ${error.message}`;
         } finally {
@@ -2261,12 +2464,15 @@
         }
       }
 
-      async function importHeaderInput(key, event) {
+      async function importHeaderInput(key, event, fromCamera = false) {
         try {
           const file = event.target.files[0];
           draft.cabecalho[key] = file ? await readFile(file) : null;
           updateCounts();
-          scheduleSave();
+          await saveDraftNow(file ? `${HEADER_LABELS[key]} salvo no aparelho.` : "");
+          if (fromCamera && draft.cabecalho[key]) {
+            await offerGallerySaveForCameraItems([draft.cabecalho[key]]);
+          }
         } catch (error) {
           document.getElementById(`${key}_status`).textContent = `Erro ao importar imagem: ${error.message}`;
         } finally {
@@ -2280,22 +2486,29 @@
           scheduleSave();
         });
         document.getElementById(key).addEventListener("change", (event) => importEvidenceInput(key, event));
-        document.getElementById(`${key}_camera`).addEventListener("change", (event) => importEvidenceInput(key, event));
+        document.getElementById(`${key}_camera`).addEventListener("change", (event) => importEvidenceInput(key, event, true));
       });
 
       document.getElementById(ATTENDANCE_PHOTOS).addEventListener("change", importAttendanceInput);
-      document.getElementById(`${ATTENDANCE_PHOTOS}_camera`).addEventListener("change", importAttendanceInput);
+      document.getElementById(`${ATTENDANCE_PHOTOS}_camera`).addEventListener("change", (event) => importAttendanceInput(event, true));
       HEADERS.forEach((key) => {
         document.getElementById(key).addEventListener("change", (event) => importHeaderInput(key, event));
-        document.getElementById(`${key}_camera`).addEventListener("change", (event) => importHeaderInput(key, event));
+        document.getElementById(`${key}_camera`).addEventListener("change", (event) => importHeaderInput(key, event, true));
       });
 
       document.getElementById("audioFiles").addEventListener("change", async (event) => {
-        const arquivos = await Promise.all([...event.target.files].map(readFile));
-        draft.audios.push(...arquivos);
+        const arquivos = await readSelectedFiles(event.target.files);
+        if (arquivos.length) {
+          draft.audios.push(...arquivos);
+        }
         event.target.value = "";
         renderAudios();
-        scheduleSave();
+        await saveDraftNow(
+          arquivos.length ? `${arquivos.length} áudio(s) importado(s) e salvo(s).` : "Nenhum áudio foi importado."
+        );
+        if (arquivos.errors?.length) {
+          setSyncMessage(`Alguns áudios não foram importados: ${arquivos.errors.slice(0, 2).join(" | ")}`);
+        }
       });
 
       document.getElementById("recordBtn").addEventListener("click", () => startRecording().catch((error) => {
@@ -2357,15 +2570,50 @@
 
     function dateForFileName() {
       const text = String(draft.observacoes || "");
-      const br = text.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
-      if (br) {
-        const [, day, month, year] = br;
-        return `${year.padStart(4, "0")}${month.padStart(2, "0")}${day.padStart(2, "0")}`;
+      const candidates = [];
+      for (const match of text.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g)) {
+        const [, day, month, year] = match;
+        candidates.push({
+          index: match.index || 0,
+          value: `${year.padStart(4, "0")}${month.padStart(2, "0")}${day.padStart(2, "0")}`
+        });
       }
-      const iso = text.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
-      if (iso) {
-        const [, year, month, day] = iso;
-        return `${year.padStart(4, "0")}${month.padStart(2, "0")}${day.padStart(2, "0")}`;
+      for (const match of text.matchAll(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/g)) {
+        const [, year, month, day] = match;
+        candidates.push({
+          index: match.index || 0,
+          value: `${year.padStart(4, "0")}${month.padStart(2, "0")}${day.padStart(2, "0")}`
+        });
+      }
+      const months = {
+        janeiro: "01",
+        fevereiro: "02",
+        marco: "03",
+        março: "03",
+        abril: "04",
+        maio: "05",
+        junho: "06",
+        julho: "07",
+        agosto: "08",
+        setembro: "09",
+        outubro: "10",
+        novembro: "11",
+        dezembro: "12"
+      };
+      const extendedRange = /\b\d{1,2}\s*(?:a|até|-)\s*(\d{1,2})\s*(?:de\s+)?(janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(?:de\s+)?(\d{4})\b/gi;
+      for (const match of text.matchAll(extendedRange)) {
+        const [, day, monthName, year] = match;
+        const month = months[monthName.toLowerCase().replace("ç", "c")];
+        if (month) {
+          candidates.push({
+            index: match.index || 0,
+            value: `${year.padStart(4, "0")}${month}${day.padStart(2, "0")}`
+          });
+        }
+      }
+      if (candidates.length) {
+        candidates.sort((a, b) => a.index - b.index);
+        return candidates[candidates.length - 1].value;
       }
       return new Date().toISOString().slice(0, 10).replace(/-/g, "");
     }
@@ -2376,14 +2624,26 @@
       return match ? match[0] : fallback;
     }
 
+    function attendanceTypeForFileName() {
+      return ATTENDANCE_TYPE_FILE_LABELS[draft.tipo_atendimento] || "ATENDIMENTO";
+    }
+
+    function technicianForFileName() {
+      const explicit = normalizeFilePart(draft.tecnico_agres_responsavel || "");
+      if (explicit) {
+        return explicit.split("_").filter(Boolean)[0] || explicit;
+      }
+      const text = normalizeFilePart(draft.observacoes || "");
+      const tokens = new Set(text.split("_").filter(Boolean));
+      const found = AGRES_TECHNICIANS.find((name) => tokens.has(name));
+      return found || "TECNICO";
+    }
+
     function automaticReportBaseName() {
       const data = dateForFileName();
-      const equipamento = extractKnownTerms(/\b(?:ISO|ISOBUS|GEONAVE|AGRONAVE|NORDIAN|ISOPILOT|ISOBOX)[A-Z0-9_]*\b/, "ATENDIMENTO");
-      const texto = normalizeFilePart(draft.observacoes || "");
-      const tecnico = extractKnownTerms(/\b(?:HENRIQUE|CAYKI|CAIKI|CRISTIAN|PHELIPPE|FELIPE|ARTUR|ARTHUR)\b/, "TECNICO");
-      const localMatch = texto.match(/\b([A-Z]{4,}(?:_[A-Z]{2,}){0,3})_(PR|SC|RS|SP|MG|GO|MT|MS|BA|TO|PA|RO|ARGENTINA)\b/);
-      const local = localMatch ? `${localMatch[1]}_${localMatch[2]}` : "LOCAL";
-      return `${data}_RELATORIO_ATIVIDADES_${equipamento}_${tecnico}_${local}`.slice(0, 150);
+      const tipo = attendanceTypeForFileName();
+      const tecnico = technicianForFileName();
+      return `${data}_RELATORIO_ATIVIDADES_${tipo}_${tecnico}`.slice(0, 150);
     }
 
     function packageTextSync() {
@@ -2572,6 +2832,7 @@
         normalizeSignatures();
         const fileName = packageFileName();
         const blob = packageBlobSync();
+        const packageSize = formatBytes(blob.size);
         putDraft().catch(() => {});
 
         if (typeof File === "function" && navigator.share) {
@@ -2584,7 +2845,7 @@
                 text: "Pacote JSON da coleta offline Agres.",
                 files: [file]
               });
-              setSyncMessage("Pacote relatório offline exportado.");
+              setSyncMessage(`Pacote relatório offline exportado (${packageSize}).`);
               return;
             } catch (error) {
               if (error?.name === "AbortError") {
@@ -2605,6 +2866,8 @@
         link.click();
         link.remove();
         showDownloadFallback(lastExportUrl, fileName);
+        const container = document.getElementById("syncMessage");
+        container.appendChild(document.createTextNode(` Tamanho aproximado: ${packageSize}.`));
       } catch (error) {
         setSyncMessage(`Não foi possível exportar o pacote: ${error.message}`);
       }
