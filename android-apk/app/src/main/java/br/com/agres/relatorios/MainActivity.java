@@ -7,6 +7,7 @@ import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -34,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
@@ -345,12 +347,25 @@ public class MainActivity extends Activity {
                 Uri uri = writeJsonShareFile(bytes, fileName);
 
                 Intent shareIntent = new Intent(Intent.ACTION_SEND);
-                shareIntent.setType("*/*");
-                shareIntent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/json", "text/plain"});
+                shareIntent.setType("application/octet-stream");
+                shareIntent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/json", "application/octet-stream"});
                 shareIntent.putExtra(Intent.EXTRA_STREAM, uri);
-                shareIntent.putExtra(Intent.EXTRA_TEXT, "Pacote JSON da coleta offline Agres.");
                 shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 shareIntent.setClipData(ClipData.newUri(getContentResolver(), "Pacote Relatorio Offline", uri));
+
+                List<ResolveInfo> shareTargets = getPackageManager().queryIntentActivities(
+                    shareIntent,
+                    PackageManager.MATCH_DEFAULT_ONLY
+                );
+                for (ResolveInfo target : shareTargets) {
+                    if (target.activityInfo != null && target.activityInfo.packageName != null) {
+                        grantUriPermission(
+                            target.activityInfo.packageName,
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        );
+                    }
+                }
 
                 Intent chooser = Intent.createChooser(shareIntent, "Compartilhar pacote relatorio offline");
                 chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
