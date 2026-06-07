@@ -546,27 +546,28 @@ st.markdown(
         }
         .json-import-card {
             display: grid;
-            grid-template-columns: 3rem minmax(0, 1fr);
+            grid-template-columns: 3.2rem minmax(0, 1fr);
             align-items: center;
             gap: 0.75rem;
-            border: 1px solid #d6d8dc;
+            border: 1px solid #b9d7c6;
             border-radius: 12px;
-            padding: 0.8rem 0.9rem;
-            margin: 0.75rem 0 0.75rem;
-            background: #ffffff;
+            padding: 0.9rem 1rem;
+            margin: 0.45rem 0 0.7rem;
+            background: linear-gradient(180deg, #ffffff 0%, #f4fbf7 100%);
+            box-shadow: 0 8px 24px rgba(23, 107, 67, 0.08);
         }
         .json-import-card .json-file-icon {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 2.55rem;
-            height: 2.55rem;
+            width: 2.75rem;
+            height: 2.75rem;
             border-radius: 10px;
-            font-size: 1.25rem;
+            font-size: 1.05rem;
             font-weight: 900;
-            border: 1px solid #cfd3d8;
-            background: #f4f5f6;
-            color: #3f4247 !important;
+            border: 1px solid #8bc5a5;
+            background: #dff4e8;
+            color: #176b43 !important;
         }
         .json-import-card .json-title {
             color: #25272b !important;
@@ -599,8 +600,24 @@ st.markdown(
             color: #b42318 !important;
         }
         .json-import-card.selected {
-            border-color: #b9bdc4;
-            background: #fbfcfd;
+            border-color: #8bc5a5;
+            background: linear-gradient(180deg, #ffffff 0%, #f0faf4 100%);
+        }
+        .st-key-btn_remover_pacote_arquivo button {
+            background: #d92d20 !important;
+            border: 1px solid #b42318 !important;
+            color: #ffffff !important;
+            box-shadow: 0 8px 18px rgba(217, 45, 32, 0.22) !important;
+        }
+        .st-key-btn_remover_pacote_arquivo button:hover {
+            background: #b42318 !important;
+            border-color: #912018 !important;
+        }
+        .st-key-btn_remover_pacote_arquivo button *,
+        .st-key-btn_remover_pacote_arquivo button svg,
+        .st-key-btn_remover_pacote_arquivo button path {
+            color: #ffffff !important;
+            stroke: #ffffff !important;
         }
         .generate-callout {
             border: 1px solid #b7c9bd;
@@ -1146,6 +1163,21 @@ def ativar_wake_lock_audio_mobile() -> None:
                             botao.style.setProperty("display", "none", "important");
                             botao.style.setProperty("visibility", "hidden", "important");
                             botao.style.setProperty("pointer-events", "none", "important");
+                        });
+                    });
+
+                    docAlvo.querySelectorAll("button").forEach((botao) => {
+                        const texto = (botao.textContent || "").trim().toLowerCase();
+                        if (!texto.includes("remover arquivo json")) {
+                            return;
+                        }
+                        botao.style.setProperty("background", "#d92d20", "important");
+                        botao.style.setProperty("border", "1px solid #b42318", "important");
+                        botao.style.setProperty("color", "#ffffff", "important");
+                        botao.style.setProperty("box-shadow", "0 8px 18px rgba(217, 45, 32, 0.22)", "important");
+                        botao.setAttribute("title", "Excluir o arquivo JSON selecionado");
+                        botao.querySelectorAll("*").forEach((elemento) => {
+                            elemento.style.setProperty("color", "#ffffff", "important");
                         });
                     });
                 }
@@ -3887,14 +3919,49 @@ def finalizar_importacao_offline(manifesto: dict) -> None:
     st.rerun()
 
 
-def atualizar_status_upload_json() -> None:
-    arquivo = st.session_state.get("pacote_offline")
+def atualizar_status_upload_json(chave_uploader: str) -> None:
+    arquivo = st.session_state.get(chave_uploader)
     if arquivo:
+        st.session_state.json_upload_bytes = arquivo.getvalue()
+        st.session_state.json_upload_name = getattr(arquivo, "name", "pacote_relatorio.json")
+        st.session_state.json_upload_type = getattr(arquivo, "type", "application/json")
         st.session_state.json_import_status = "selected"
         st.session_state.json_import_message = f"{getattr(arquivo, 'name', 'arquivo.json')} selecionado. Clique em Importar JSON."
     else:
+        st.session_state.pop("json_upload_bytes", None)
+        st.session_state.pop("json_upload_name", None)
+        st.session_state.pop("json_upload_type", None)
         st.session_state.pop("json_import_status", None)
         st.session_state.pop("json_import_message", None)
+
+
+def arquivo_json_em_memoria():
+    conteudo = st.session_state.get("json_upload_bytes")
+    if not conteudo:
+        return None
+    arquivo = BytesIO(conteudo)
+    arquivo.name = st.session_state.get("json_upload_name", "pacote_relatorio.json")
+    arquivo.type = st.session_state.get("json_upload_type", "application/json")
+    return arquivo
+
+
+def remover_upload_json() -> None:
+    st.session_state.pop("json_upload_bytes", None)
+    st.session_state.pop("json_upload_name", None)
+    st.session_state.pop("json_upload_type", None)
+    st.session_state.pop("json_import_status", None)
+    st.session_state.pop("json_import_message", None)
+    st.session_state.json_uploader_version = int(st.session_state.get("json_uploader_version", 0)) + 1
+
+
+def formatar_tamanho_arquivo(tamanho: int) -> str:
+    valor = float(max(0, tamanho or 0))
+    for unidade in ("B", "KB", "MB", "GB"):
+        if valor < 1024 or unidade == "GB":
+            casas = 0 if unidade == "B" else 1
+            return f"{valor:.{casas}f} {unidade}"
+        valor /= 1024
+    return f"{valor:.1f} GB"
 
 
 def renderizar_status_upload_json(arquivo) -> None:
@@ -3953,7 +4020,8 @@ def renderizar_status_upload_json(arquivo) -> None:
     icone = escape(icones.get(estado, "JSON"))
     detalhe = mensagem if estado in {"ok", "error", "selected"} else "Selecione o arquivo exportado pelo modo offline."
     if estado == "selected" and nome_arquivo:
-        detalhe = f"{nome_arquivo} selecionado. Clique em Importar JSON."
+        tamanho = len(st.session_state.get("json_upload_bytes") or b"")
+        detalhe = f"{nome_arquivo} · {formatar_tamanho_arquivo(tamanho)} · pronto para importar."
     st.markdown(
         f"""
         <div class="{classe}">
@@ -4121,18 +4189,34 @@ with st.container(border=True):
         "<p class='section-caption'>Importe o JSON para gerar o relatório técnico.</p>",
         unsafe_allow_html=True,
     )
-    pacote_offline = st.file_uploader(
-        "Selecione o arquivo JSON",
-        type=["json"],
-        key="pacote_offline",
-        on_change=atualizar_status_upload_json,
-    )
-    if st.button("Importar JSON", type="primary", use_container_width=True, key="btn_importar_pacote_arquivo"):
-        if not pacote_offline:
-            st.session_state.json_import_status = "error"
-            st.session_state.json_import_message = "Selecione o arquivo JSON antes de importar."
-            st.warning("Selecione o arquivo JSON antes de importar.")
-        else:
+    pacote_offline = arquivo_json_em_memoria()
+    if pacote_offline is None:
+        versao_uploader = int(st.session_state.get("json_uploader_version", 0))
+        chave_uploader = f"pacote_offline_{versao_uploader}"
+        st.file_uploader(
+            "Selecione o arquivo JSON",
+            type=["json"],
+            key=chave_uploader,
+            on_change=atualizar_status_upload_json,
+            args=(chave_uploader,),
+        )
+    else:
+        renderizar_status_upload_json(pacote_offline)
+        coluna_importar, coluna_remover = st.columns([1.25, 0.75])
+        importar_json = coluna_importar.button(
+            "Importar JSON",
+            type="primary",
+            use_container_width=True,
+            key="btn_importar_pacote_arquivo",
+        )
+        coluna_remover.button(
+            "✕ Remover arquivo JSON",
+            use_container_width=True,
+            key="btn_remover_pacote_arquivo",
+            on_click=remover_upload_json,
+        )
+
+        if importar_json:
             try:
                 manifesto_rascunho = importar_pacote_offline(pacote_offline, draft_dir, manifesto_rascunho)
                 finalizar_importacao_offline(manifesto_rascunho)
@@ -4140,7 +4224,6 @@ with st.container(border=True):
                 st.session_state.json_import_status = "error"
                 st.session_state.json_import_message = f"Não foi possível importar: {erro}"
                 st.error(f"Erro ao sincronizar pacote offline: {erro}")
-    renderizar_status_upload_json(pacote_offline)
 
 with st.container(border=True):
     st.markdown(
