@@ -761,6 +761,60 @@ st.markdown(
             color: #174d32 !important;
             stroke: #176b43 !important;
         }
+        [data-testid="stFileUploader"]:has([data-testid="stFileUploaderFile"])
+        [data-testid="stFileUploaderDropzone"] {
+            background: #f4fbf7 !important;
+            border-style: solid !important;
+            border-color: #87bea1 !important;
+        }
+        [data-testid="stFileUploader"]:has([data-testid="stFileUploaderFile"])
+        [data-testid="stFileUploaderDropzone"] > button,
+        [data-testid="stFileUploader"]:has([data-testid="stFileUploaderFile"])
+        [data-testid="stFileUploaderDropzone"] > div > button:not([data-testid="stFileUploaderDeleteBtn"]) {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+        [data-testid="stFileUploaderFile"] > div:first-child,
+        [data-testid="stFileUploaderFile"] > div:first-child svg,
+        [data-testid="stFileUploaderFile"] > div:first-child path {
+            background: #dff4e8 !important;
+            color: #176b43 !important;
+            border-color: #8bc5a5 !important;
+            stroke: #176b43 !important;
+        }
+        [data-testid="stFileUploaderDropzone"] [data-testid="stFileUploaderFile"] button,
+        [data-testid="stFileUploader"] [data-testid="stFileUploaderDeleteBtn"] {
+            display: inline-flex !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: #d92d20 !important;
+            border: 1px solid #b42318 !important;
+            color: #ffffff !important;
+            min-width: 2.35rem !important;
+            width: 2.35rem !important;
+            height: 2.35rem !important;
+            border-radius: 10px !important;
+            box-shadow: 0 6px 14px rgba(217, 45, 32, 0.22) !important;
+        }
+        [data-testid="stFileUploaderDropzone"] [data-testid="stFileUploaderFile"] button:hover,
+        [data-testid="stFileUploader"] [data-testid="stFileUploaderDeleteBtn"]:hover {
+            background: #b42318 !important;
+            border-color: #912018 !important;
+        }
+        [data-testid="stFileUploaderDropzone"] [data-testid="stFileUploaderFile"] button *,
+        [data-testid="stFileUploader"] [data-testid="stFileUploaderDeleteBtn"] *,
+        [data-testid="stFileUploaderDropzone"] [data-testid="stFileUploaderFile"] button svg,
+        [data-testid="stFileUploader"] [data-testid="stFileUploaderDeleteBtn"] svg,
+        [data-testid="stFileUploaderDropzone"] [data-testid="stFileUploaderFile"] button path,
+        [data-testid="stFileUploader"] [data-testid="stFileUploaderDeleteBtn"] path {
+            background: transparent !important;
+            color: #ffffff !important;
+            fill: none !important;
+            stroke: #ffffff !important;
+        }
         label, .stTextInput label, .stTextArea label, .stFileUploader label {
             color: #25272b !important;
             font-weight: 700 !important;
@@ -1034,13 +1088,59 @@ def ativar_wake_lock_audio_mobile() -> None:
                 } catch (erro) {}
 
                 for (const docAlvo of documentos) {
-                    docAlvo.querySelectorAll("[data-testid='stFileUploaderDropzone']").forEach((dropzone) => {
-                        const arquivo = dropzone.querySelector("[data-testid='stFileUploaderFile']");
+                    docAlvo.querySelectorAll("[data-testid='stFileUploader']").forEach((uploader) => {
+                        const arquivo = uploader.querySelector("[data-testid='stFileUploaderFile']");
                         if (!arquivo) {
                             return;
                         }
-                        dropzone.querySelectorAll("button").forEach((botao) => {
+
+                        const dropzone = uploader.querySelector("[data-testid='stFileUploaderDropzone']");
+                        if (dropzone) {
+                            dropzone.style.setProperty("background", "#f4fbf7", "important");
+                            dropzone.style.setProperty("border-color", "#87bea1", "important");
+                            dropzone.style.setProperty("border-style", "solid", "important");
+                        }
+
+                        arquivo.style.setProperty("background", "#f4fbf7", "important");
+                        arquivo.style.setProperty("border", "1px solid #87bea1", "important");
+                        arquivo.style.setProperty("border-radius", "14px", "important");
+
+                        const iconeArquivo = Array.from(arquivo.querySelectorAll("svg")).find(
+                            (icone) => !icone.closest("button")
+                        );
+                        if (iconeArquivo) {
+                            const caixaIcone = iconeArquivo.parentElement;
+                            if (caixaIcone) {
+                                caixaIcone.style.setProperty("background", "#dff4e8", "important");
+                                caixaIcone.style.setProperty("border-radius", "10px", "important");
+                                caixaIcone.style.setProperty("color", "#176b43", "important");
+                            }
+                            iconeArquivo.style.setProperty("color", "#176b43", "important");
+                            iconeArquivo.style.setProperty("stroke", "#176b43", "important");
+                            iconeArquivo.querySelectorAll("path").forEach((path) => {
+                                path.style.setProperty("stroke", "#176b43", "important");
+                            });
+                        }
+
+                        uploader.querySelectorAll("button").forEach((botao) => {
                             if (arquivo.contains(botao)) {
+                                botao.style.setProperty("display", "inline-flex", "important");
+                                botao.style.setProperty("visibility", "visible", "important");
+                                botao.style.setProperty("pointer-events", "auto", "important");
+                                botao.style.setProperty("background", "#d92d20", "important");
+                                botao.style.setProperty("border", "1px solid #b42318", "important");
+                                botao.style.setProperty("color", "#ffffff", "important");
+                                botao.style.setProperty("border-radius", "10px", "important");
+                                botao.style.setProperty("min-width", "2.35rem", "important");
+                                botao.style.setProperty("width", "2.35rem", "important");
+                                botao.style.setProperty("height", "2.35rem", "important");
+                                botao.setAttribute("title", "Excluir arquivo JSON");
+                                botao.setAttribute("aria-label", "Excluir arquivo JSON");
+                                botao.querySelectorAll("*").forEach((elemento) => {
+                                    elemento.style.setProperty("background", "transparent", "important");
+                                    elemento.style.setProperty("color", "#ffffff", "important");
+                                    elemento.style.setProperty("stroke", "#ffffff", "important");
+                                });
                                 return;
                             }
                             botao.style.setProperty("display", "none", "important");

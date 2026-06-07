@@ -1198,12 +1198,12 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.06.01.12";
+    const APP_VERSION = "2026.06.06.13";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v42"
+      ? "agres-offline-v43"
       : location.pathname.includes("/static/coleta/")
-        ? "agres-coleta-v35"
-        : "agres-pages-offline-v38";
+        ? "agres-coleta-v36"
+        : "agres-pages-offline-v39";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
@@ -1268,6 +1268,7 @@
     let saveTimer;
     let locationWatchId = null;
     let locationAttemptId = 0;
+    let lastLocationPermissionState = "unknown";
     let signatureFullscreenRequested = false;
     let lastExportUrl = "";
 
@@ -2842,13 +2843,43 @@
       }
     }
 
+    function isIosDevice() {
+      return /iPad|iPhone|iPod/i.test(navigator.userAgent)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    }
+
+    function isStandaloneApp() {
+      return navigator.standalone === true
+        || Boolean(window.matchMedia?.("(display-mode: standalone)")?.matches);
+    }
+
+    async function readGeolocationPermissionState() {
+      try {
+        if (!navigator.permissions?.query) return "unknown";
+        const status = await navigator.permissions.query({ name: "geolocation" });
+        return status?.state || "unknown";
+      } catch {
+        return "unknown";
+      }
+    }
+
+    function locationPermissionInstructions() {
+      if (isIosDevice()) {
+        if (isStandaloneApp()) {
+          return "O iPhone bloqueou a localização para a coleta instalada. Ela possui permissão separada do Safari. Abra Ajustes > Privacidade e Segurança > Serviços de Localização > Agres Offline (ou Safari Websites), selecione Durante o Uso e ative Localização Precisa. Depois feche e abra a coleta.";
+        }
+        return "O iPhone bloqueou a localização para este site. Abra Ajustes > Privacidade e Segurança > Serviços de Localização > Safari Websites, selecione Durante o Uso e ative Localização Precisa. Depois volte ao Safari e tente novamente.";
+      }
+      return "Permissão de localização negada. Ative Localização para o navegador/app da Agres e tente novamente.";
+    }
+
     function locationErrorMessage(error) {
       const code = Number(error?.code || 0);
       if (!window.isSecureContext) {
         return "Localização bloqueada em HTTP. No celular, abra a coleta offline instalada pelo link HTTPS publicado antes de ficar sem internet.";
       }
-      if (code === 1) {
-        return "Permissão de localização negada. No celular, ative Localização para o navegador/app da Agres e toque novamente em Atualizar localização atual.";
+      if (code === 1 || lastLocationPermissionState === "denied") {
+        return locationPermissionInstructions();
       }
       if (code === 2) {
         return "O aparelho não conseguiu encontrar a posição. Ative GPS/localização, saia para área aberta e tente novamente.";
@@ -2896,6 +2927,12 @@
         return;
       }
 
+      lastLocationPermissionState = await readGeolocationPermissionState();
+      if (lastLocationPermissionState === "denied") {
+        setLocationHint(locationPermissionInstructions());
+        return;
+      }
+
       const attemptId = ++locationAttemptId;
       clearLocationWatch();
       setLocationButtonBusy(true);
@@ -2927,6 +2964,7 @@
         }
       } catch (error) {
         if (attemptId === locationAttemptId) {
+          lastLocationPermissionState = await readGeolocationPermissionState();
           setLocationHint(locationErrorMessage(error));
         }
       } finally {
