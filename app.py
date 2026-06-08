@@ -1546,6 +1546,55 @@ def adicionar_ao_relato(relato: str, itens: list[str]) -> str:
     return limpar_relato_narrativo((relato_base + "\n\n" + complemento).strip() if relato_base else complemento)
 
 
+def contar_palavras_relato(texto: str) -> int:
+    return len(re.findall(r"\b[\wÀ-ÿ]+\b", limpar_texto(texto)))
+
+
+def montar_complemento_rastreabilidade(dados: dict) -> str:
+    campos = (
+        ("cliente_local", "Cliente/local"),
+        ("localizacao_maps", "Localização"),
+        ("equipamentos", "Equipamento"),
+        ("maquinas", "Máquina/implemento"),
+        ("objetivos", "Objetivo"),
+        ("configuracoes", "Configurações registradas"),
+        ("calibracoes", "Calibrações/validações registradas"),
+        ("acompanhantes", "Acompanhantes"),
+    )
+    partes = []
+    for campo, rotulo in campos:
+        valor = limpar_texto(dados.get(campo, ""))
+        if not valor or normalizar_busca(valor) == "nao informado":
+            continue
+        valor = re.sub(r"\n+", "; ", valor.replace("•", "")).strip(" ;")
+        if valor:
+            partes.append(f"{rotulo}: {valor}")
+
+    if not partes:
+        return ""
+
+    return finalizar_frase(
+        "Para fins de rastreabilidade técnica do atendimento, também ficaram registrados os seguintes dados complementares: "
+        + "; ".join(partes)
+    )
+
+
+def enriquecer_relato_quando_curto(dados: dict) -> str:
+    relato = limpar_relato_narrativo(dados.get("relato", ""))
+    if contar_palavras_relato(relato) >= 180:
+        return relato
+
+    complemento = montar_complemento_rastreabilidade(dados)
+    if not complemento:
+        return relato
+
+    relato_normalizado = normalizar_busca(relato)
+    if normalizar_busca(complemento[:120]) in relato_normalizado:
+        return relato
+
+    return limpar_relato_narrativo(f"{relato}\n\n{complemento}" if relato else complemento)
+
+
 def normalizar_dados_relatorio(dados: dict) -> dict:
     dados_normalizados = {campo: limpar_texto(dados.get(campo, "")) for campo in CAMPOS_RELATORIO}
     detalhes_para_relato = []
@@ -1573,7 +1622,7 @@ def normalizar_dados_relatorio(dados: dict) -> dict:
         dados_normalizados["relato"],
         itens_config_relato + itens_calibracao_relato + detalhes_para_relato,
     )
-    dados_normalizados["relato"] = limpar_relato_narrativo(dados_normalizados["relato"])
+    dados_normalizados["relato"] = enriquecer_relato_quando_curto(dados_normalizados)
 
     if not dados_normalizados["relato"]:
         dados_normalizados["relato"] = "Não informado nos áudios ou observações encaminhadas."
@@ -1621,7 +1670,8 @@ def montar_prompt(contexto_manual: str = "") -> str:
     return f"""
 Você é redator técnico da Agres e deve transformar áudios/anotações de atendimento de campo em dados para um relatório formal.
 
-Use português técnico, claro e objetivo. Reescreva falas informais em linguagem profissional, sem inventar dados, versões, medidas, peças ou conclusões que não estejam no material recebido.
+Use português técnico, claro e objetivo, porém completo e minucioso. Reescreva falas informais em linguagem profissional, sem inventar dados, versões, medidas, peças ou conclusões que não estejam no material recebido.
+Não resuma o atendimento. Preserve o máximo possível de informações técnicas citadas nos áudios/anotações, incluindo nomes, datas, local, cliente, máquina, implemento, equipamento, versões, números de série, sintomas, hipóteses, testes, tentativas, parâmetros, valores, componentes, decisões, dificuldades, pendências e conclusão.
 {bloco_contexto}
 REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 1. tipo_atendimento: retornar apenas uma opção entre "suporte", "instalacao", "treinamento" ou "validacao_homologacao". Nunca marcar mais de um tipo no relatório.
@@ -1640,16 +1690,20 @@ REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 13. documento_revenda_fabrica: informar CPF, RG ou documento do responsável da revenda/fábrica quando mencionado; caso contrário, retornar "".
 14. responsavel_fazenda: informar o nome do responsável da fazenda, cliente, operador, encarregado ou proprietário que validou/acompanhou o atendimento, quando mencionado.
 15. documento_fazenda: informar CPF, RG ou documento do responsável da fazenda quando mencionado; caso contrário, retornar "".
-16. relato: concentrar todo o detalhamento técnico e cronológico. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
+16. relato: concentrar todo o detalhamento técnico e cronológico. O relato deve ser a parte mais completa do relatório. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
 17. nome_arquivo_sugerido: montar no padrão "AAAAMMDD_RELATÓRIO_ATIVIDADES_EQUIPAMENTO_TÉCNICO_CIDADE_UF". Use sempre a data final quando houver intervalo. Exemplo: atendimento de 15 a 19/05/2026 deve usar "20260519_RELATÓRIO_ATIVIDADES_...".
 
 PADRÃO DO RELATO:
 - Escrever em terceira pessoa.
 - Escrever em formato narrativo, como relato técnico do que foi realizado em campo.
 - Não usar subtítulos, tópicos, listas, markdown, negrito com **texto**, enumeração ou blocos separados por títulos.
-- Descrever em parágrafos corridos o contexto do atendimento, problema informado, diagnóstico inicial, procedimentos executados, configurações/calibrações relevantes, problemas encontrados, correções aplicadas, testes de funcionamento, resultado final e conclusão técnica.
-- Separar o relato em 3 a 5 parágrafos, usando uma linha em branco entre parágrafos. Não retornar tudo em um único bloco.
+- Descrever em parágrafos corridos o contexto do atendimento, problema informado, diagnóstico inicial, procedimentos executados, configurações/calibrações relevantes, problemas encontrados, correções aplicadas, testes de funcionamento, resultado final, pendências, recomendações e conclusão técnica.
+- Não condensar várias ações em uma única frase genérica. Quando houver sequência de atividades, descrever a ordem de execução e o motivo técnico de cada etapa.
+- Quando forem citados valores, versões, séries, bitolas, sensores, seções, bicos, offsets, larguras, vazões, pressões, velocidade, talhões, implementos, ECUs, telas ou módulos, manter esses dados no relato além dos campos específicos.
+- Separar o relato em 6 a 10 parágrafos quando houver material suficiente, usando uma linha em branco entre parágrafos. Não retornar tudo em um único bloco.
+- Quando houver áudio ou complemento técnico com conteúdo suficiente, escrever preferencialmente um relato com no mínimo 250 palavras.
 - Em atendimentos de vários dias, separar a sequência por data ou por etapa.
+- Se alguma informação técnica tiver sido mencionada de forma incerta, registrar como "foi informado" ou "foi relatado", sem transformar em certeza absoluta.
 - Informar "Não informado" nos campos textuais quando o dado não for mencionado.
 
 Retorne apenas um JSON válido, sem markdown e sem comentários, com exatamente esta estrutura:
@@ -1709,6 +1763,7 @@ def processar_atendimento_completo(arquivos_audio_temp: list[Path], contexto_man
             generation_config=genai.GenerationConfig(
                 response_mime_type="application/json",
                 temperature=0.2,
+                max_output_tokens=8192,
             ),
         )
         dados = extrair_json_resposta(resposta.text)
@@ -1761,6 +1816,14 @@ def data_para_nome_arquivo(data_visita: str) -> str:
     texto = limpar_texto(data_visita)
     candidatos: list[tuple[int, str]] = []
 
+    for match in re.finditer(r"\b(\d{1,2})\s*(?:a|até|-)\s*(\d{1,2})/(\d{1,2})/(\d{4})\b", texto, flags=re.I):
+        _, dia_final, mes, ano = match.groups()
+        candidatos.append((match.start(), f"{int(ano):04d}{int(mes):02d}{int(dia_final):02d}"))
+
+    for match in re.finditer(r"\b(\d{1,2})/(\d{1,2})\s*(?:a|até|-)\s*(\d{1,2})/(\d{1,2})/(\d{4})\b", texto, flags=re.I):
+        _, _, dia_final, mes_final, ano = match.groups()
+        candidatos.append((match.start(), f"{int(ano):04d}{int(mes_final):02d}{int(dia_final):02d}"))
+
     for match in re.finditer(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b", texto):
         dia, mes, ano = match.groups()
         candidatos.append((match.start(), f"{int(ano):04d}{int(mes):02d}{int(dia):02d}"))
@@ -1800,6 +1863,57 @@ def data_para_nome_arquivo(data_visita: str) -> str:
     return data_atual_brasil().strftime("%Y%m%d")
 
 
+UF_NOMES = {
+    "acre": "AC",
+    "alagoas": "AL",
+    "amapa": "AP",
+    "amazonas": "AM",
+    "bahia": "BA",
+    "ceara": "CE",
+    "distrito federal": "DF",
+    "espirito santo": "ES",
+    "goias": "GO",
+    "maranhao": "MA",
+    "mato grosso": "MT",
+    "mato grosso do sul": "MS",
+    "minas gerais": "MG",
+    "para": "PA",
+    "paraiba": "PB",
+    "parana": "PR",
+    "pernambuco": "PE",
+    "piaui": "PI",
+    "rio de janeiro": "RJ",
+    "rio grande do norte": "RN",
+    "rio grande do sul": "RS",
+    "rondonia": "RO",
+    "roraima": "RR",
+    "santa catarina": "SC",
+    "sao paulo": "SP",
+    "sergipe": "SE",
+    "tocantins": "TO",
+    "argentina": "ARGENTINA",
+    "paraguai": "PARAGUAI",
+    "uruguai": "URUGUAI",
+}
+
+
+def normalizar_uf_nome(texto: str) -> str:
+    uf = limpar_texto(texto).strip(" .,-/")
+    if re.fullmatch(r"[A-Za-z]{2}", uf):
+        return uf.upper()
+    return UF_NOMES.get(normalizar_busca(uf), uf.upper())
+
+
+def limpar_cidade_nome(texto: str) -> str:
+    cidade = limpar_texto(texto)
+    if "," in cidade:
+        cidade = cidade.rsplit(",", 1)[-1].strip()
+    cidade = re.sub(r"^(cidade|local|localização|localizacao|propriedade|fazenda|revenda)\s*:\s*", "", cidade, flags=re.I)
+    cidade = re.sub(r"^(?:localizado|localizada)\s+em\s+", "", cidade, flags=re.I)
+    cidade = re.sub(r"^\bem\s+", "", cidade, flags=re.I)
+    return cidade.strip(" .,-/")
+
+
 def extrair_cidade_uf(cliente_local: str) -> tuple[str, str]:
     texto = limpar_texto(cliente_local)
     linhas = [linha.strip() for linha in texto.split("\n") if linha.strip()]
@@ -1812,7 +1926,28 @@ def extrair_cidade_uf(cliente_local: str) -> tuple[str, str]:
     for linha in linhas:
         match = re.search(r"\b([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s.'-]{2,}?)\s*/\s*([A-Za-z]{2})\b", linha)
         if match and not linha.lower().startswith(("http", "www")):
-            return match.group(1).strip(), match.group(2).strip()
+            return limpar_cidade_nome(match.group(1)), normalizar_uf_nome(match.group(2))
+
+    for linha in linhas:
+        match = re.search(
+            r"\b([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s.'-]{2,}?)\s*,\s*"
+            r"(acre|alagoas|amapá|amapa|amazonas|bahia|ceará|ceara|distrito federal|espírito santo|espirito santo|"
+            r"goiás|goias|maranhão|maranhao|mato grosso|mato grosso do sul|minas gerais|pará|para|paraíba|paraiba|"
+            r"paraná|parana|pernambuco|piauí|piaui|rio de janeiro|rio grande do norte|rio grande do sul|rondônia|rondonia|"
+            r"roraima|santa catarina|são paulo|sao paulo|sergipe|tocantins|argentina|paraguai|uruguai)\b",
+            linha,
+            re.I,
+        )
+        if match and not linha.lower().startswith(("http", "www")):
+            return limpar_cidade_nome(match.group(1)), normalizar_uf_nome(match.group(2))
+
+    for linha in linhas:
+        match = re.search(r"(?:^|[,;/])\s*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s.'-]{2,}?)([A-Z]{2})\b", linha)
+        if match and not linha.lower().startswith(("http", "www")):
+            cidade = limpar_cidade_nome(match.group(1))
+            uf = normalizar_uf_nome(match.group(2))
+            if cidade and uf:
+                return cidade, uf
 
     cidade = ""
     uf = ""
@@ -1847,7 +1982,15 @@ def equipamento_para_nome(dados: dict) -> str:
     texto = normalizar_busca("\n".join([dados.get("objetivos", ""), dados.get("equipamentos", ""), dados.get("maquinas", "")]))
     encontrados = []
 
-    iso_match = re.search(r"\biso\s*([0-9]{1,3})\s*([a-z]{0,4})\b", texto)
+    geonave_match = re.search(r"\bgeo\s*nave\s*([0-9]{1,3})\s*([a-z]{0,5})\b|\bgeonave\s*([0-9]{1,3})\s*([a-z]{0,5})\b", texto)
+    if geonave_match:
+        grupos = [grupo for grupo in geonave_match.groups() if grupo]
+        if grupos:
+            numero = grupos[0]
+            sufixo = grupos[1] if len(grupos) > 1 else ""
+            encontrados.append(f"GEONAVE{numero}{sufixo.upper()}")
+
+    iso_match = re.search(r"\biso\s*([0-9]{1,3})\s*([a-z]{0,5})\b", texto)
     if iso_match:
         numero, sufixo = iso_match.groups()
         encontrados.append(f"ISO{numero}{sufixo.upper()}")
@@ -1888,11 +2031,25 @@ def tecnico_para_nome_arquivo(dados: dict) -> str:
     return componente_nome_arquivo("_".join(nomes[:3]), "HENRIQUE")
 
 
+def nome_sugerido_aceitavel(sugerido: str) -> bool:
+    if not re.match(r"^\d{8}_RELAT[ÓO]RIO_ATIVIDADES_", sugerido, flags=re.I):
+        return False
+    texto = normalizar_busca(sugerido)
+    genericos = (
+        "equipamento",
+        "tecnico",
+        "local",
+        "_uf",
+        "nao_informado",
+        "atendimento_tecnico",
+    )
+    return not any(generico in texto for generico in genericos)
+
+
 def gerar_nome_arquivo_relatorio(dados: dict) -> str:
     sugerido = componente_nome_arquivo(dados.get("nome_arquivo_sugerido", ""), "")
-    sugerido_valido = re.match(r"^\d{8}_RELAT[ÓO]RIO_ATIVIDADES_", sugerido, flags=re.I)
     data_nome = data_para_nome_arquivo(dados.get("data_visita", ""))
-    if sugerido_valido:
+    if nome_sugerido_aceitavel(sugerido):
         return f"{data_nome}_{sugerido[9:]}".strip("_")[:150]
 
     cidade, uf = extrair_cidade_uf(dados.get("cliente_local", ""))
