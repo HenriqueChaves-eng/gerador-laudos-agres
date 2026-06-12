@@ -460,15 +460,53 @@
     }
     .preview-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
-      gap: 8px;
-      margin-top: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .evidence-categories,
+    .header-photo-fields {
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+    .evidence-categories > .field,
+    .header-photo-fields > .field {
+      margin: 0;
+      padding: 0 0 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .evidence-categories > .field:last-child,
+    .header-photo-fields > .field:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+    .evidence-categories > .field > label,
+    .header-photo-fields > .field > label {
+      margin-bottom: 8px;
+      font-size: 17px;
+    }
+    .evidence-categories .upload-actions,
+    .header-photo-fields .upload-actions {
+      max-width: 470px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .evidence-categories .upload-button,
+    .header-photo-fields .upload-button {
+      min-height: 58px;
+      padding: 9px 11px;
+    }
+    .header-photo-fields .preview-grid {
+      grid-template-columns: minmax(220px, 320px);
+    }
+    .evidence-categories .preview-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     .thumb {
       overflow: hidden;
       border: 1px solid #d3d6da;
       border-radius: 10px;
-      background: #f7f8f9;
+      background: #fff;
+      box-shadow: 0 5px 14px rgba(15, 23, 42, 0.06);
     }
     .thumb img {
       display: block;
@@ -479,46 +517,40 @@
     }
     .thumb-footer {
       display: grid;
-      gap: 5px;
-      padding: 7px;
+      gap: 8px;
+      padding: 9px;
     }
     .thumb-name {
       color: var(--ink);
-      font-size: 12px;
+      font-size: 13px;
+      font-weight: 900;
       line-height: 1.25;
       word-break: break-word;
     }
     .thumb button {
-      min-height: 32px;
+      min-height: 40px;
       padding: 0 8px;
       font-size: 12px;
     }
     .thumb-actions {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 5px;
-      align-items: end;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
     }
     .thumb-actions.single-action {
       grid-template-columns: 1fr;
     }
     .thumb-actions button {
-      width: 100%;
+      width: auto;
       min-width: 0;
-      padding: 0 6px;
+      padding: 0 10px;
       line-height: 1.15;
       white-space: normal;
-    }
-    .thumb-actions .gallery-save-button {
-      border-color: #9bc9b1;
-      background: #edf8f2;
-      color: #14583a;
-      font-weight: 900;
     }
     .order-control {
       display: grid;
       gap: 3px;
-      grid-column: 1 / -1;
     }
     .order-control span {
       color: var(--muted);
@@ -526,7 +558,7 @@
       font-weight: 800;
     }
     .order-control select {
-      min-height: 32px;
+      min-height: 40px;
       width: 100%;
       border: 1px solid #c9ccd1;
       border-radius: 8px;
@@ -538,8 +570,9 @@
     }
     .caption-control {
       display: grid;
-      gap: 6px;
-      padding: 0 7px 7px;
+      gap: 8px;
+      padding: 0 9px 9px;
+      border-top: 1px solid #e5e7ea;
     }
     .caption-control label,
     .check-row {
@@ -551,8 +584,16 @@
       font-weight: 800;
     }
     .caption-control textarea {
-      min-height: 72px;
+      min-height: 82px;
       font-size: 13px;
+    }
+    .caption-control textarea:disabled {
+      display: none;
+    }
+    .thumb-remove {
+      border-color: #e2b7b7;
+      background: #fff8f8;
+      color: var(--danger);
     }
     .legacy-legends {
       display: none;
@@ -778,14 +819,20 @@
         min-height: 40px;
       }
       .preview-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .evidence-categories .preview-grid {
+        grid-template-columns: 1fr;
+      }
+      .header-photo-fields .preview-grid {
+        grid-template-columns: 1fr;
       }
       .thumb-footer {
         padding: 8px;
       }
       .thumb-actions {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr) auto;
       }
       .thumb-name {
         font-size: 12px;
@@ -827,11 +874,18 @@
         border-radius: 13px;
       }
     }
+    @media (min-width: 681px) and (max-width: 900px) {
+      .evidence-categories .preview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
     @media (max-width: 380px) {
-      .preview-grid {
+      .upload-actions {
         grid-template-columns: 1fr;
       }
-      .upload-actions {
+      .evidence-categories .upload-actions,
+      .header-photo-fields .upload-actions {
+        max-width: none;
         grid-template-columns: 1fr;
       }
       h1 { font-size: 25px; }
@@ -923,7 +977,7 @@
 
     <section>
       <h2>2. Cabeçalho do Relatório</h2>
-      <div class="grid">
+      <div class="grid header-photo-fields">
         <div class="field">
           <label for="info_equip">Informações do Equipamento</label>
           <div class="upload-control">
@@ -932,14 +986,14 @@
                 <span class="upload-symbol">+</span>
                 <span>
                   <span class="upload-main">Galeria</span>
-                  <span class="upload-sub">Escolher foto</span>
+                  <span class="upload-sub">Selecionar foto</span>
                 </span>
               </label>
               <label class="upload-button camera" for="info_equip_camera">
                 <span class="upload-symbol">CAM</span>
                 <span>
                   <span class="upload-main">Camera</span>
-                  <span class="upload-sub">Câmera traseira</span>
+                  <span class="upload-sub">Tirar foto</span>
                 </span>
               </label>
             </div>
@@ -957,14 +1011,14 @@
                 <span class="upload-symbol">+</span>
                 <span>
                   <span class="upload-main">Galeria</span>
-                  <span class="upload-sub">Escolher foto</span>
+                  <span class="upload-sub">Selecionar foto</span>
                 </span>
               </label>
               <label class="upload-button camera" for="maquina_camera">
                 <span class="upload-symbol">CAM</span>
                 <span>
                   <span class="upload-main">Camera</span>
-                  <span class="upload-sub">Câmera traseira</span>
+                  <span class="upload-sub">Tirar foto</span>
                 </span>
               </label>
             </div>
@@ -982,14 +1036,14 @@
                 <span class="upload-symbol">+</span>
                 <span>
                   <span class="upload-main">Galeria</span>
-                  <span class="upload-sub">Escolher foto</span>
+                  <span class="upload-sub">Selecionar foto</span>
                 </span>
               </label>
               <label class="upload-button camera" for="implemento_camera">
                 <span class="upload-symbol">CAM</span>
                 <span>
                   <span class="upload-main">Camera</span>
-                  <span class="upload-sub">Câmera traseira</span>
+                  <span class="upload-sub">Tirar foto</span>
                 </span>
               </label>
             </div>
@@ -1004,7 +1058,7 @@
 
     <section>
       <h2>3. Evidências Fotográficas</h2>
-      <div class="grid">
+      <div class="grid evidence-categories">
         <div class="field">
           <label for="fotos_equipamento">Equipamento Agres</label>
           <div class="upload-control">
@@ -1013,14 +1067,14 @@
                 <span class="upload-symbol">+</span>
                 <span>
                   <span class="upload-main">Galeria</span>
-                  <span class="upload-sub">Uma ou várias imagens</span>
+                  <span class="upload-sub">Selecionar fotos</span>
                 </span>
               </label>
               <label class="upload-button camera" for="fotos_equipamento_camera">
                 <span class="upload-symbol">CAM</span>
                 <span>
                   <span class="upload-main">Camera</span>
-                  <span class="upload-sub">Adiciona 1 foto</span>
+                  <span class="upload-sub">Tirar foto</span>
                 </span>
               </label>
             </div>
@@ -1038,14 +1092,14 @@
                 <span class="upload-symbol">+</span>
                 <span>
                   <span class="upload-main">Galeria</span>
-                  <span class="upload-sub">Uma ou várias imagens</span>
+                  <span class="upload-sub">Selecionar fotos</span>
                 </span>
               </label>
               <label class="upload-button camera" for="fotos_instalacao_camera">
                 <span class="upload-symbol">CAM</span>
                 <span>
                   <span class="upload-main">Camera</span>
-                  <span class="upload-sub">Adiciona 1 foto</span>
+                  <span class="upload-sub">Tirar foto</span>
                 </span>
               </label>
             </div>
@@ -1063,14 +1117,14 @@
                 <span class="upload-symbol">+</span>
                 <span>
                   <span class="upload-main">Galeria</span>
-                  <span class="upload-sub">Uma ou várias imagens</span>
+                  <span class="upload-sub">Selecionar fotos</span>
                 </span>
               </label>
               <label class="upload-button camera" for="fotos_configuracao_camera">
                 <span class="upload-symbol">CAM</span>
                 <span>
                   <span class="upload-main">Camera</span>
-                  <span class="upload-sub">Adiciona 1 foto</span>
+                  <span class="upload-sub">Tirar foto</span>
                 </span>
               </label>
             </div>
@@ -1081,21 +1135,21 @@
           <div class="preview-grid" id="fotos_configuracao_preview"></div>
         </div>
         <div class="field">
-          <label for="fotos_outros">Outros registros</label>
+          <label for="fotos_outros">Outros Registros</label>
           <div class="upload-control">
             <div class="upload-actions">
               <label class="upload-button gallery" for="fotos_outros">
                 <span class="upload-symbol">+</span>
                 <span>
                   <span class="upload-main">Galeria</span>
-                  <span class="upload-sub">Uma ou várias imagens</span>
+                  <span class="upload-sub">Selecionar fotos</span>
                 </span>
               </label>
               <label class="upload-button camera" for="fotos_outros_camera">
                 <span class="upload-symbol">CAM</span>
                 <span>
                   <span class="upload-main">Camera</span>
-                  <span class="upload-sub">Adiciona 1 foto</span>
+                  <span class="upload-sub">Tirar foto</span>
                 </span>
               </label>
             </div>
@@ -1106,21 +1160,21 @@
           <div class="preview-grid" id="fotos_outros_preview"></div>
         </div>
         <div class="field">
-          <label for="fotos_atendimento">Fotos do Atendimento (Somente ZIP)</label>
+          <label for="fotos_atendimento">Fotos Extras (Somente ZIP)</label>
           <div class="upload-control">
             <div class="upload-actions">
               <label class="upload-button gallery" for="fotos_atendimento">
                 <span class="upload-symbol">+</span>
                 <span>
                   <span class="upload-main">Galeria</span>
-                  <span class="upload-sub">Uma ou várias imagens</span>
+                  <span class="upload-sub">Selecionar fotos</span>
                 </span>
               </label>
               <label class="upload-button camera" for="fotos_atendimento_camera">
                 <span class="upload-symbol">CAM</span>
                 <span>
                   <span class="upload-main">Camera</span>
-                  <span class="upload-sub">Só vai para o ZIP</span>
+                  <span class="upload-sub">Tirar foto</span>
                 </span>
               </label>
             </div>
@@ -1201,12 +1255,12 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.06.08.15";
+    const APP_VERSION = "2026.06.12.22";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v45"
+      ? "agres-offline-v52"
       : location.pathname.includes("/static/coleta/")
-        ? "agres-coleta-v38"
-        : "agres-pages-offline-v41";
+        ? "agres-coleta-v45"
+        : "agres-pages-offline-v48";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
@@ -1214,6 +1268,11 @@
     const MAX_SIGNATURES = 5;
     const IMAGE_MAX_SIDE = 1440;
     const IMAGE_JPEG_QUALITY = 0.72;
+    const MAX_IMAGE_FILE_BYTES = 25 * 1024 * 1024;
+    const MAX_AUDIO_FILE_BYTES = 100 * 1024 * 1024;
+    const MAX_PACKAGE_BYTES = 100 * 1024 * 1024;
+    const MAX_RECORDING_DURATION_MS = 30 * 60 * 1000;
+    const MAX_WAV_DURATION_SECONDS = 8 * 60;
     const ATTENDANCE_TYPE_FILE_LABELS = {
       suporte: "SUPORTE",
       instalacao: "INSTALACAO",
@@ -1264,11 +1323,14 @@
     let processorNode;
     let wavChunks = [];
     let wavSampleRate = 44100;
+    let wavSampleCount = 0;
+    let recordingLimitTimer = null;
     let activeSignatureKey = "";
     let modalSignaturePad;
     let mainSignaturePads = {};
     let wakeLock;
     let saveTimer;
+    let saveQueue = Promise.resolve();
     let locationWatchId = null;
     let locationAttemptId = 0;
     let lastLocationPermissionState = "unknown";
@@ -1397,7 +1459,7 @@
       });
     }
 
-    function putDraft() {
+    function writeDraftTransaction() {
       draft.app_version = APP_VERSION;
       draft.updated_at = new Date().toISOString();
       return new Promise((resolve, reject) => {
@@ -1406,6 +1468,12 @@
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
+    }
+
+    function putDraft() {
+      const operation = saveQueue.catch(() => {}).then(() => writeDraftTransaction());
+      saveQueue = operation.catch(() => {});
+      return operation;
     }
 
     function formatBytes(bytes) {
@@ -1423,6 +1491,7 @@
     }
 
     async function saveDraftNow(successMessage = "") {
+      clearTimeout(saveTimer);
       try {
         await putDraft();
         if (successMessage) setSyncMessage(successMessage);
@@ -1440,7 +1509,7 @@
       clearTimeout(saveTimer);
       saveTimer = setTimeout(async () => {
         await saveDraftNow();
-      }, 250);
+      }, 700);
     }
 
     function readRawFile(file) {
@@ -1466,26 +1535,6 @@
       });
     }
 
-    function dataUrlToBlob(dataUrl) {
-      const [header, content] = String(dataUrl || "").split(",");
-      if (!content) throw new Error("Imagem sem conteúdo para salvar.");
-      const mimeMatch = header.match(/^data:([^;]+);base64$/);
-      const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
-      const binary = atob(content);
-      const bytes = new Uint8Array(binary.length);
-      for (let index = 0; index < binary.length; index += 1) {
-        bytes[index] = binary.charCodeAt(index);
-      }
-      return new Blob([bytes], { type: mime });
-    }
-
-    function itemToFile(item) {
-      const blob = dataUrlToBlob(item?.dataUrl);
-      const extension = blob.type === "image/png" ? "png" : "jpg";
-      const name = item?.name || `foto_agres_${Date.now()}.${extension}`;
-      return new File([blob], name, { type: blob.type || "image/jpeg" });
-    }
-
     function hasAndroidGalleryBridge() {
       return Boolean(window.AgresAndroid && typeof window.AgresAndroid.saveImage === "function");
     }
@@ -1509,58 +1558,6 @@
       return saved === true || saved === "true";
     }
 
-    async function sharePhotoFiles(files, fallbackItems = []) {
-      if (hasAndroidGalleryBridge() && fallbackItems.length) {
-        const saved = fallbackItems.filter(savePhotoWithAndroidBridge).length;
-        setSyncMessage(
-          saved
-            ? `${saved} foto(s) salva(s) na galeria do Android.`
-            : "Não foi possível salvar a foto na galeria do Android."
-        );
-        return saved > 0;
-      }
-
-      if (!files.length && fallbackItems.length) {
-        files = fallbackItems.map(itemToFile);
-      }
-      if (!files.length) return false;
-
-      if (typeof File === "function" && navigator.share) {
-        const canShare = !navigator.canShare || navigator.canShare({ files });
-        if (canShare) {
-          await navigator.share({
-            title: "Fotos do atendimento Agres",
-            text: "Para salvar na galeria, escolha Salvar imagem/Fotos na tela de compartilhamento.",
-            files
-          });
-          setSyncMessage("Compartilhamento aberto. Escolha Salvar imagem/Fotos para gravar na galeria.");
-          return true;
-        }
-      }
-
-      files.forEach((file) => {
-        const url = URL.createObjectURL(file);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = file.name || `foto_agres_${Date.now()}.jpg`;
-        link.rel = "noopener";
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.setTimeout(() => URL.revokeObjectURL(url), 30000);
-      });
-      setSyncMessage("Foto enviada para Downloads/Arquivos. No iPhone/iPad, mova para Fotos se necessário.");
-      return false;
-    }
-
-    async function savePhotoToDevice(item) {
-      try {
-        await sharePhotoFiles([], [item]);
-      } catch (error) {
-        setSyncMessage(`Não foi possível abrir o salvamento da foto: ${error.message || error}`);
-      }
-    }
-
     async function offerGallerySaveForCameraItems(items) {
       const fotos = (items || []).filter((item) => item?.dataUrl);
       if (!fotos.length) return;
@@ -1573,15 +1570,11 @@
         );
         return;
       }
-      const plural = fotos.length > 1 ? "fotos tiradas" : "foto tirada";
-      if (!confirm(`A ${plural} pela câmera foi salva na coleta. Deseja abrir a opção para salvar uma cópia na galeria do aparelho?`)) {
-        return;
-      }
-      try {
-        await sharePhotoFiles([], fotos);
-      } catch (error) {
-        setSyncMessage(`Foto salva na coleta, mas o navegador não liberou salvar na galeria: ${error.message || error}`);
-      }
+      setSyncMessage(
+        isIosDevice()
+          ? "Foto salva na coleta offline."
+          : "Foto salva na coleta."
+      );
     }
 
     function loadImage(dataUrl) {
@@ -1640,6 +1633,10 @@
     }
 
     async function readFile(file) {
+      const limit = isImageFile(file) ? MAX_IMAGE_FILE_BYTES : MAX_AUDIO_FILE_BYTES;
+      if (Number(file?.size || 0) > limit) {
+        throw new Error(`Arquivo acima do limite de ${Math.round(limit / (1024 * 1024))} MB.`);
+      }
       if (isImageFile(file)) {
         return readImageFile(file);
       }
@@ -1688,6 +1685,10 @@
       }
     }
 
+    function photoCountLabel(total) {
+      return total === 1 ? "1 foto" : `${total} fotos`;
+    }
+
     function updateCounts() {
       HEADERS.forEach((key) => {
         const item = draft.cabecalho[key];
@@ -1700,7 +1701,7 @@
       });
       CATEGORIES.forEach((key) => {
         const total = draft.evidencias[key].length;
-        document.getElementById(`${key}_status`).textContent = total ? `${total} imagens.` : "";
+        document.getElementById(`${key}_status`).textContent = total ? photoCountLabel(total) : "";
         renderImagePreview(`${key}_preview`, draft.evidencias[key], (index) => {
           draft.evidencias[key].splice(index, 1);
           removeMetadataLine(key, index);
@@ -1714,7 +1715,7 @@
         });
       });
       const fotosAtendimento = draft.fotos_atendimento || [];
-      document.getElementById(`${ATTENDANCE_PHOTOS}_status`).textContent = fotosAtendimento.length ? `${fotosAtendimento.length} imagens.` : "";
+      document.getElementById(`${ATTENDANCE_PHOTOS}_status`).textContent = fotosAtendimento.length ? photoCountLabel(fotosAtendimento.length) : "";
       renderImagePreview(`${ATTENDANCE_PHOTOS}_preview`, fotosAtendimento, (index) => {
         draft.fotos_atendimento.splice(index, 1);
         updateCounts();
@@ -1792,14 +1793,15 @@
         footer.className = "thumb-footer";
         const name = document.createElement("div");
         name.className = "thumb-name";
-        name.textContent = item.name || `Imagem ${index + 1}`;
+        name.textContent = onMove ? `Foto ${index + 1}` : (item.name || `Foto ${index + 1}`);
+        name.title = item.name || `Foto ${index + 1}`;
         const actions = document.createElement("div");
         actions.className = "thumb-actions";
         if (onMove) {
           const orderControl = document.createElement("label");
           orderControl.className = "order-control";
           const orderLabel = document.createElement("span");
-          orderLabel.textContent = "Ordem no relatório";
+          orderLabel.textContent = "Posição";
           const select = document.createElement("select");
           for (let position = 0; position < items.length; position += 1) {
             const option = document.createElement("option");
@@ -1813,17 +1815,10 @@
           orderControl.appendChild(select);
           actions.appendChild(orderControl);
         }
-        if (!hasAndroidGalleryBridge()) {
-          const saveDevice = document.createElement("button");
-          saveDevice.type = "button";
-          saveDevice.className = "gallery-save-button";
-          saveDevice.textContent = "Salvar no aparelho";
-          saveDevice.addEventListener("click", () => savePhotoToDevice(item));
-          actions.appendChild(saveDevice);
-        }
         const remove = document.createElement("button");
         remove.type = "button";
-        remove.textContent = "Remover";
+        remove.className = "thumb-remove";
+        remove.textContent = "Excluir";
         remove.addEventListener("click", () => onRemove(index));
         actions.appendChild(remove);
         footer.appendChild(name);
@@ -1841,9 +1836,9 @@
           check.type = "checkbox";
           check.checked = manual;
           label.appendChild(check);
-          label.appendChild(document.createTextNode("Legenda personalizada"));
+          label.appendChild(document.createTextNode("Adicionar legenda"));
           const text = document.createElement("textarea");
-          text.placeholder = "Legenda desta foto";
+          text.placeholder = "Escreva a legenda";
           text.value = parts.legenda;
           text.disabled = !manual;
           check.addEventListener("change", () => {
@@ -1958,6 +1953,12 @@
     }
 
     async function finishRecordedBlob(blob, extension) {
+      if (!blob || blob.size <= 0) {
+        throw new Error("A gravação terminou vazia. Grave novamente.");
+      }
+      if (blob.size > MAX_AUDIO_FILE_BYTES) {
+        throw new Error(`A gravação excedeu o limite de ${Math.round(MAX_AUDIO_FILE_BYTES / (1024 * 1024))} MB. Grave em trechos menores.`);
+      }
       const item = await blobToItem(blob, `audio_offline_${new Date().toISOString().replace(/[:.]/g, "-")}.${extension}`);
       draft.audios.push(item);
       stopAudioStream();
@@ -1977,6 +1978,8 @@
     }
 
     function stopAudioStream() {
+      clearTimeout(recordingLimitTimer);
+      recordingLimitTimer = null;
       if (audioStream) {
         audioStream.getTracks().forEach((track) => track.stop());
         audioStream = null;
@@ -1993,9 +1996,20 @@
           if (event.data && event.data.size) audioChunks.push(event.data);
         };
         recorder.onstop = async () => {
-          const blob = new Blob(audioChunks, { type: recorder.mimeType || "audio/mp4" });
-          const extension = blob.type.includes("webm") ? "webm" : blob.type.includes("wav") ? "wav" : "m4a";
-          await finishRecordedBlob(blob, extension);
+          try {
+            const blob = new Blob(audioChunks, { type: recorder.mimeType || "audio/mp4" });
+            const extension = blob.type.includes("webm") ? "webm" : blob.type.includes("wav") ? "wav" : "m4a";
+            await finishRecordedBlob(blob, extension);
+          } catch (error) {
+            document.getElementById("recordHint").textContent = `Erro ao salvar áudio: ${error.message || error}`;
+            stopAudioStream();
+            await releaseWakeLock();
+            recorder = null;
+            recorderMode = "";
+            setRecordingState(false);
+          } finally {
+            audioChunks = [];
+          }
         };
         recorder.start();
         recorderMode = "media";
@@ -2019,10 +2033,25 @@
       }
       wavSampleRate = audioContext.sampleRate;
       wavChunks = [];
+      wavSampleCount = 0;
       sourceNode = audioContext.createMediaStreamSource(stream);
       processorNode = audioContext.createScriptProcessor(4096, 1, 1);
       processorNode.onaudioprocess = (event) => {
-        wavChunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+        if (recorderMode !== "wav") return;
+        const chunk = new Float32Array(event.inputBuffer.getChannelData(0));
+        wavChunks.push(chunk);
+        wavSampleCount += chunk.length;
+        if (wavSampleCount >= wavSampleRate * MAX_WAV_DURATION_SECONDS) {
+          recorderMode = "wav-stopping";
+          document.getElementById("recordHint").textContent = "Limite do modo compatível atingido. Salvando o trecho...";
+          stopWavRecorder().catch((error) => {
+            document.getElementById("recordHint").textContent = `Erro ao salvar áudio: ${error.message || error}`;
+            stopAudioStream();
+            releaseWakeLock();
+            recorderMode = "";
+            setRecordingState(false);
+          });
+        }
         event.outputBuffer.getChannelData(0).fill(0);
       };
       sourceNode.connect(processorNode);
@@ -2046,6 +2075,7 @@
       }
       const blob = encodeWav(mergeFloat32(wavChunks), wavSampleRate);
       wavChunks = [];
+      wavSampleCount = 0;
       await finishRecordedBlob(blob, "wav");
     }
 
@@ -2071,6 +2101,10 @@
         await startWavRecorder(audioStream);
       }
       await requestWakeLock();
+      recordingLimitTimer = setTimeout(() => {
+        document.getElementById("recordHint").textContent = "Limite de 30 minutos atingido. Salvando o áudio...";
+        stopRecording().catch(() => {});
+      }, MAX_RECORDING_DURATION_MS);
       document.getElementById("recordHint").textContent = "Gravando...";
     }
 
@@ -2759,7 +2793,7 @@
         }
       }
       if (candidates.length) {
-        candidates.sort((a, b) => a.index - b.index);
+        candidates.sort((a, b) => a.value.localeCompare(b.value));
         return candidates[candidates.length - 1].value;
       }
       return new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -3015,11 +3049,17 @@
     async function exportDraft() {
       try {
         normalizeSignatures();
+        const saved = await saveDraftNow();
+        if (!saved) return;
         const fileName = packageFileName();
         const jsonText = packageTextSync();
         const blob = new Blob([jsonText], { type: "application/json" });
         const packageSize = formatBytes(blob.size);
-        putDraft().catch(() => {});
+        if (blob.size > MAX_PACKAGE_BYTES) {
+          throw new Error(
+            `o pacote atingiu ${packageSize}, acima do limite seguro de ${formatBytes(MAX_PACKAGE_BYTES)}. Remova arquivos muito pesados.`
+          );
+        }
 
         if (hasAndroidShareBridge()) {
           const shared = window.AgresAndroid.shareJson(jsonText, fileName);
@@ -3095,9 +3135,20 @@
       draft.tipo_atendimento = draft.tipo_atendimento || "suporte";
       draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
       draft.localizacao_maps = draft.localizacao_maps || "";
+      draft.observacoes = String(draft.observacoes || "");
+      draft.audios = Array.isArray(draft.audios) ? draft.audios.filter((item) => item && item.dataUrl) : [];
       draft.cabecalho = { ...defaultDraft().cabecalho, ...(draft.cabecalho || {}) };
+      HEADERS.forEach((key) => {
+        if (!draft.cabecalho[key]?.dataUrl) draft.cabecalho[key] = null;
+      });
       draft.evidencias = { ...defaultDraft().evidencias, ...(draft.evidencias || {}) };
+      CATEGORIES.forEach((key) => {
+        draft.evidencias[key] = Array.isArray(draft.evidencias[key])
+          ? draft.evidencias[key].filter((item) => item && item.dataUrl)
+          : [];
+      });
       draft.fotos_atendimento = Array.isArray(draft.fotos_atendimento) ? draft.fotos_atendimento : [];
+      draft.fotos_atendimento = draft.fotos_atendimento.filter((item) => item && item.dataUrl);
       draft.legendas_evidencias = { ...defaultDraft().legendas_evidencias, ...(draft.legendas_evidencias || {}) };
       draft.responsaveis = { ...defaultDraft().responsaveis, ...(draft.responsaveis || {}) };
       draft.documentos = { ...defaultDraft().documentos, ...(draft.documentos || {}) };

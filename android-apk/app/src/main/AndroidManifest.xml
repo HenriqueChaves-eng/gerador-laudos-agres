@@ -16,7 +16,7 @@
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@drawable/logo_agres"
         android:label="Agres Offline"
         android:resizeableActivity="true"

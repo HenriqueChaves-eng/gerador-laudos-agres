@@ -42,6 +42,8 @@ public class MainActivity extends Activity {
     private static final String APP_ORIGIN = "https://agres-offline.local/";
     private static final int FILE_CHOOSER_REQUEST = 501;
     private static final int PERMISSIONS_REQUEST = 502;
+    private static final int MAX_JSON_CHARS = 100 * 1024 * 1024;
+    private static final int MAX_IMAGE_BASE64_CHARS = 36 * 1024 * 1024;
 
     private WebView webView;
     private ValueCallback<Uri[]> filePathCallback;
@@ -51,6 +53,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        cleanupCacheFiles();
         requestRuntimePermissions();
 
         webView = new WebView(this);
@@ -94,6 +97,9 @@ public class MainActivity extends Activity {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(true);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            settings.setSafeBrowsingEnabled(true);
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         }
@@ -174,12 +180,32 @@ public class MainActivity extends Activity {
     private class OfflineChromeClient extends WebChromeClient {
         @Override
         public void onPermissionRequest(final PermissionRequest request) {
-            runOnUiThread(() -> request.grant(request.getResources()));
+            runOnUiThread(() -> {
+                Uri origin = request.getOrigin();
+                if (origin == null || !"agres-offline.local".equals(origin.getHost())) {
+                    request.deny();
+                    return;
+                }
+                ArrayList<String> allowed = new ArrayList<>();
+                for (String resource : request.getResources()) {
+                    if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)
+                        || PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
+                        allowed.add(resource);
+                    }
+                }
+                if (allowed.isEmpty()) {
+                    request.deny();
+                } else {
+                    request.grant(allowed.toArray(new String[0]));
+                }
+            });
         }
 
         @Override
         public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
-            callback.invoke(origin, true, false);
+            Uri uri = Uri.parse(origin);
+            boolean allowed = uri != null && "agres-offline.local".equals(uri.getHost());
+            callback.invoke(origin, allowed, false);
         }
 
         @Override
@@ -196,7 +222,7 @@ public class MainActivity extends Activity {
             contentIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
 
             ArrayList<Intent> initialIntents = new ArrayList<>();
-            Intent cameraIntent = imageChooser ? createCameraIntent() : null;
+            Intent cameraIntent = params.isCaptureEnabled() && imageChooser ? createCameraIntent() : null;
             if (cameraIntent != null) {
                 initialIntents.add(cameraIntent);
             }
@@ -257,6 +283,7 @@ public class MainActivity extends Activity {
         }
 
         try {
+            cleanupCacheFiles();
             File cameraDir = new File(getCacheDir(), "camera");
             if (!cameraDir.exists()) cameraDir.mkdirs();
             String stamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ROOT).format(new Date());
@@ -309,6 +336,19 @@ public class MainActivity extends Activity {
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        if (webView != null) {
+            webView.stopLoading();
+            webView.removeJavascriptInterface("AgresAndroid");
+            webView.setWebChromeClient(null);
+            webView.setWebViewClient(null);
+            webView.destroy();
+            webView = null;
+        }
+        super.onDestroy();
+    }
+
     public class AndroidBridge {
         @JavascriptInterface
         public boolean saveImage(String dataUrl, String requestedName) {
@@ -326,9 +366,9 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public boolean saveJson(String jsonText, String requestedName) {
             try {
+                if (jsonText == null || jsonText.length() == 0 || jsonText.length() > MAX_JSON_CHARS) return false;
                 String fileName = normalizedJsonName(requestedName);
-                byte[] bytes = (jsonText == null ? "" : jsonText).getBytes(StandardCharsets.UTF_8);
-                if (bytes.length == 0) return false;
+                byte[] bytes = jsonText.getBytes(StandardCharsets.UTF_8);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     return saveJsonModern(bytes, fileName);
                 }
@@ -341,9 +381,9 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public boolean shareJson(String jsonText, String requestedName) {
             try {
+                if (jsonText == null || jsonText.length() == 0 || jsonText.length() > MAX_JSON_CHARS) return false;
                 String fileName = normalizedJsonName(requestedName);
-                byte[] bytes = (jsonText == null ? "" : jsonText).getBytes(StandardCharsets.UTF_8);
-                if (bytes.length == 0) return false;
+                byte[] bytes = jsonText.getBytes(StandardCharsets.UTF_8);
                 Uri uri = writeJsonShareFile(bytes, fileName);
 
                 Intent shareIntent = new Intent(Intent.ACTION_SEND);
@@ -411,6 +451,9 @@ public class MainActivity extends Activity {
         }
 
         String base64 = raw.substring(comma + 1);
+        if (base64.length() > MAX_IMAGE_BASE64_CHARS) {
+            throw new IllegalArgumentException("Imagem acima do limite permitido.");
+        }
         DecodedImage image = new DecodedImage();
         image.bytes = Base64.decode(base64, Base64.DEFAULT);
         image.mimeType = mime;
@@ -444,15 +487,20 @@ public class MainActivity extends Activity {
         Uri uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
         if (uri == null) return false;
 
-        try (OutputStream output = getContentResolver().openOutputStream(uri)) {
-            if (output == null) return false;
-            output.write(image.bytes);
+        boolean completed = false;
+        try {
+            try (OutputStream output = getContentResolver().openOutputStream(uri)) {
+                if (output == null) return false;
+                output.write(image.bytes);
+            }
+            values.clear();
+            values.put(MediaStore.Images.Media.IS_PENDING, 0);
+            getContentResolver().update(uri, values, null, null);
+            completed = true;
+            return true;
+        } finally {
+            if (!completed) getContentResolver().delete(uri, null, null);
         }
-
-        values.clear();
-        values.put(MediaStore.Images.Media.IS_PENDING, 0);
-        getContentResolver().update(uri, values, null, null);
-        return true;
     }
 
     private boolean saveImageLegacy(DecodedImage image) throws Exception {
@@ -488,15 +536,20 @@ public class MainActivity extends Activity {
         Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
         if (uri == null) return false;
 
-        try (OutputStream output = getContentResolver().openOutputStream(uri)) {
-            if (output == null) return false;
-            output.write(bytes);
+        boolean completed = false;
+        try {
+            try (OutputStream output = getContentResolver().openOutputStream(uri)) {
+                if (output == null) return false;
+                output.write(bytes);
+            }
+            values.clear();
+            values.put(MediaStore.MediaColumns.IS_PENDING, 0);
+            getContentResolver().update(uri, values, null, null);
+            completed = true;
+            return true;
+        } finally {
+            if (!completed) getContentResolver().delete(uri, null, null);
         }
-
-        values.clear();
-        values.put(MediaStore.MediaColumns.IS_PENDING, 0);
-        getContentResolver().update(uri, values, null, null);
-        return true;
     }
 
     private boolean saveJsonLegacy(byte[] bytes, String fileName) throws Exception {
@@ -511,6 +564,7 @@ public class MainActivity extends Activity {
     }
 
     private Uri writeJsonShareFile(byte[] bytes, String fileName) throws Exception {
+        cleanupCacheFiles();
         File dir = new File(getCacheDir(), "camera");
         if (!dir.exists() && !dir.mkdirs()) {
             throw new IllegalStateException("Não foi possível preparar o compartilhamento.");
@@ -524,5 +578,17 @@ public class MainActivity extends Activity {
             .authority(getPackageName() + ".camera")
             .appendPath(fileName)
             .build();
+    }
+
+    private void cleanupCacheFiles() {
+        File dir = new File(getCacheDir(), "camera");
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        long cutoff = System.currentTimeMillis() - (24L * 60L * 60L * 1000L);
+        for (File file : files) {
+            if (file.isFile() && file.lastModified() < cutoff) {
+                file.delete();
+            }
+        }
     }
 }

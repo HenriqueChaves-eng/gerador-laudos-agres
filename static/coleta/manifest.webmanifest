@@ -7,7 +7,7 @@
   "display": "standalone",
   "background_color": "#e7e9ec",
   "theme_color": "#3f4247",
-  "orientation": "portrait",
+  "orientation": "any",
   "icons": [
     {
       "src": "./logo_agres.png",

@@ -1,4 +1,4 @@
-const CACHE_NAME = "agres-offline-v45";
+const CACHE_NAME = "agres-offline-v52";
 const ASSETS = [
   "./",
   "./index.html",
@@ -14,18 +14,19 @@ async function cacheAsset(cache, asset) {
   const url = new URL(asset, self.location.href);
   const request = new Request(url.href, { cache: "reload" });
   const response = await fetch(request);
-  if (response.ok) {
-    const shellCopy = response.clone();
-    await cache.put(request, response);
-    if (asset === "./" || asset === "./index.html") {
-      await cache.put(APP_SHELL, shellCopy);
-    }
+  if (!response.ok) {
+    throw new Error(`Falha ao armazenar ${url.pathname}: HTTP ${response.status}`);
+  }
+  const shellCopy = response.clone();
+  await cache.put(request, response);
+  if (asset === "./" || asset === "./index.html") {
+    await cache.put(APP_SHELL, shellCopy);
   }
 }
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => Promise.allSettled(ASSETS.map((asset) => cacheAsset(cache, asset))))
+    caches.open(CACHE_NAME).then((cache) => Promise.all(ASSETS.map((asset) => cacheAsset(cache, asset))))
   );
   self.skipWaiting();
 });
@@ -76,6 +77,6 @@ self.addEventListener("fetch", (event) => {
       const copy = response.clone();
       caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
       return response;
-    }).catch(() => caches.match("./index.html", { ignoreSearch: true })))
+    }).catch(() => new Response("", { status: 504, statusText: "Offline" })))
   );
 });

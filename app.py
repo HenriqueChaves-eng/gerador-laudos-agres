@@ -3,6 +3,7 @@ import json
 import re
 import shutil
 import tempfile
+import time
 import unicodedata
 import uuid
 import zipfile
@@ -14,9 +15,9 @@ from io import BytesIO
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-import google.generativeai as genai
 import streamlit as st
-import streamlit.components.v1 as components
+from google import genai
+from google.genai import types
 from docx import Document
 from docx.document import Document as DocumentClass
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
@@ -43,6 +44,7 @@ BASE_DIR = Path(__file__).resolve().parent
 TEMPLATE_PATH = BASE_DIR / "modelo_tags.docx"
 DRAFTS_DIR = BASE_DIR / ".rascunhos"
 LOGO_PATH = BASE_DIR / "assets" / "logo_agres.png"
+DRAFTS_DIR.mkdir(parents=True, exist_ok=True)
 
 TAM_PLAQUETA = 60
 TAM_MAQUINA = 32
@@ -50,6 +52,11 @@ TAM_EVIDENCIA = 120
 TAM_ASSINATURA = 58
 FIGURA_CANVAS_PX = (1800, 1125)
 FIGURAS_POR_PAGINA = 2
+MAX_PACKAGE_BYTES = 100 * 1024 * 1024
+MAX_IMAGE_BYTES = 25 * 1024 * 1024
+MAX_AUDIO_BYTES = 100 * 1024 * 1024
+MAX_IMAGE_PIXELS = 40_000_000
+DRAFT_RETENTION_DAYS = 7
 
 CAMPOS_RELATORIO = (
     "tipo_atendimento",
@@ -947,7 +954,9 @@ st.markdown(
 
 
 def ativar_wake_lock_audio_mobile() -> None:
-    components.html(
+    from streamlit.components.v1 import html as render_component_html
+
+    render_component_html(
         """
         <script>
         (() => {
@@ -1223,16 +1232,12 @@ def ativar_wake_lock_audio_mobile() -> None:
     )
 
 
-ativar_wake_lock_audio_mobile()
-
-
 try:
     GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
     if not GOOGLE_API_KEY or GOOGLE_API_KEY.strip() == "cole_sua_chave_aqui":
         raise ValueError("GOOGLE_API_KEY ainda não foi preenchida no arquivo .streamlit/secrets.toml.")
-    MODELO_GEMINI = st.secrets.get("GEMINI_MODEL", "models/gemini-2.5-flash")
-    genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel(MODELO_GEMINI)
+    MODELO_GEMINI = str(st.secrets.get("GEMINI_MODEL", "gemini-2.5-flash")).removeprefix("models/")
+    genai_client = genai.Client(api_key=GOOGLE_API_KEY)
 except Exception:
     st.error("⚠️ Erro crítico: chave GOOGLE_API_KEY não configurada nos Secrets do Streamlit.")
     st.stop()
@@ -1752,18 +1757,28 @@ def processar_atendimento_completo(arquivos_audio_temp: list[Path], contexto_man
     materiais_para_ia = []
     arquivos_api = []
 
-    for audio in arquivos_audio_temp:
-        temp_file = genai.upload_file(path=str(audio))
-        materiais_para_ia.append(temp_file)
-        arquivos_api.append(temp_file)
-
     try:
-        resposta = model.generate_content(
-            [montar_prompt(contexto_manual)] + materiais_para_ia,
-            generation_config=genai.GenerationConfig(
+        for audio in arquivos_audio_temp:
+            temp_file = genai_client.files.upload(file=str(audio))
+            arquivos_api.append(temp_file)
+            for _ in range(60):
+                estado = str(getattr(getattr(temp_file, "state", None), "name", getattr(temp_file, "state", ""))).upper()
+                if "PROCESSING" not in estado:
+                    break
+                time.sleep(1)
+                temp_file = genai_client.files.get(name=temp_file.name)
+            estado_final = str(getattr(getattr(temp_file, "state", None), "name", getattr(temp_file, "state", ""))).upper()
+            if "FAILED" in estado_final or "PROCESSING" in estado_final:
+                raise ValueError(f"O áudio {audio.name} não pôde ser preparado pela IA. Exporte e tente novamente.")
+            materiais_para_ia.append(temp_file)
+
+        resposta = genai_client.models.generate_content(
+            model=MODELO_GEMINI,
+            contents=[montar_prompt(contexto_manual)] + materiais_para_ia,
+            config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 temperature=0.2,
-                max_output_tokens=8192,
+                max_output_tokens=16384,
             ),
         )
         dados = extrair_json_resposta(resposta.text)
@@ -1773,7 +1788,7 @@ def processar_atendimento_completo(arquivos_audio_temp: list[Path], contexto_man
     finally:
         for arquivo in arquivos_api:
             try:
-                genai.delete_file(arquivo.name)
+                genai_client.files.delete(name=arquivo.name)
             except Exception:
                 pass
 
@@ -1814,23 +1829,29 @@ def componente_nome_arquivo(texto: str, padrao: str) -> str:
 
 def data_para_nome_arquivo(data_visita: str) -> str:
     texto = limpar_texto(data_visita)
-    candidatos: list[tuple[int, str]] = []
+    candidatos: list[date] = []
 
-    for match in re.finditer(r"\b(\d{1,2})\s*(?:a|até|-)\s*(\d{1,2})/(\d{1,2})/(\d{4})\b", texto, flags=re.I):
-        _, dia_final, mes, ano = match.groups()
-        candidatos.append((match.start(), f"{int(ano):04d}{int(mes):02d}{int(dia_final):02d}"))
+    def adicionar_data(ano: str | int, mes: str | int, dia: str | int) -> None:
+        try:
+            candidatos.append(date(int(ano), int(mes), int(dia)))
+        except ValueError:
+            return
 
-    for match in re.finditer(r"\b(\d{1,2})/(\d{1,2})\s*(?:a|até|-)\s*(\d{1,2})/(\d{1,2})/(\d{4})\b", texto, flags=re.I):
-        _, _, dia_final, mes_final, ano = match.groups()
-        candidatos.append((match.start(), f"{int(ano):04d}{int(mes_final):02d}{int(dia_final):02d}"))
+    for match in re.finditer(r"\b\d{1,2}\s*(?:a|até|-)\s*(\d{1,2})/(\d{1,2})/(\d{4})\b", texto, flags=re.I):
+        dia_final, mes, ano = match.groups()
+        adicionar_data(ano, mes, dia_final)
+
+    for match in re.finditer(r"\b\d{1,2}/\d{1,2}\s*(?:a|até|-)\s*(\d{1,2})/(\d{1,2})/(\d{4})\b", texto, flags=re.I):
+        dia_final, mes_final, ano = match.groups()
+        adicionar_data(ano, mes_final, dia_final)
 
     for match in re.finditer(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b", texto):
         dia, mes, ano = match.groups()
-        candidatos.append((match.start(), f"{int(ano):04d}{int(mes):02d}{int(dia):02d}"))
+        adicionar_data(ano, mes, dia)
 
     for match in re.finditer(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b", texto):
         ano, mes, dia = match.groups()
-        candidatos.append((match.start(), f"{int(ano):04d}{int(mes):02d}{int(dia):02d}"))
+        adicionar_data(ano, mes, dia)
 
     meses = {
         "janeiro": 1,
@@ -1855,10 +1876,10 @@ def data_para_nome_arquivo(data_visita: str) -> str:
     for match in re.finditer(padrao_intervalo_extenso, texto, flags=re.I):
         dia, mes_nome, ano = match.groups()
         mes = meses[mes_nome.lower().replace("ç", "c")]
-        candidatos.append((match.start(), f"{int(ano):04d}{mes:02d}{int(dia):02d}"))
+        adicionar_data(ano, mes, dia)
 
     if candidatos:
-        return sorted(candidatos, key=lambda item: item[0])[-1][1]
+        return max(candidatos).strftime("%Y%m%d")
 
     return data_atual_brasil().strftime("%Y%m%d")
 
@@ -2886,8 +2907,12 @@ def aplicar_paginacao_abnt_figuras(caminho_docx: Path) -> None:
 
 
 def normalizar_imagem_para_docx(conteudo: bytes, caminho_saida: Path, padronizar_figura: bool = False) -> Path:
+    if len(conteudo) > MAX_IMAGE_BYTES:
+        raise ValueError(f"A imagem excede o limite de {MAX_IMAGE_BYTES // (1024 * 1024)} MB.")
     try:
         with Image.open(BytesIO(conteudo)) as imagem_original:
+            if imagem_original.width * imagem_original.height > MAX_IMAGE_PIXELS:
+                raise ValueError("A imagem possui resolução excessiva e não pode ser processada com segurança.")
             imagem = ImageOps.exif_transpose(imagem_original)
 
             if imagem.mode in ("RGBA", "LA") or (imagem.mode == "P" and "transparency" in imagem.info):
@@ -3002,6 +3027,9 @@ def obter_id_rascunho() -> str:
 def pasta_rascunho_atual() -> Path:
     draft_dir = DRAFTS_DIR / obter_id_rascunho()
     draft_dir.mkdir(parents=True, exist_ok=True)
+    if not st.session_state.get("rascunhos_antigos_verificados"):
+        limpar_rascunhos_antigos(draft_dir)
+        st.session_state.rascunhos_antigos_verificados = True
     return draft_dir
 
 
@@ -3009,49 +3037,110 @@ def caminho_manifesto(draft_dir: Path) -> Path:
     return draft_dir / "manifest.json"
 
 
-def carregar_manifesto(draft_dir: Path) -> dict:
-    manifesto = novo_manifesto_rascunho()
-    caminho = caminho_manifesto(draft_dir)
-    if caminho.exists():
+def caminho_backup_manifesto(draft_dir: Path) -> Path:
+    return draft_dir / "manifest.backup.json"
+
+
+def limpar_rascunhos_antigos(draft_atual: Path | None = None) -> None:
+    limite = time.time() - (DRAFT_RETENTION_DAYS * 24 * 60 * 60)
+    for pasta in DRAFTS_DIR.iterdir():
+        if not pasta.is_dir() or (draft_atual and pasta.resolve() == draft_atual.resolve()):
+            continue
         try:
-            dados = json.loads(caminho.read_text(encoding="utf-8"))
-            if isinstance(dados, dict):
-                manifesto.update(dados)
-                manifesto["tecnico_agres_responsavel"] = normalizar_tecnico_agres_responsavel(
-                    manifesto.get("tecnico_agres_responsavel", "")
-                )
-                manifesto["cabecalho"] = {**novo_manifesto_rascunho()["cabecalho"], **manifesto.get("cabecalho", {})}
-                manifesto["evidencias"] = {**novo_manifesto_rascunho()["evidencias"], **manifesto.get("evidencias", {})}
-                manifesto["fotos_atendimento"] = manifesto.get("fotos_atendimento", [])
-                manifesto["legendas_evidencias"] = {
-                    **novo_manifesto_rascunho()["legendas_evidencias"],
-                    **manifesto.get("legendas_evidencias", {}),
-                }
-                manifesto["responsaveis"] = {
-                    **novo_manifesto_rascunho()["responsaveis"],
-                    **manifesto.get("responsaveis", {}),
-                }
-                manifesto["documentos"] = {
-                    **novo_manifesto_rascunho()["documentos"],
-                    **manifesto.get("documentos", {}),
-                }
-                manifesto["assinaturas"] = {
-                    **novo_manifesto_rascunho()["assinaturas"],
-                    **manifesto.get("assinaturas", {}),
-                }
-                manifesto["assinaturas_habilitadas"] = bool(manifesto.get("assinaturas_habilitadas", True))
-                manifesto["assinaturas_lista"] = normalizar_assinaturas_lista(manifesto)
-                manifesto["quantidade_assinaturas"] = len(manifesto["assinaturas_lista"])
-        except (OSError, json.JSONDecodeError):
-            pass
+            if pasta.stat().st_mtime < limite:
+                shutil.rmtree(pasta)
+        except OSError:
+            continue
+
+
+def normalizar_manifesto_carregado(dados: dict) -> dict:
+    manifesto = novo_manifesto_rascunho()
+    manifesto.update(dados)
+    padrao = novo_manifesto_rascunho()
+    manifesto["tecnico_agres_responsavel"] = normalizar_tecnico_agres_responsavel(
+        manifesto.get("tecnico_agres_responsavel", "")
+    )
+    manifesto["cabecalho"] = {**padrao["cabecalho"], **manifesto.get("cabecalho", {})}
+    manifesto["evidencias"] = {**padrao["evidencias"], **manifesto.get("evidencias", {})}
+    manifesto["fotos_atendimento"] = manifesto.get("fotos_atendimento", [])
+    manifesto["legendas_evidencias"] = {
+        **padrao["legendas_evidencias"],
+        **manifesto.get("legendas_evidencias", {}),
+    }
+    manifesto["responsaveis"] = {**padrao["responsaveis"], **manifesto.get("responsaveis", {})}
+    manifesto["documentos"] = {**padrao["documentos"], **manifesto.get("documentos", {})}
+    manifesto["assinaturas"] = {**padrao["assinaturas"], **manifesto.get("assinaturas", {})}
+    manifesto["assinaturas_habilitadas"] = bool(manifesto.get("assinaturas_habilitadas", True))
+    manifesto["assinaturas_lista"] = normalizar_assinaturas_lista(manifesto)
+    manifesto["quantidade_assinaturas"] = len(manifesto["assinaturas_lista"])
     return manifesto
 
 
+def carregar_manifesto(draft_dir: Path) -> dict:
+    for caminho in (caminho_manifesto(draft_dir), caminho_backup_manifesto(draft_dir)):
+        if not caminho.exists():
+            continue
+        try:
+            dados = json.loads(caminho.read_text(encoding="utf-8"))
+            if isinstance(dados, dict):
+                return normalizar_manifesto_carregado(dados)
+        except (OSError, json.JSONDecodeError):
+            continue
+    return novo_manifesto_rascunho()
+
+
 def salvar_manifesto(draft_dir: Path, manifesto: dict) -> None:
-    caminho_manifesto(draft_dir).write_text(
-        json.dumps(manifesto, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    draft_dir.mkdir(parents=True, exist_ok=True)
+    caminho = caminho_manifesto(draft_dir)
+    temporario = draft_dir / "manifest.tmp.json"
+    backup = caminho_backup_manifesto(draft_dir)
+    conteudo = json.dumps(manifesto, ensure_ascii=False, indent=2)
+    temporario.write_text(conteudo, encoding="utf-8")
+    json.loads(temporario.read_text(encoding="utf-8"))
+    if caminho.exists():
+        try:
+            json.loads(caminho.read_text(encoding="utf-8"))
+            shutil.copy2(caminho, backup)
+        except (OSError, json.JSONDecodeError):
+            pass
+    temporario.replace(caminho)
+
+
+def caminhos_referenciados_manifesto(manifesto: dict) -> set[str]:
+    caminhos: set[str] = set()
+
+    def visitar(valor) -> None:
+        if isinstance(valor, dict):
+            caminho = valor.get("path")
+            if isinstance(caminho, str):
+                caminhos.add(caminho.replace("\\", "/"))
+            for item in valor.values():
+                visitar(item)
+        elif isinstance(valor, list):
+            for item in valor:
+                visitar(item)
+
+    visitar(manifesto)
+    return caminhos
+
+
+def remover_arquivos_orfaos_rascunho(draft_dir: Path, manifesto: dict) -> None:
+    referenciados = caminhos_referenciados_manifesto(manifesto)
+    preservados = {"manifest.json", "manifest.backup.json", "manifest.tmp.json"}
+    for caminho in draft_dir.rglob("*"):
+        if not caminho.is_file():
+            continue
+        relativo = caminho.relative_to(draft_dir).as_posix()
+        if relativo not in preservados and relativo not in referenciados:
+            try:
+                caminho.unlink()
+            except OSError:
+                continue
+    for pasta in sorted((item for item in draft_dir.rglob("*") if item.is_dir()), reverse=True):
+        try:
+            pasta.rmdir()
+        except OSError:
+            continue
 
 
 def resolver_arquivo_rascunho(draft_dir: Path, item) -> Path | None:
@@ -3081,6 +3170,9 @@ def salvar_arquivo_rascunho(
     conteudo = uploaded_file.getvalue()
     if not conteudo:
         return None
+    limite = MAX_IMAGE_BYTES if extensoes_permitidas == EXTENSOES_IMAGEM else MAX_AUDIO_BYTES
+    if len(conteudo) > limite:
+        raise ValueError(f"O arquivo excede o limite de {limite // (1024 * 1024)} MB.")
 
     nome_original = getattr(uploaded_file, "name", f"{prefixo}.{extensao_padrao}")
     extensao = Path(nome_original).suffix.lower().lstrip(".")
@@ -3108,7 +3200,11 @@ def salvar_arquivo_rascunho(
     }
 
 
-def decodificar_data_url(data_url: str, mime_type_padrao: str = "application/octet-stream") -> tuple[bytes, str]:
+def decodificar_data_url(
+    data_url: str,
+    mime_type_padrao: str = "application/octet-stream",
+    limite_bytes: int | None = None,
+) -> tuple[bytes, str]:
     bruto = str(data_url or "").strip()
     if not bruto:
         raise ValueError("Arquivo offline inválido: conteúdo em base64 vazio.")
@@ -3124,10 +3220,13 @@ def decodificar_data_url(data_url: str, mime_type_padrao: str = "application/oct
     conteudo_base64 = re.sub(r"\s+", "", conteudo_base64)
     if not conteudo_base64:
         raise ValueError("Arquivo offline inválido: conteúdo em base64 não encontrado.")
+    tamanho_estimado = (len(conteudo_base64) * 3) // 4
+    if limite_bytes and tamanho_estimado > limite_bytes:
+        raise ValueError(f"O arquivo excede o limite de {limite_bytes // (1024 * 1024)} MB.")
     conteudo_base64 += "=" * ((4 - len(conteudo_base64) % 4) % 4)
 
     try:
-        return base64.b64decode(conteudo_base64, validate=False), mime_type
+        return base64.b64decode(conteudo_base64, validate=True), mime_type
     except Exception as erro:
         raise ValueError("Arquivo offline inválido: base64 corrompido ou incompleto.") from erro
 
@@ -3159,7 +3258,8 @@ def salvar_item_offline_rascunho(
         return None
 
     mime_type_informado = str(item.get("type") or item.get("mime_type") or item.get("mimeType") or "application/octet-stream")
-    conteudo, mime_type = decodificar_data_url(conteudo_codificado, mime_type_informado)
+    limite = MAX_IMAGE_BYTES if extensoes_permitidas == EXTENSOES_IMAGEM else MAX_AUDIO_BYTES
+    conteudo, mime_type = decodificar_data_url(conteudo_codificado, mime_type_informado, limite)
     if not conteudo:
         return None
 
@@ -3209,6 +3309,8 @@ def salvar_item_offline_seguro(
 
 
 def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: dict) -> dict:
+    if len(texto_pacote) > MAX_PACKAGE_BYTES:
+        raise ValueError(f"O pacote excede o limite de {MAX_PACKAGE_BYTES // (1024 * 1024)} MB.")
     try:
         pacote = json.loads(texto_pacote)
     except json.JSONDecodeError as erro:
@@ -3217,6 +3319,7 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
     if not isinstance(pacote, dict) or pacote.get("version") != 1:
         raise ValueError("Pacote offline incompatível com esta versão do aplicativo.")
 
+    manifesto = novo_manifesto_rascunho()
     manifesto["tipo_atendimento"] = normalizar_tipo_atendimento(pacote.get("tipo_atendimento"), manifesto.get("tipo_atendimento", "suporte"))
     manifesto["tecnico_agres_responsavel"] = normalizar_tecnico_agres_responsavel(
         pacote.get("tecnico_agres_responsavel", manifesto.get("tecnico_agres_responsavel", ""))
@@ -3420,12 +3523,17 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
     )
 
     salvar_manifesto(draft_dir, manifesto)
+    remover_arquivos_orfaos_rascunho(draft_dir, manifesto)
+    shutil.copy2(caminho_manifesto(draft_dir), caminho_backup_manifesto(draft_dir))
     return manifesto
 
 
 def importar_pacote_offline(uploaded_file, draft_dir: Path, manifesto: dict) -> dict:
+    conteudo = uploaded_file.getvalue()
+    if len(conteudo) > MAX_PACKAGE_BYTES:
+        raise ValueError(f"O pacote excede o limite de {MAX_PACKAGE_BYTES // (1024 * 1024)} MB.")
     try:
-        texto_pacote = uploaded_file.getvalue().decode("utf-8-sig")
+        texto_pacote = conteudo.decode("utf-8-sig")
     except UnicodeDecodeError as erro:
         raise ValueError("Não foi possível ler o pacote offline. Exporte novamente pelo modo offline.") from erro
     return importar_pacote_offline_json(texto_pacote, draft_dir, manifesto)
@@ -4079,7 +4187,16 @@ def finalizar_importacao_offline(manifesto: dict) -> None:
 def atualizar_status_upload_json(chave_uploader: str) -> None:
     arquivo = st.session_state.get(chave_uploader)
     if arquivo:
-        st.session_state.json_upload_bytes = arquivo.getvalue()
+        conteudo = arquivo.getvalue()
+        if len(conteudo) > MAX_PACKAGE_BYTES:
+            st.session_state.pop("json_upload_bytes", None)
+            st.session_state.json_import_status = "error"
+            st.session_state.json_import_message = (
+                f"O pacote excede o limite de {MAX_PACKAGE_BYTES // (1024 * 1024)} MB. "
+                "Remova arquivos muito pesados e exporte novamente."
+            )
+            return
+        st.session_state.json_upload_bytes = conteudo
         st.session_state.json_upload_name = getattr(arquivo, "name", "pacote_relatorio.json")
         st.session_state.json_upload_type = getattr(arquivo, "type", "application/json")
         st.session_state.json_import_status = "selected"
@@ -4357,6 +4474,8 @@ with st.container(border=True):
             on_change=atualizar_status_upload_json,
             args=(chave_uploader,),
         )
+        if st.session_state.get("json_import_status") == "error":
+            st.error(st.session_state.get("json_import_message", "Não foi possível carregar o pacote JSON."))
     else:
         renderizar_status_upload_json(pacote_offline)
         coluna_importar, coluna_remover = st.columns([1.25, 0.75])
