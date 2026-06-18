@@ -1,63 +1,72 @@
 # Auditoria Final de Campo - Agres
 
-Data: 12/06/2026
+Data: 18/06/2026
 
-Versão offline: 2026.06.12.22  
-Versão APK Android: 1.0.12 (versionCode 13)
+Versao offline: 2026.06.18.26  
+Versao APK Android: 1.0.17 (versionCode 18)
 
-## Escopo validado
+## Escopo Revalidado
 
-- Coleta offline no navegador/PWA para iPhone e iPad.
-- Coleta offline no APK Android.
-- Persistência local de textos, áudios, fotos, legendas, localização e assinaturas.
-- Exportação do pacote JSON.
-- Importação do JSON no gerador online.
-- Processamento pela IA, geração do Word e pacote ZIP com fotos.
-- Formatação, paginação, nomenclatura e integridade dos arquivos gerados.
+- Coleta offline PWA para iPhone e iPad.
+- Coleta offline embarcada no APK Android.
+- Persistencia local de textos, audios, fotos, legendas, localizacao e assinaturas.
+- Exportacao do Pacote Relatorio Offline.
+- Compartilhamento no iPhone/iPad como ZIP para melhorar compatibilidade com WhatsApp, OneDrive e Arquivos.
+- Compartilhamento no iPhone/iPad somente com arquivo anexado, sem texto/titulo adicional que gere `.txt` separado.
+- Importacao online de pacote JSON ou ZIP.
+- Geracao do Word e do ZIP final com pasta unica de fotos.
+- Atualizacao de cache offline para evitar versoes antigas no iPad/iPhone.
 
-## Correções críticas implementadas
+## Correcoes Desta Revisao
 
-- Gravações do rascunho offline passaram a ser serializadas para evitar operações concorrentes e perda de dados.
-- Importação online sempre inicia um atendimento limpo, sem misturar arquivos do pacote anterior.
-- Manifesto online passou a usar gravação atômica e arquivo de recuperação.
-- Arquivos órfãos de importações anteriores são removidos com segurança.
-- Pacotes Base64 corrompidos são rejeitados em vez de serem aceitos parcialmente.
-- Foram adicionados limites de segurança para pacote, imagem, áudio e resolução.
-- O cache offline só é atualizado quando todos os arquivos essenciais foram armazenados.
-- Erros ao finalizar gravações de áudio agora são exibidos e tratados.
-- O modo antigo de gravação WAV possui limite para evitar estouro de memória.
-- A data usada nos nomes passa a ser a data final cronologicamente mais recente.
-- A biblioteca Gemini obsoleta foi substituída por `google-genai`.
-- Dependências foram fixadas em versões verificadas.
-- Backup do APK foi desabilitado e permissões do WebView foram restringidas à origem local.
-- Arquivos temporários antigos do APK são limpos e gravações incompletas no Android são removidas.
+- A PWA passou a gerar um ZIP contendo o JSON original quando usar o compartilhamento/download web.
+- O gerador online agora aceita `.json` e `.zip`.
+- O ZIP importado e validado pelo gerador extrai somente o JSON interno da coleta offline.
+- Foram adicionadas validacoes de tamanho e formato para ZIP corrompido, ZIP sem JSON e JSON interno grande demais.
+- Textos do online foram ajustados de "JSON" para "pacote JSON ou ZIP" onde o tecnico interage com a tela.
+- Removido texto/titulo do Web Share API no iPhone/iPad; o compartilhamento agora envia apenas `{ files: [...] }`.
+- Cache da PWA atualizado:
+  - GitHub Pages: `agres-pages-offline-v52`
+  - Streamlit static offline: `agres-offline-v56`
+  - Streamlit static coleta: `agres-coleta-v49`
+- APK Android atualizado para `1.0.17`.
+- Guia do iPad atualizado para explicar que o pacote pode sair como ZIP.
 
-## Testes executados
+## Testes Executados Nesta Revalidacao
 
-- Compilação sintática do Python.
-- Compatibilidade das dependências com `pip check`.
-- Análise sintática dos arquivos Java do APK.
-- Validação dos manifests JSON/XML e do modelo Word.
-- Validação de IDs únicos e associação de labels no HTML.
-- Teste de importação com mais de 30 fotos, áudio, cabeçalho e assinatura.
-- Teste de troca de atendimento sem permanência de fotos anteriores.
-- Teste de recuperação de manifesto corrompido.
-- Teste de rejeição de Base64 inválido.
-- Geração real de Word e ZIP, com verificação interna dos arquivos.
-- Verificação de início de página para Fotos, Configurações, Outros Registros e Assinaturas.
-- Verificação de blocos completos de figura com título, imagem, fonte e legenda.
-- Testes responsivos em 360, 390, 820 e 1280 px, sem rolagem horizontal.
-- Teste de persistência offline após recarregar a página.
-- Inicialização do gerador Streamlit sem erros ou avisos de dependências obsoletas.
+- PWA aberta por servidor local limpo em `http://127.0.0.1:8766/index.html`.
+- Validado carregamento sem erros de console da PWA atual.
+- Validada presenca do botao `Exportar Pacote Relatorio Offline`.
+- Validada obrigatoriedade do `Tecnico Responsavel Agres` antes da exportacao.
+- Validado fallback de exportacao gerando arquivo `.zip`:
+  - Exemplo: `20260615_RELATORIO_ATIVIDADES_INSTALACAO_HENRIQUE.zip`
+  - Link exibido: `baixar pacote ZIP`
+- Validada ausencia da frase `Pacote JSON da coleta offline Agres.` nos arquivos ativos.
+- Validado que nao ha `EXTRA_TEXT` no compartilhamento Android nem `text/title` no compartilhamento iPhone/iPad.
+- Compilacao sintatica de `app.py` e `build_release_packages.py` concluida sem erros.
+- Quatro copias do HTML offline sincronizadas com o mesmo hash:
+  - `docs/index.html`
+  - `static/offline/index.html`
+  - `static/coleta/index.html`
+  - `android-apk/app/src/main/assets/offline/index.html`
+- Service workers atualizados.
+- Pacotes finais recriados e testados por integridade ZIP.
+- Conferido que `secrets.toml` nao entrou em nenhum pacote final.
 
-## Limites operacionais
+## Pacotes de Entrega Gerados
 
-- O pacote JSON possui limite de 100 MB; imagens individuais, 25 MB; áudios individuais, 100 MB.
-- O gerador online e a IA dependem de internet e da disponibilidade da API Gemini.
-- iPhone/iPad exigem que a versão HTTPS seja aberta uma vez com internet e adicionada à Tela de Início para uso offline confiável.
-- Câmera, microfone e GPS dependem das permissões concedidas no aparelho.
-- O APK gerado pelo workflow atual é de depuração. Para distribuição oficial, deve ser assinado com uma chave mantida pela empresa.
+- `arquivos_finais_github.zip`: projeto completo para GitHub/Streamlit.
+- `agres_offline_android_project.zip`: projeto Android para gerar APK pelo GitHub Actions.
+- `agres_offline_iphone_ipad_pwa.zip`: PWA iPhone/iPad para publicar pelo GitHub Pages.
+- `MANUAL_UTILIZACAO_RELATORIOS_TECNICOS_AGRES_ABNT_1.0.17.docx`: manual de uso.
 
-## Recomendação de liberação
+## Observacoes Importantes
 
-Realizar um piloto curto com dois técnicos em aparelhos diferentes antes da entrega para toda a equipe. Após o piloto, distribuir exatamente o mesmo pacote aprovado, sem alterações intermediárias.
+- No iPhone/iPad, o menu de compartilhamento depende dos aplicativos instalados e das extensoes aceitas por cada app. Usar ZIP aumenta a chance de aparecer WhatsApp, OneDrive e Arquivos.
+- O pacote ZIP gerado pelo iPad/iPhone pode ser importado diretamente no gerador online.
+- O JSON original continua dentro do ZIP, preservando compatibilidade e rastreabilidade.
+- Apos subir no GitHub, abrir a PWA uma vez com internet para atualizar o cache. Se o iPad ainda abrir a versao antiga, remover o icone antigo da Tela de Inicio e adicionar novamente pelo link publicado.
+
+## Recomendacao
+
+Liberar esta versao para piloto controlado com tecnicos em Android APK e iPhone/iPad PWA, mantendo a regra: nao limpar a coleta antes de confirmar que o pacote foi importado no online e que o Word final foi gerado.

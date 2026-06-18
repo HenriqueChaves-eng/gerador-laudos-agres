@@ -920,7 +920,7 @@
       </div>
       <div class="field">
         <label for="tecnico_agres_responsavel">Técnico Responsável Agres</label>
-        <select id="tecnico_agres_responsavel">
+        <select id="tecnico_agres_responsavel" required>
           <option value="">Selecione o técnico</option>
           <option value="Caiky Lima">Caiky Lima</option>
           <option value="Cristian Lima">Cristian Lima</option>
@@ -1255,12 +1255,12 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.06.12.22";
+    const APP_VERSION = "2026.06.18.26";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v52"
+      ? "agres-offline-v56"
       : location.pathname.includes("/static/coleta/")
-        ? "agres-coleta-v45"
-        : "agres-pages-offline-v48";
+        ? "agres-coleta-v49"
+        : "agres-pages-offline-v52";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
@@ -1271,6 +1271,8 @@
     const MAX_IMAGE_FILE_BYTES = 25 * 1024 * 1024;
     const MAX_AUDIO_FILE_BYTES = 100 * 1024 * 1024;
     const MAX_PACKAGE_BYTES = 100 * 1024 * 1024;
+    const JSON_PACKAGE_MIME = "application/json";
+    const ZIP_PACKAGE_MIME = "application/zip";
     const MAX_RECORDING_DURATION_MS = 30 * 60 * 1000;
     const MAX_WAV_DURATION_SECONDS = 8 * 60;
     const ATTENDANCE_TYPE_FILE_LABELS = {
@@ -1279,23 +1281,6 @@
       treinamento: "TREINAMENTO",
       validacao_homologacao: "VALIDACAO"
     };
-    const AGRES_TECHNICIANS = [
-      "CAIKY",
-      "CAYKI",
-      "CRISTIAN",
-      "DENIS",
-      "DERICK",
-      "EDISON",
-      "GUILHERME",
-      "GUSTAVO",
-      "LUIZ",
-      "HENRIQUE",
-      "MAURO",
-      "PHELIPPE",
-      "FELIPE",
-      "RODRIGO",
-      "RONALDO"
-    ];
     const TECHNICIAN_NAME_ALIASES = {
       "Cristian Lima Araujo": "Cristian Lima",
       "Ronaldo Hiromi Kishida Junior": "Ronaldo Kishida"
@@ -1336,6 +1321,7 @@
     let lastLocationPermissionState = "unknown";
     let signatureFullscreenRequested = false;
     let lastExportUrl = "";
+    let lastZipExportUrl = "";
 
     function defaultDraft() {
       return {
@@ -1344,6 +1330,7 @@
         updated_at: new Date().toISOString(),
         tipo_atendimento: "suporte",
         tecnico_agres_responsavel: "",
+        data_atendimento_final: "",
         localizacao_maps: "",
         observacoes: "",
         audios: [],
@@ -2392,8 +2379,14 @@
       const captions = manualCaptionCount();
       const signatures = signatureStats();
       const locationReady = Boolean(String(draft.localizacao_maps || "").trim());
+      const technicianReady = Boolean(String(draft.tecnico_agres_responsavel || "").trim());
 
       const items = [
+        {
+          ok: technicianReady,
+          title: "Técnico Responsável Agres",
+          detail: technicianReady ? draft.tecnico_agres_responsavel : "Selecione o técnico antes de exportar."
+        },
         {
           ok: audioCount > 0 || textReady,
           title: "Relato técnico",
@@ -2738,33 +2731,42 @@
     function dateForFileName() {
       const text = String(draft.observacoes || "");
       const candidates = [];
+      const validDateValue = (year, month, day) => {
+        const y = Number.parseInt(year, 10);
+        const m = Number.parseInt(month, 10);
+        const d = Number.parseInt(day, 10);
+        const value = new Date(y, m - 1, d);
+        if (
+          !Number.isInteger(y) ||
+          !Number.isInteger(m) ||
+          !Number.isInteger(d) ||
+          value.getFullYear() !== y ||
+          value.getMonth() !== m - 1 ||
+          value.getDate() !== d
+        ) {
+          return "";
+        }
+        return `${String(y).padStart(4, "0")}${String(m).padStart(2, "0")}${String(d).padStart(2, "0")}`;
+      };
+      const addCandidate = (index, year, month, day) => {
+        const value = validDateValue(year, month, day);
+        if (value) candidates.push({ index, value });
+      };
       for (const match of text.matchAll(/\b(\d{1,2})\s*(?:a|até|-)\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\b/gi)) {
         const [, , finalDay, month, year] = match;
-        candidates.push({
-          index: match.index || 0,
-          value: `${year.padStart(4, "0")}${month.padStart(2, "0")}${finalDay.padStart(2, "0")}`
-        });
+        addCandidate(match.index || 0, year, month, finalDay);
       }
       for (const match of text.matchAll(/\b(\d{1,2})\/(\d{1,2})\s*(?:a|até|-)\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\b/gi)) {
         const [, , , finalDay, finalMonth, year] = match;
-        candidates.push({
-          index: match.index || 0,
-          value: `${year.padStart(4, "0")}${finalMonth.padStart(2, "0")}${finalDay.padStart(2, "0")}`
-        });
+        addCandidate(match.index || 0, year, finalMonth, finalDay);
       }
       for (const match of text.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g)) {
         const [, day, month, year] = match;
-        candidates.push({
-          index: match.index || 0,
-          value: `${year.padStart(4, "0")}${month.padStart(2, "0")}${day.padStart(2, "0")}`
-        });
+        addCandidate(match.index || 0, year, month, day);
       }
       for (const match of text.matchAll(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/g)) {
         const [, year, month, day] = match;
-        candidates.push({
-          index: match.index || 0,
-          value: `${year.padStart(4, "0")}${month.padStart(2, "0")}${day.padStart(2, "0")}`
-        });
+        addCandidate(match.index || 0, year, month, day);
       }
       const months = {
         janeiro: "01",
@@ -2786,23 +2788,15 @@
         const [, day, monthName, year] = match;
         const month = months[monthName.toLowerCase().replace("ç", "c")];
         if (month) {
-          candidates.push({
-            index: match.index || 0,
-            value: `${year.padStart(4, "0")}${month}${day.padStart(2, "0")}`
-          });
+          addCandidate(match.index || 0, year, month, day);
         }
       }
       if (candidates.length) {
         candidates.sort((a, b) => a.value.localeCompare(b.value));
         return candidates[candidates.length - 1].value;
       }
-      return new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    }
-
-    function extractKnownTerms(pattern, fallback) {
-      const text = normalizeFilePart(draft.observacoes || "");
-      const match = text.match(pattern);
-      return match ? match[0] : fallback;
+      const now = new Date();
+      return validDateValue(now.getFullYear(), now.getMonth() + 1, now.getDate());
     }
 
     function attendanceTypeForFileName() {
@@ -2811,13 +2805,7 @@
 
     function technicianForFileName() {
       const explicit = normalizeFilePart(draft.tecnico_agres_responsavel || "");
-      if (explicit) {
-        return explicit.split("_").filter(Boolean)[0] || explicit;
-      }
-      const text = normalizeFilePart(draft.observacoes || "");
-      const tokens = new Set(text.split("_").filter(Boolean));
-      const found = AGRES_TECHNICIANS.find((name) => tokens.has(name));
-      return found || "TECNICO";
+      return explicit ? explicit.split("_").filter(Boolean)[0] || explicit : "TECNICO";
     }
 
     function automaticReportBaseName() {
@@ -2830,7 +2818,12 @@
     function packageTextSync() {
       normalizeSignatures();
       draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
-      const pacote = { ...draft, app_version: APP_VERSION, exported_at: new Date().toISOString() };
+      const pacote = {
+        ...draft,
+        app_version: APP_VERSION,
+        data_atendimento_final: dateForFileName(),
+        exported_at: new Date().toISOString()
+      };
       return JSON.stringify(pacote);
     }
 
@@ -2840,25 +2833,129 @@
     }
 
     async function packageBlob() {
-      return new Blob([await packageText()], { type: "application/json" });
+      return new Blob([await packageText()], { type: JSON_PACKAGE_MIME });
     }
 
     function packageBlobSync() {
-      return new Blob([packageTextSync()], { type: "application/json" });
+      return new Blob([packageTextSync()], { type: JSON_PACKAGE_MIME });
+    }
+
+    function zipFileName(jsonFileName) {
+      return String(jsonFileName || "pacote_relatorio.json").replace(/\.json$/i, "") + ".zip";
+    }
+
+    function textToBytes(text) {
+      return new TextEncoder().encode(String(text || ""));
+    }
+
+    let crc32Table = null;
+    function buildCrc32Table() {
+      const table = new Uint32Array(256);
+      for (let index = 0; index < 256; index += 1) {
+        let value = index;
+        for (let bit = 0; bit < 8; bit += 1) {
+          value = (value & 1) ? (0xedb88320 ^ (value >>> 1)) : (value >>> 1);
+        }
+        table[index] = value >>> 0;
+      }
+      return table;
+    }
+
+    function crc32(bytes) {
+      if (!crc32Table) crc32Table = buildCrc32Table();
+      let crc = 0xffffffff;
+      for (let index = 0; index < bytes.length; index += 1) {
+        crc = crc32Table[(crc ^ bytes[index]) & 0xff] ^ (crc >>> 8);
+      }
+      return (crc ^ 0xffffffff) >>> 0;
+    }
+
+    function writeUint16(buffer, offset, value) {
+      buffer[offset] = value & 0xff;
+      buffer[offset + 1] = (value >>> 8) & 0xff;
+    }
+
+    function writeUint32(buffer, offset, value) {
+      buffer[offset] = value & 0xff;
+      buffer[offset + 1] = (value >>> 8) & 0xff;
+      buffer[offset + 2] = (value >>> 16) & 0xff;
+      buffer[offset + 3] = (value >>> 24) & 0xff;
+    }
+
+    function dosDateTime() {
+      const now = new Date();
+      const time = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
+      const date = ((Math.max(1980, now.getFullYear()) - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+      return { time, date };
+    }
+
+    function packageZipBlob(jsonFileName, jsonText) {
+      const dataBytes = textToBytes(jsonText);
+      const nameBytes = textToBytes(jsonFileName);
+      const crc = crc32(dataBytes);
+      const stamp = dosDateTime();
+      const flags = 0x0800;
+
+      const localHeader = new Uint8Array(30 + nameBytes.length);
+      writeUint32(localHeader, 0, 0x04034b50);
+      writeUint16(localHeader, 4, 20);
+      writeUint16(localHeader, 6, flags);
+      writeUint16(localHeader, 8, 0);
+      writeUint16(localHeader, 10, stamp.time);
+      writeUint16(localHeader, 12, stamp.date);
+      writeUint32(localHeader, 14, crc);
+      writeUint32(localHeader, 18, dataBytes.length);
+      writeUint32(localHeader, 22, dataBytes.length);
+      writeUint16(localHeader, 26, nameBytes.length);
+      writeUint16(localHeader, 28, 0);
+      localHeader.set(nameBytes, 30);
+
+      const centralOffset = localHeader.length + dataBytes.length;
+      const centralHeader = new Uint8Array(46 + nameBytes.length);
+      writeUint32(centralHeader, 0, 0x02014b50);
+      writeUint16(centralHeader, 4, 20);
+      writeUint16(centralHeader, 6, 20);
+      writeUint16(centralHeader, 8, flags);
+      writeUint16(centralHeader, 10, 0);
+      writeUint16(centralHeader, 12, stamp.time);
+      writeUint16(centralHeader, 14, stamp.date);
+      writeUint32(centralHeader, 16, crc);
+      writeUint32(centralHeader, 20, dataBytes.length);
+      writeUint32(centralHeader, 24, dataBytes.length);
+      writeUint16(centralHeader, 28, nameBytes.length);
+      writeUint16(centralHeader, 30, 0);
+      writeUint16(centralHeader, 32, 0);
+      writeUint16(centralHeader, 34, 0);
+      writeUint16(centralHeader, 36, 0);
+      writeUint32(centralHeader, 38, 0);
+      writeUint32(centralHeader, 42, 0);
+      centralHeader.set(nameBytes, 46);
+
+      const endRecord = new Uint8Array(22);
+      writeUint32(endRecord, 0, 0x06054b50);
+      writeUint16(endRecord, 4, 0);
+      writeUint16(endRecord, 6, 0);
+      writeUint16(endRecord, 8, 1);
+      writeUint16(endRecord, 10, 1);
+      writeUint32(endRecord, 12, centralHeader.length);
+      writeUint32(endRecord, 16, centralOffset);
+      writeUint16(endRecord, 20, 0);
+
+      return new Blob([localHeader, dataBytes, centralHeader, endRecord], { type: ZIP_PACKAGE_MIME });
     }
 
     function setSyncMessage(texto) {
       document.getElementById("syncMessage").textContent = texto || "";
     }
 
-    function showDownloadFallback(url, fileName) {
+    function showDownloadFallback(url, fileName, label = "baixar pacote") {
       const container = document.getElementById("syncMessage");
       container.innerHTML = "";
       container.appendChild(document.createTextNode("Pacote relatório offline pronto. Se não baixar automaticamente, toque em "));
       const link = document.createElement("a");
       link.href = url;
       link.download = fileName;
-      link.textContent = "baixar pacote JSON";
+      link.textContent = label;
       container.appendChild(link);
       container.appendChild(document.createTextNode("."));
     }
@@ -3049,11 +3146,17 @@
     async function exportDraft() {
       try {
         normalizeSignatures();
+        draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
+        if (!draft.tecnico_agres_responsavel) {
+          throw new Error("selecione o Técnico Responsável Agres antes de exportar.");
+        }
         const saved = await saveDraftNow();
         if (!saved) return;
         const fileName = packageFileName();
+        const zipName = zipFileName(fileName);
         const jsonText = packageTextSync();
-        const blob = new Blob([jsonText], { type: "application/json" });
+        const blob = new Blob([jsonText], { type: JSON_PACKAGE_MIME });
+        const zipBlob = packageZipBlob(fileName, jsonText);
         const packageSize = formatBytes(blob.size);
         if (blob.size > MAX_PACKAGE_BYTES) {
           throw new Error(
@@ -3080,16 +3183,22 @@
         }
 
         if (typeof File === "function" && navigator.share) {
-          const file = new File([blob], fileName, { type: "application/json" });
-          const canShareFile = !navigator.canShare || navigator.canShare({ files: [file] });
-          if (canShareFile) {
+          const shareCandidates = [
+            {
+              file: new File([zipBlob], zipName, { type: ZIP_PACKAGE_MIME }),
+              label: "ZIP"
+            },
+            {
+              file: new File([blob], fileName, { type: JSON_PACKAGE_MIME }),
+              label: "JSON"
+            }
+          ];
+          for (const candidate of shareCandidates) {
+            const canShareFile = !navigator.canShare || navigator.canShare({ files: [candidate.file] });
+            if (!canShareFile) continue;
             try {
-              await navigator.share({
-                title: "Pacote Relatório Offline",
-                text: "Pacote JSON da coleta offline Agres.",
-                files: [file]
-              });
-              setSyncMessage(`Pacote relatório offline exportado (${packageSize}).`);
+              await navigator.share({ files: [candidate.file] });
+              setSyncMessage(`Pacote relatório offline exportado em ${candidate.label} (${packageSize}).`);
               return;
             } catch (error) {
               if (error?.name === "AbortError") {
@@ -3101,17 +3210,19 @@
         }
 
         if (lastExportUrl) URL.revokeObjectURL(lastExportUrl);
+        if (lastZipExportUrl) URL.revokeObjectURL(lastZipExportUrl);
         lastExportUrl = URL.createObjectURL(blob);
+        lastZipExportUrl = URL.createObjectURL(zipBlob);
         const link = document.createElement("a");
-        link.href = lastExportUrl;
-        link.download = fileName;
+        link.href = lastZipExportUrl;
+        link.download = zipName;
         link.rel = "noopener";
         document.body.appendChild(link);
         link.click();
         link.remove();
-        showDownloadFallback(lastExportUrl, fileName);
+        showDownloadFallback(lastZipExportUrl, zipName, "baixar pacote ZIP");
         const container = document.getElementById("syncMessage");
-        container.appendChild(document.createTextNode(` Tamanho aproximado: ${packageSize}.`));
+        container.appendChild(document.createTextNode(` O ZIP pode ser importado diretamente no gerador online. Tamanho aproximado: ${packageSize}.`));
       } catch (error) {
         setSyncMessage(`Não foi possível exportar o pacote: ${error.message}`);
       }

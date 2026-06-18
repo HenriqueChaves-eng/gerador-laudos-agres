@@ -1,4 +1,4 @@
-# Gerar APK pelo GitHub
+# Gerar APK Android pelo GitHub
 
 Este projeto já inclui o workflow `.github/workflows/build-android-apk.yml`.
 
@@ -28,7 +28,7 @@ Este projeto já inclui o workflow `.github/workflows/build-android-apk.yml`.
 agres-offline-debug-apk
 ```
 
-Dentro dele estará:
+Dentro do artefato estará:
 
 ```text
 app-debug.apk
@@ -44,3 +44,9 @@ app-debug.apk
 ## Observação
 
 Esse APK é de teste/debug. Para distribuir oficialmente para todos os técnicos, o próximo passo é gerar um APK/AAB assinado com chave da empresa.
+
+Versão atual esperada:
+
+```text
+Agres Offline 1.0.17
+```

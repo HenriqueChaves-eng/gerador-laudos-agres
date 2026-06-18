@@ -1160,8 +1160,8 @@ def ativar_wake_lock_audio_mobile() -> None:
                                 botao.style.setProperty("min-width", "2.35rem", "important");
                                 botao.style.setProperty("width", "2.35rem", "important");
                                 botao.style.setProperty("height", "2.35rem", "important");
-                                botao.setAttribute("title", "Excluir arquivo JSON");
-                                botao.setAttribute("aria-label", "Excluir arquivo JSON");
+                                botao.setAttribute("title", "Excluir pacote selecionado");
+                                botao.setAttribute("aria-label", "Excluir pacote selecionado");
                                 botao.querySelectorAll("*").forEach((elemento) => {
                                     elemento.style.setProperty("background", "transparent", "important");
                                     elemento.style.setProperty("color", "#ffffff", "important");
@@ -1177,14 +1177,14 @@ def ativar_wake_lock_audio_mobile() -> None:
 
                     docAlvo.querySelectorAll("button").forEach((botao) => {
                         const texto = (botao.textContent || "").trim().toLowerCase();
-                        if (!texto.includes("remover arquivo json")) {
+                        if (!texto.includes("remover pacote")) {
                             return;
                         }
                         botao.style.setProperty("background", "#d92d20", "important");
                         botao.style.setProperty("border", "1px solid #b42318", "important");
                         botao.style.setProperty("color", "#ffffff", "important");
                         botao.style.setProperty("box-shadow", "0 8px 18px rgba(217, 45, 32, 0.22)", "important");
-                        botao.setAttribute("title", "Excluir o arquivo JSON selecionado");
+                        botao.setAttribute("title", "Excluir o pacote selecionado");
                         botao.querySelectorAll("*").forEach((elemento) => {
                             elemento.style.setProperty("color", "#ffffff", "important");
                         });
@@ -1290,6 +1290,14 @@ def limpar_texto(valor) -> str:
     if normalizar_busca(texto) in {"null", "none", "n/a", "nao informado", "nao informada"}:
         return ""
     return texto
+
+
+def dicionario_ou_vazio(valor) -> dict:
+    return valor if isinstance(valor, dict) else {}
+
+
+def lista_ou_vazia(valor) -> list:
+    return valor if isinstance(valor, list) else []
 
 
 def texto_ou_padrao(valor, padrao="Não informado") -> str:
@@ -1641,7 +1649,7 @@ def normalizar_dados_relatorio(dados: dict) -> dict:
         )
 
     dados_normalizados["data_visita"] = dados_normalizados["data_visita"] or data_atual_brasil().strftime("%d/%m/%Y")
-    dados_normalizados["tecnicos"] = dados_normalizados["tecnicos"] or "Henrique Chaves"
+    dados_normalizados["tecnicos"] = dados_normalizados["tecnicos"] or ""
 
     for campo in (
         "cliente_local",
@@ -1685,18 +1693,19 @@ REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 3. data_visita: preserve intervalo de datas quando o atendimento ocorrer em mais de um dia, por exemplo "19 a 21/01/2026".
 4. cliente_local: informar cliente, cidade/UF, revenda, fábrica e propriedade quando existirem.
 5. localizacao_maps: informar somente o link do Google Maps, Maps ou coordenadas da fazenda quando existirem; caso contrário, retornar "".
-6. equipamentos: organizar em linhas com modelo, série, versões de aplicação/sistema/carga, ECU, compensador, GPS e identificadores.
-7. maquinas: organizar em linhas com fabricante, modelo, implemento, comando de válvulas e características relevantes.
+6. equipamentos: organizar somente equipamentos, sistemas e componentes da Agres em linhas com modelo, série, versões de aplicação/sistema/carga, ECU, compensador, GPS e identificadores. Não incluir máquina, trator ou implemento de outros fabricantes neste campo.
+7. maquinas: organizar máquinas, tratores e implementos de outros fabricantes em linhas com fabricante, modelo, comando de válvulas e características relevantes. Exemplos como Baldan Avolla 2500 pertencem exclusivamente a este campo.
 8. objetivos: escrever somente o objetivo principal do atendimento, em uma ou duas frases.
 9. configuracoes: incluir somente parâmetros de sistema, software, tela, ECU, controlador, seções, geometria, versões, módulos habilitados, ganhos ou ajustes feitos em menus. Retornar em tópicos objetivos, uma linha por item, sem texto corrido. Quando houver valores, use o padrão "Parâmetro: valor".
 10. calibracoes: incluir somente calibrações, aferições e validações com valores, medidas, sensores, vazão, largura, offset, angulação ou parâmetros numéricos. Retornar em tópicos objetivos, uma linha por item, sem texto corrido.
-11. acompanhantes: informar técnicos, operadores, proprietários, consultores, representantes ou demais pessoas que acompanharam o atendimento.
-12. responsavel_revenda_fabrica: informar o nome do responsável da revenda, fábrica ou Agres que validou/acompanhou o atendimento, quando mencionado.
-13. documento_revenda_fabrica: informar CPF, RG ou documento do responsável da revenda/fábrica quando mencionado; caso contrário, retornar "".
-14. responsavel_fazenda: informar o nome do responsável da fazenda, cliente, operador, encarregado ou proprietário que validou/acompanhou o atendimento, quando mencionado.
-15. documento_fazenda: informar CPF, RG ou documento do responsável da fazenda quando mencionado; caso contrário, retornar "".
-16. relato: concentrar todo o detalhamento técnico e cronológico. O relato deve ser a parte mais completa do relatório. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
-17. nome_arquivo_sugerido: montar no padrão "AAAAMMDD_RELATÓRIO_ATIVIDADES_EQUIPAMENTO_TÉCNICO_CIDADE_UF". Use sempre a data final quando houver intervalo. Exemplo: atendimento de 15 a 19/05/2026 deve usar "20260519_RELATÓRIO_ATIVIDADES_...".
+11. tecnicos: retornar "". O Técnico Responsável Agres é definido exclusivamente pela seleção realizada na coleta offline.
+12. acompanhantes: informar técnicos, operadores, proprietários, consultores, representantes ou demais pessoas que acompanharam o atendimento. Pessoas citadas apenas como acompanhantes nunca devem ser incluídas no campo "tecnicos".
+13. responsavel_revenda_fabrica: informar o nome do responsável da revenda, fábrica ou Agres que validou/acompanhou o atendimento, quando mencionado.
+14. documento_revenda_fabrica: informar CPF, RG ou documento do responsável da revenda/fábrica quando mencionado; caso contrário, retornar "".
+15. responsavel_fazenda: informar o nome do responsável da fazenda, cliente, operador, encarregado ou proprietário que validou/acompanhou o atendimento, quando mencionado.
+16. documento_fazenda: informar CPF, RG ou documento do responsável da fazenda quando mencionado; caso contrário, retornar "".
+17. relato: concentrar todo o detalhamento técnico e cronológico. O relato deve ser a parte mais completa do relatório. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
+18. nome_arquivo_sugerido: retornar "". O nome final é montado automaticamente pelo sistema a partir do Técnico Responsável Agres selecionado na coleta.
 
 PADRÃO DO RELATO:
 - Escrever em terceira pessoa.
@@ -1719,7 +1728,7 @@ Retorne apenas um JSON válido, sem markdown e sem comentários, com exatamente 
     "treinamento": "",
     "validacao_homologacao": "",
     "data_visita": "{hoje}",
-    "tecnicos": "Henrique Chaves",
+    "tecnicos": "",
     "cliente_local": "",
     "localizacao_maps": "",
     "equipamentos": "",
@@ -1884,6 +1893,23 @@ def data_para_nome_arquivo(data_visita: str) -> str:
     return data_atual_brasil().strftime("%Y%m%d")
 
 
+def data_final_pacote(texto: str) -> str:
+    bruto = limpar_texto(texto)
+    for candidato in re.findall(r"(?<!\d)(\d{8})(?!\d)", bruto):
+        try:
+            return datetime.strptime(candidato, "%Y%m%d").strftime("%Y%m%d")
+        except ValueError:
+            continue
+    if bruto:
+        candidatos_iso = re.findall(r"(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)", bruto)
+        for ano, mes, dia in candidatos_iso:
+            try:
+                return date(int(ano), int(mes), int(dia)).strftime("%Y%m%d")
+            except ValueError:
+                continue
+    return ""
+
+
 UF_NOMES = {
     "acre": "AC",
     "alagoas": "AL",
@@ -2000,79 +2026,85 @@ def tipo_atendimento_para_nome(dados: dict) -> str:
 
 
 def equipamento_para_nome(dados: dict) -> str:
-    texto = normalizar_busca("\n".join([dados.get("objetivos", ""), dados.get("equipamentos", ""), dados.get("maquinas", "")]))
-    encontrados = []
+    texto = normalizar_busca(
+        "\n".join(
+            [
+                dados.get("objetivos", ""),
+                dados.get("equipamentos", ""),
+                dados.get("configuracoes", ""),
+                dados.get("calibracoes", ""),
+                dados.get("relato", ""),
+                dados.get("contexto_coleta", ""),
+            ]
+        )
+    )
+    sistemas_principais: list[tuple[int, str]] = []
+    produtos_secundarios: list[tuple[int, str]] = []
+    telas: list[tuple[int, str]] = []
+    acessorios: list[tuple[int, str]] = []
 
-    geonave_match = re.search(r"\bgeo\s*nave\s*([0-9]{1,3})\s*([a-z]{0,5})\b|\bgeonave\s*([0-9]{1,3})\s*([a-z]{0,5})\b", texto)
-    if geonave_match:
-        grupos = [grupo for grupo in geonave_match.groups() if grupo]
-        if grupos:
-            numero = grupos[0]
-            sufixo = grupos[1] if len(grupos) > 1 else ""
-            encontrados.append(f"GEONAVE{numero}{sufixo.upper()}")
+    def adicionar_encontrados(destino: list[tuple[int, str]], padrao: str, formatador) -> None:
+        for match in re.finditer(padrao, texto, flags=re.I):
+            nome = formatador(match)
+            if nome and nome not in {item[1] for item in destino}:
+                destino.append((match.start(), nome))
 
-    iso_match = re.search(r"\biso\s*([0-9]{1,3})\s*([a-z]{0,5})\b", texto)
-    if iso_match:
-        numero, sufixo = iso_match.groups()
-        encontrados.append(f"ISO{numero}{sufixo.upper()}")
+    adicionar_encontrados(
+        sistemas_principais,
+        r"\bgeo\s*nave\s*([0-9]{1,3})(?:\s*(OFP|FPS|FP|C|S))?\b",
+        lambda match: f"GEONAVE{match.group(1)}{(match.group(2) or '').upper()}",
+    )
+    adicionar_encontrados(
+        sistemas_principais,
+        r"\bagro\s*nave\s*([0-9]{1,3})\b|\bagn\s*([0-9]{1,3})\b",
+        lambda match: f"AGRONAVE{match.group(1) or match.group(2)}",
+    )
+    adicionar_encontrados(
+        sistemas_principais,
+        r"\biso\s*([0-9]{1,3})(?:\s*(OFP|FPS|FP|C|S))?\b",
+        lambda match: f"ISO{match.group(1)}{(match.group(2) or '').upper()}",
+    )
 
-    padroes = [
+    produtos_secundarios_config = [
         ("ISOBOX SPRAYER", r"\bisobox\s+sprayer\b"),
-        ("AGRONAVE 12", r"\b(?:agronave|agronave|agn)\s*12\b"),
-        ("AGRONAVE 7", r"\b(?:agronave|agronave|agn)\s*7\b"),
         ("ISOPILOT", r"\bisopilot\b"),
-        ("ANP40", r"\banp40\b"),
-        ("ANP21", r"\banp21\b"),
     ]
-    for nome, padrao in padroes:
-        if re.search(padrao, texto) and nome not in encontrados:
-            encontrados.append(nome)
+    for nome, padrao in produtos_secundarios_config:
+        adicionar_encontrados(produtos_secundarios, padrao, lambda _match, nome=nome: nome)
 
-    if encontrados:
-        return " ".join(encontrados)
+    adicionar_encontrados(telas, r"\bisoview\b", lambda _match: "ISOVIEW")
 
-    primeira_linha = next((linha for linha in limpar_texto(dados.get("equipamentos", "")).split("\n") if linha.strip()), "")
-    primeira_linha = re.sub(r"^(modelo|tela|equipamento|ecu)\s*:\s*", "", primeira_linha, flags=re.I)
-    return primeira_linha or "EQUIPAMENTO AGRES"
+    acessorios_config = [
+        ("ANP40", r"\banp\s*40\b"),
+        ("ANP21", r"\banp\s*21\b"),
+    ]
+    for nome, padrao in acessorios_config:
+        adicionar_encontrados(acessorios, padrao, lambda _match, nome=nome: nome)
+
+    for grupo in (sistemas_principais, produtos_secundarios, telas, acessorios):
+        if grupo:
+            return " ".join(nome for _, nome in sorted(grupo))
+
+    return "EQUIPAMENTO AGRES"
 
 
 def tecnico_para_nome_arquivo(dados: dict) -> str:
-    texto = limpar_texto(dados.get("tecnicos", ""))
+    texto = limpar_texto(dados.get("tecnico_agres_responsavel", ""))
     texto = re.sub(r"^(técnicos?|tecnicos?|responsáveis?|responsaveis?)\s*:\s*", "", texto, flags=re.I)
     partes = [
         parte.strip()
         for parte in re.split(r"\s*(?:,|;|\n|/|&|\be\b)\s*", texto, flags=re.I)
         if parte.strip()
     ]
-    nomes = []
     for parte in partes:
         primeiro_nome = parte.split()[0] if parte.split() else ""
         if primeiro_nome and normalizar_busca(primeiro_nome) not in {"tecnico", "tecnica", "agres"}:
-            nomes.append(primeiro_nome)
-    return componente_nome_arquivo("_".join(nomes[:3]), "HENRIQUE")
-
-
-def nome_sugerido_aceitavel(sugerido: str) -> bool:
-    if not re.match(r"^\d{8}_RELAT[ÓO]RIO_ATIVIDADES_", sugerido, flags=re.I):
-        return False
-    texto = normalizar_busca(sugerido)
-    genericos = (
-        "equipamento",
-        "tecnico",
-        "local",
-        "_uf",
-        "nao_informado",
-        "atendimento_tecnico",
-    )
-    return not any(generico in texto for generico in genericos)
+            return componente_nome_arquivo(primeiro_nome, "TECNICO")
+    return "TECNICO"
 
 
 def gerar_nome_arquivo_relatorio(dados: dict) -> str:
-    sugerido = componente_nome_arquivo(dados.get("nome_arquivo_sugerido", ""), "")
-    data_nome = data_para_nome_arquivo(dados.get("data_visita", ""))
-    if nome_sugerido_aceitavel(sugerido):
-        return f"{data_nome}_{sugerido[9:]}".strip("_")[:150]
-
+    data_nome = data_final_pacote(dados.get("data_atendimento_final", "")) or data_para_nome_arquivo(dados.get("data_visita", ""))
     cidade, uf = extrair_cidade_uf(dados.get("cliente_local", ""))
     partes = [
         data_nome,
@@ -2991,6 +3023,7 @@ def novo_manifesto_rascunho() -> dict:
     return {
         "tipo_atendimento": "suporte",
         "tecnico_agres_responsavel": "",
+        "data_atendimento_final": "",
         "localizacao_maps": "",
         "audios": [],
         "cabecalho": {"info_equip": None, "maquina": None, "implemento": None},
@@ -3054,22 +3087,29 @@ def limpar_rascunhos_antigos(draft_atual: Path | None = None) -> None:
 
 
 def normalizar_manifesto_carregado(dados: dict) -> dict:
+    if not isinstance(dados, dict):
+        return novo_manifesto_rascunho()
     manifesto = novo_manifesto_rascunho()
     manifesto.update(dados)
     padrao = novo_manifesto_rascunho()
     manifesto["tecnico_agres_responsavel"] = normalizar_tecnico_agres_responsavel(
         manifesto.get("tecnico_agres_responsavel", "")
     )
-    manifesto["cabecalho"] = {**padrao["cabecalho"], **manifesto.get("cabecalho", {})}
-    manifesto["evidencias"] = {**padrao["evidencias"], **manifesto.get("evidencias", {})}
-    manifesto["fotos_atendimento"] = manifesto.get("fotos_atendimento", [])
+    manifesto["audios"] = lista_ou_vazia(manifesto.get("audios"))
+    manifesto["cabecalho"] = {**padrao["cabecalho"], **dicionario_ou_vazio(manifesto.get("cabecalho"))}
+    manifesto["evidencias"] = {**padrao["evidencias"], **dicionario_ou_vazio(manifesto.get("evidencias"))}
+    manifesto["evidencias"] = {
+        categoria: lista_ou_vazia(manifesto["evidencias"].get(categoria))
+        for categoria in CATEGORIAS_EVIDENCIAS
+    }
+    manifesto["fotos_atendimento"] = lista_ou_vazia(manifesto.get("fotos_atendimento"))
     manifesto["legendas_evidencias"] = {
         **padrao["legendas_evidencias"],
-        **manifesto.get("legendas_evidencias", {}),
+        **dicionario_ou_vazio(manifesto.get("legendas_evidencias")),
     }
-    manifesto["responsaveis"] = {**padrao["responsaveis"], **manifesto.get("responsaveis", {})}
-    manifesto["documentos"] = {**padrao["documentos"], **manifesto.get("documentos", {})}
-    manifesto["assinaturas"] = {**padrao["assinaturas"], **manifesto.get("assinaturas", {})}
+    manifesto["responsaveis"] = {**padrao["responsaveis"], **dicionario_ou_vazio(manifesto.get("responsaveis"))}
+    manifesto["documentos"] = {**padrao["documentos"], **dicionario_ou_vazio(manifesto.get("documentos"))}
+    manifesto["assinaturas"] = {**padrao["assinaturas"], **dicionario_ou_vazio(manifesto.get("assinaturas"))}
     manifesto["assinaturas_habilitadas"] = bool(manifesto.get("assinaturas_habilitadas", True))
     manifesto["assinaturas_lista"] = normalizar_assinaturas_lista(manifesto)
     manifesto["quantidade_assinaturas"] = len(manifesto["assinaturas_lista"])
@@ -3226,9 +3266,12 @@ def decodificar_data_url(
     conteudo_base64 += "=" * ((4 - len(conteudo_base64) % 4) % 4)
 
     try:
-        return base64.b64decode(conteudo_base64, validate=True), mime_type
+        conteudo = base64.b64decode(conteudo_base64, validate=True)
     except Exception as erro:
         raise ValueError("Arquivo offline inválido: base64 corrompido ou incompleto.") from erro
+    if limite_bytes and len(conteudo) > limite_bytes:
+        raise ValueError(f"O arquivo excede o limite de {limite_bytes // (1024 * 1024)} MB.")
+    return conteudo, mime_type
 
 
 def extensao_item_offline(item: dict, mime_type: str, extensoes_permitidas: set[str], extensao_padrao: str) -> str:
@@ -3319,28 +3362,44 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
     if not isinstance(pacote, dict) or pacote.get("version") != 1:
         raise ValueError("Pacote offline incompatível com esta versão do aplicativo.")
 
+    campos_objeto = ("cabecalho", "evidencias", "legendas_evidencias", "responsaveis", "documentos", "assinaturas")
+    campos_lista = ("audios", "fotos_atendimento", "assinaturas_lista")
+    for campo in campos_objeto:
+        if campo in pacote and not isinstance(pacote[campo], dict):
+            raise ValueError(f"Pacote offline corrompido: o campo '{campo}' possui formato inválido.")
+    for campo in campos_lista:
+        if campo in pacote and not isinstance(pacote[campo], list):
+            raise ValueError(f"Pacote offline corrompido: o campo '{campo}' possui formato inválido.")
+    for categoria, itens in dicionario_ou_vazio(pacote.get("evidencias")).items():
+        if categoria in CATEGORIAS_EVIDENCIAS and not isinstance(itens, list):
+            raise ValueError(f"Pacote offline corrompido: as fotos de '{categoria}' possuem formato inválido.")
+
     manifesto = novo_manifesto_rascunho()
     manifesto["tipo_atendimento"] = normalizar_tipo_atendimento(pacote.get("tipo_atendimento"), manifesto.get("tipo_atendimento", "suporte"))
     manifesto["tecnico_agres_responsavel"] = normalizar_tecnico_agres_responsavel(
         pacote.get("tecnico_agres_responsavel", manifesto.get("tecnico_agres_responsavel", ""))
     )
+    manifesto["data_atendimento_final"] = (
+        data_final_pacote(pacote.get("data_atendimento_final", ""))
+        or data_final_pacote(pacote.get("exported_at", ""))
+    )
     manifesto["localizacao_maps"] = limpar_texto(pacote.get("localizacao_maps", ""))
     manifesto["observacoes"] = limpar_texto(pacote.get("observacoes", ""))
 
-    for categoria, texto in (pacote.get("legendas_evidencias") or {}).items():
+    for categoria, texto in dicionario_ou_vazio(pacote.get("legendas_evidencias")).items():
         if categoria in CATEGORIAS_EVIDENCIAS:
             manifesto["legendas_evidencias"][categoria] = texto or ""
 
-    for chave, texto in (pacote.get("responsaveis") or {}).items():
+    for chave, texto in dicionario_ou_vazio(pacote.get("responsaveis")).items():
         if chave in ASSINATURAS_RESPONSAVEIS:
             manifesto["responsaveis"][chave] = texto or ""
 
-    for chave, texto in (pacote.get("documentos") or {}).items():
+    for chave, texto in dicionario_ou_vazio(pacote.get("documentos")).items():
         if chave in ASSINATURAS_RESPONSAVEIS:
             manifesto["documentos"][chave] = texto or ""
 
     audios = []
-    audios_recebidos = pacote.get("audios") or []
+    audios_recebidos = lista_ou_vazia(pacote.get("audios"))
     erros_audio = []
     erros_imagem = []
     imagens_recebidas = 0
@@ -3371,7 +3430,7 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
         "app_version": limpar_texto(pacote.get("app_version", "")),
     }
 
-    for chave, item in (pacote.get("cabecalho") or {}).items():
+    for chave, item in dicionario_ou_vazio(pacote.get("cabecalho")).items():
         if chave in manifesto["cabecalho"]:
             manifesto["cabecalho"][chave] = None
             if item:
@@ -3390,7 +3449,7 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
                 imagens_salvas += 1
                 manifesto["cabecalho"][chave] = arquivo
 
-    for categoria, itens in (pacote.get("evidencias") or {}).items():
+    for categoria, itens in dicionario_ou_vazio(pacote.get("evidencias")).items():
         if categoria not in CATEGORIAS_EVIDENCIAS:
             continue
         evidencias = []
@@ -3414,7 +3473,7 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
         manifesto["evidencias"][categoria] = evidencias
 
     fotos_atendimento = []
-    for indice, item in enumerate(pacote.get("fotos_atendimento") or []):
+    for indice, item in enumerate(lista_ou_vazia(pacote.get("fotos_atendimento"))):
         if item:
             imagens_recebidas += 1
         foto = salvar_item_offline_seguro(
@@ -3492,7 +3551,7 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
             manifesto["assinaturas_habilitadas"] = True
         sincronizar_assinaturas_legadas(manifesto)
     else:
-        for chave, item in (pacote.get("assinaturas") or {}).items():
+        for chave, item in dicionario_ou_vazio(pacote.get("assinaturas")).items():
             if chave in ASSINATURAS_RESPONSAVEIS:
                 manifesto["assinaturas"][chave] = None
                 if item:
@@ -3528,15 +3587,55 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
     return manifesto
 
 
-def importar_pacote_offline(uploaded_file, draft_dir: Path, manifesto: dict) -> dict:
+def extrair_texto_pacote_offline(uploaded_file) -> tuple[str, str]:
     conteudo = uploaded_file.getvalue()
+    nome_upload = getattr(uploaded_file, "name", "pacote_relatorio.json") or "pacote_relatorio.json"
     if len(conteudo) > MAX_PACKAGE_BYTES:
         raise ValueError(f"O pacote excede o limite de {MAX_PACKAGE_BYTES // (1024 * 1024)} MB.")
+
+    extensao = Path(nome_upload).suffix.lower()
+    tipo_upload = (getattr(uploaded_file, "type", "") or "").lower()
+    if extensao == ".zip" or "zip" in tipo_upload:
+        try:
+            with zipfile.ZipFile(BytesIO(conteudo)) as pacote_zip:
+                candidatos = [
+                    info
+                    for info in pacote_zip.infolist()
+                    if not info.is_dir() and Path(info.filename).suffix.lower() == ".json"
+                ]
+                if not candidatos:
+                    raise ValueError("O ZIP não contém um arquivo JSON da coleta offline.")
+                candidatos.sort(
+                    key=lambda info: (
+                        0 if re.match(r"^\d{8}_RELATORIO_ATIVIDADES_", Path(info.filename).name, re.I) else 1,
+                        Path(info.filename).name.lower(),
+                    )
+                )
+                entrada_json = candidatos[0]
+                if entrada_json.file_size > MAX_PACKAGE_BYTES:
+                    raise ValueError(f"O JSON dentro do ZIP excede o limite de {MAX_PACKAGE_BYTES // (1024 * 1024)} MB.")
+                texto_pacote = pacote_zip.read(entrada_json).decode("utf-8-sig")
+                return texto_pacote, Path(entrada_json.filename).name or nome_upload
+        except zipfile.BadZipFile as erro:
+            raise ValueError("Não foi possível abrir o ZIP. Exporte novamente pelo modo offline.") from erro
+        except UnicodeDecodeError as erro:
+            raise ValueError("Não foi possível ler o JSON dentro do ZIP. Exporte novamente pelo modo offline.") from erro
+
     try:
-        texto_pacote = conteudo.decode("utf-8-sig")
+        return conteudo.decode("utf-8-sig"), nome_upload
     except UnicodeDecodeError as erro:
         raise ValueError("Não foi possível ler o pacote offline. Exporte novamente pelo modo offline.") from erro
-    return importar_pacote_offline_json(texto_pacote, draft_dir, manifesto)
+
+
+def importar_pacote_offline(uploaded_file, draft_dir: Path, manifesto: dict) -> dict:
+    texto_pacote, nome_referencia = extrair_texto_pacote_offline(uploaded_file)
+    manifesto_importado = importar_pacote_offline_json(texto_pacote, draft_dir, manifesto)
+    data_nome = data_final_pacote(nome_referencia) or data_final_pacote(getattr(uploaded_file, "name", ""))
+    if data_nome:
+        manifesto_importado["data_atendimento_final"] = data_nome
+        salvar_manifesto(draft_dir, manifesto_importado)
+        shutil.copy2(caminho_manifesto(draft_dir), caminho_backup_manifesto(draft_dir))
+    return manifesto_importado
 
 
 def aplicar_manifesto_na_sessao(manifesto: dict) -> None:
@@ -3994,8 +4093,14 @@ def itens_checklist_pacote(manifesto: dict) -> list[dict]:
     )
     texto_tecnico = limpar_texto(manifesto.get("observacoes", ""))
     localizacao = limpar_texto(manifesto.get("localizacao_maps", ""))
+    tecnico_agres = normalizar_tecnico_agres_responsavel(manifesto.get("tecnico_agres_responsavel", ""))
 
     itens = [
+        {
+            "ok": bool(tecnico_agres),
+            "titulo": "Técnico Responsável Agres",
+            "detalhe": tecnico_agres if tecnico_agres else "Não informado. Exporte novamente após selecionar o técnico na coleta offline.",
+        },
         {
             "ok": bool(total_audios or texto_tecnico),
             "titulo": "Relato técnico",
@@ -4113,6 +4218,9 @@ def contexto_manifesto_para_geracao(manifesto: dict) -> str:
     tecnico_agres = normalizar_tecnico_agres_responsavel(manifesto.get("tecnico_agres_responsavel", ""))
     if tecnico_agres:
         linhas.append(f"Técnico Responsável Agres: {tecnico_agres}.")
+    data_atendimento = data_final_pacote(manifesto.get("data_atendimento_final", ""))
+    if data_atendimento:
+        linhas.append(f"Data final do atendimento: {datetime.strptime(data_atendimento, '%Y%m%d').strftime('%d/%m/%Y')}.")
     localizacao = limpar_texto(manifesto.get("localizacao_maps", ""))
     if localizacao:
         linhas.append(f"Localização informada no Maps: {localizacao}.")
@@ -4180,7 +4288,7 @@ def finalizar_importacao_offline(manifesto: dict) -> None:
     st.session_state.importacao_offline_ok = True
     st.session_state.importacao_offline_stats = manifesto.get("importacao_offline", {})
     st.session_state.json_import_status = "ok"
-    st.session_state.json_import_message = "JSON importado e validado."
+    st.session_state.json_import_message = "Pacote importado e validado."
     st.rerun()
 
 
@@ -4200,7 +4308,7 @@ def atualizar_status_upload_json(chave_uploader: str) -> None:
         st.session_state.json_upload_name = getattr(arquivo, "name", "pacote_relatorio.json")
         st.session_state.json_upload_type = getattr(arquivo, "type", "application/json")
         st.session_state.json_import_status = "selected"
-        st.session_state.json_import_message = f"{getattr(arquivo, 'name', 'arquivo.json')} selecionado. Clique em Importar JSON."
+        st.session_state.json_import_message = f"{getattr(arquivo, 'name', 'arquivo.json')} selecionado. Clique em Importar pacote."
     else:
         st.session_state.pop("json_upload_bytes", None)
         st.session_state.pop("json_upload_name", None)
@@ -4277,22 +4385,22 @@ def renderizar_status_upload_json(arquivo) -> None:
             unsafe_allow_html=True,
         )
     nome_arquivo = escape(getattr(arquivo, "name", "") or "")
-    mensagem = escape(st.session_state.get("json_import_message", "Nenhum JSON importado."))
+    mensagem = escape(st.session_state.get("json_import_message", "Nenhum pacote importado."))
     classes = {
         "ok": "json-import-card ok",
         "error": "json-import-card error",
         "selected": "json-import-card selected",
     }
     titulos = {
-        "ok": "JSON importado corretamente",
-        "error": "Erro ao importar JSON",
-        "selected": "JSON selecionado",
+        "ok": "Pacote importado corretamente",
+        "error": "Erro ao importar pacote",
+        "selected": "Pacote selecionado",
     }
-    icones = {"ok": "✓", "error": "!", "selected": "JSON"}
+    icones = {"ok": "✓", "error": "!", "selected": "ZIP" if nome_arquivo.lower().endswith(".zip") else "JSON"}
     classe = classes.get(estado, "json-import-card")
-    titulo = escape(titulos.get(estado, "Aguardando arquivo JSON"))
+    titulo = escape(titulos.get(estado, "Aguardando pacote"))
     icone = escape(icones.get(estado, "JSON"))
-    detalhe = mensagem if estado in {"ok", "error", "selected"} else "Selecione o arquivo exportado pelo modo offline."
+    detalhe = mensagem if estado in {"ok", "error", "selected"} else "Selecione o JSON ou ZIP exportado pelo modo offline."
     if estado == "selected" and nome_arquivo:
         tamanho = len(st.session_state.get("json_upload_bytes") or b"")
         detalhe = f"{nome_arquivo} · {formatar_tamanho_arquivo(tamanho)} · pronto para importar."
@@ -4460,7 +4568,7 @@ with st.container(border=True):
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<p class='section-caption'>Importe o JSON para gerar o relatório técnico.</p>",
+        "<p class='section-caption'>Importe o pacote JSON ou ZIP para gerar o relatório técnico.</p>",
         unsafe_allow_html=True,
     )
     pacote_offline = arquivo_json_em_memoria()
@@ -4468,25 +4576,25 @@ with st.container(border=True):
         versao_uploader = int(st.session_state.get("json_uploader_version", 0))
         chave_uploader = f"pacote_offline_{versao_uploader}"
         st.file_uploader(
-            "Selecione o arquivo JSON",
-            type=["json"],
+            "Selecione o pacote JSON ou ZIP",
+            type=["json", "zip"],
             key=chave_uploader,
             on_change=atualizar_status_upload_json,
             args=(chave_uploader,),
         )
         if st.session_state.get("json_import_status") == "error":
-            st.error(st.session_state.get("json_import_message", "Não foi possível carregar o pacote JSON."))
+            st.error(st.session_state.get("json_import_message", "Não foi possível carregar o pacote."))
     else:
         renderizar_status_upload_json(pacote_offline)
         coluna_importar, coluna_remover = st.columns([1.25, 0.75])
         importar_json = coluna_importar.button(
-            "Importar JSON",
+            "Importar pacote",
             type="primary",
             use_container_width=True,
             key="btn_importar_pacote_arquivo",
         )
         coluna_remover.button(
-            "✕ Remover arquivo JSON",
+            "✕ Remover pacote",
             use_container_width=True,
             key="btn_remover_pacote_arquivo",
             on_click=remover_upload_json,
@@ -4597,6 +4705,7 @@ entrada_disponivel = (
     or bool(limpar_texto(observacoes_salvas))
     or manifesto_tem_conteudo_para_gerar(manifesto_rascunho)
 )
+pronto_para_geracao = entrada_disponivel and bool(tecnico_agres_salvo)
 
 with st.container(border=True):
     st.markdown(
@@ -4604,7 +4713,7 @@ with st.container(border=True):
         unsafe_allow_html=True,
     )
 
-    if entrada_disponivel:
+    if pronto_para_geracao:
         st.markdown(
             """
             <div class="generate-callout">
@@ -4614,8 +4723,15 @@ with st.container(border=True):
             """,
             unsafe_allow_html=True,
         )
+    elif entrada_disponivel:
+        st.warning("Selecione o Técnico Responsável Agres na coleta offline e exporte novamente o pacote.")
 
-    if entrada_disponivel and st.button("Gerar relatório técnico agora", type="primary", use_container_width=True):
+    if st.button(
+        "Gerar relatório técnico agora",
+        type="primary",
+        use_container_width=True,
+        disabled=not pronto_para_geracao,
+    ):
         st.session_state.relatorio_pronto = None
         st.session_state.pacote_zip_pronto = None
         st.session_state.nome_arquivo_pronto = None
@@ -4628,7 +4744,10 @@ with st.container(border=True):
                 with st.status("Gerando relatório...", expanded=False) as status:
                     dados = processar_atendimento_completo(caminhos_audio_salvos, observacoes_salvas)
                     dados["localizacao_maps"] = localizacao_maps_salva or dados.get("localizacao_maps", "")
+                    dados["contexto_coleta"] = observacoes_salvas
+                    dados["data_atendimento_final"] = manifesto_rascunho.get("data_atendimento_final", "")
                     if tecnico_agres_salvo:
+                        dados["tecnico_agres_responsavel"] = tecnico_agres_salvo
                         dados["tecnicos"] = tecnico_agres_salvo
                     aplicar_tipo_atendimento_unico(dados, tipo_atendimento_salvo)
                     for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
@@ -4667,7 +4786,7 @@ with st.container(border=True):
             st.error(f"Erro no processamento: {erro}")
             st.exception(erro)
     elif not entrada_disponivel:
-        st.caption("Importe o JSON para liberar a geração do relatório técnico.")
+        st.caption("Importe o pacote para liberar a geração do relatório técnico.")
 
     if st.session_state.relatorio_pronto:
         st.success("✅ O laudo está pronto para download!")

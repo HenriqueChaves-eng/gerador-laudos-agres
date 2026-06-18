@@ -1,26 +1,34 @@
-# Checklist de Liberação em Campo
+# Checklist de Liberacao em Campo
 
-## Antes do primeiro atendimento
+## Antes do Primeiro Atendimento
 
-1. Atualizar ou instalar a versão aprovada.
+1. Atualizar ou instalar a versao aprovada.
 2. Abrir o aplicativo ainda com internet.
-3. Autorizar câmera, microfone e localização.
-4. Fazer uma coleta curta de teste com uma foto, um áudio e uma assinatura.
-5. Exportar o JSON e confirmar que ele pode ser compartilhado ou localizado no aparelho.
+3. Autorizar camera, microfone e localizacao.
+4. Fazer uma coleta curta de teste com uma foto, um audio e uma assinatura.
+5. Selecionar o Tecnico Responsavel Agres.
+6. Exportar o Pacote Relatorio Offline.
+7. Confirmar que o pacote pode ser salvo, localizado ou compartilhado no aparelho.
+8. No iPhone/iPad, aceitar pacote ZIP como formato normal de exportacao.
+9. Conferir se o nome do pacote contem a data final, o tipo e o tecnico responsavel.
 
-## Ao finalizar cada atendimento
+## Ao Finalizar Cada Atendimento
 
-1. Conferir se os contadores mostram os áudios e fotos esperados.
-2. Exportar o Pacote Relatório Offline.
-3. Guardar ou enviar o JSON antes de limpar a coleta.
-4. Importar o JSON no gerador online.
-5. Conferir os totais do pacote importado.
-6. Gerar e baixar o ZIP com Word e fotos.
-7. Somente depois disso, limpar a coleta do aparelho.
+1. Conferir o Tecnico Responsavel Agres.
+2. Conferir se audios, fotos, localizacao e assinaturas estao presentes.
+3. Exportar o Pacote Relatorio Offline.
+4. Guardar ou enviar o pacote antes de limpar a coleta.
+5. Importar o pacote JSON ou ZIP no gerador online.
+6. Conferir os totais e avisos do pacote importado.
+7. Gerar e baixar o ZIP final com Word e fotos.
+8. Conferir se o nome final contem data, equipamento Agres, tecnico, cidade e UF.
+9. Somente depois disso, limpar a coleta do aparelho.
 
-## Em caso de problema
+## Em Caso de Problema
 
-- Não limpar a coleta.
-- Não desinstalar o aplicativo.
-- Exportar o JSON assim que possível.
-- Registrar o modelo do aparelho, versão do sistema e a mensagem exibida.
+- Nao limpar a coleta.
+- Nao desinstalar o aplicativo.
+- Exportar o Pacote Relatorio Offline assim que possivel.
+- Preservar o pacote original.
+- Registrar o modelo do aparelho, versao do sistema e a mensagem exibida.
+- Consultar o manual `MANUAL_UTILIZACAO_RELATORIOS_TECNICOS_AGRES_ABNT_1.0.17.docx`.

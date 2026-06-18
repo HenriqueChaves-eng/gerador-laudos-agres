@@ -23,10 +23,19 @@ public class CameraFileProvider extends ContentProvider {
 
     private File resolve(Uri uri) throws FileNotFoundException {
         String name = uri.getLastPathSegment();
-        if (name == null || name.contains("/") || name.contains("\\") || name.trim().isEmpty()) {
+        if (name == null || name.contains("/") || name.contains("\\") || name.contains("..") || name.trim().isEmpty()) {
             throw new FileNotFoundException("Nome de arquivo inválido.");
         }
-        return new File(cameraDir(), name);
+        try {
+            File directory = cameraDir().getCanonicalFile();
+            File file = new File(directory, name).getCanonicalFile();
+            if (!file.getParentFile().equals(directory)) {
+                throw new FileNotFoundException("Arquivo fora da pasta permitida.");
+            }
+            return file;
+        } catch (java.io.IOException error) {
+            throw new FileNotFoundException("Não foi possível validar o arquivo.");
+        }
     }
 
     @Override
