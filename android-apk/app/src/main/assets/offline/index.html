@@ -141,6 +141,7 @@
     }
     textarea,
     input[type="text"],
+    input[type="date"],
     select {
       width: 100%;
       min-height: 46px;
@@ -937,6 +938,16 @@
           <option value="Ronaldo Kishida">Ronaldo Kishida</option>
         </select>
       </div>
+      <div class="grid">
+        <div class="field">
+          <label for="data_atendimento_inicio">Data Inicial do Atendimento</label>
+          <input id="data_atendimento_inicio" type="date">
+        </div>
+        <div class="field">
+          <label for="data_atendimento_final">Data Final do Atendimento</label>
+          <input id="data_atendimento_final" type="date" required>
+        </div>
+      </div>
       <div class="field">
         <label for="localizacao_maps">Link de Localização do Atendimento</label>
         <input id="localizacao_maps" type="text" placeholder="Cole o link do Google Maps/Apple Maps ou as coordenadas">
@@ -1255,12 +1266,12 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.06.18.28";
+    const APP_VERSION = "2026.06.18.30";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v58"
+      ? "agres-offline-v60"
       : location.pathname.includes("/static/coleta/")
-        ? "agres-coleta-v51"
-        : "agres-pages-offline-v54";
+        ? "agres-coleta-v53"
+        : "agres-pages-offline-v56";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
@@ -1330,6 +1341,7 @@
         updated_at: new Date().toISOString(),
         tipo_atendimento: "suporte",
         tecnico_agres_responsavel: "",
+        data_atendimento_inicio: "",
         data_atendimento_final: "",
         localizacao_maps: "",
         observacoes: "",
@@ -1369,14 +1381,28 @@
     }
 
     function defaultSignature(index) {
-      const labels = ["Responsável da Revenda/Fábrica", "Responsável da Fazenda"];
       return {
         id: `assinatura_${index}`,
         nome: "",
-        representa: labels[index - 1] || `Responsável ${index}`,
+        representa: "",
         documento: "",
         imagem: null
       };
+    }
+
+    function isAutomaticSignatureRole(value) {
+      const role = String(value || "").trim();
+      const normalized = role
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+      return (
+        normalized === "responsavel da revenda fabrica" ||
+        normalized === "responsavel da fazenda" ||
+        /^responsavel\s+\d+$/.test(normalized)
+      );
     }
 
     function defaultSignatures(count) {
@@ -1408,7 +1434,7 @@
         return {
           id: fallback.id,
           nome: item.nome || "",
-          representa: item.representa || fallback.representa,
+          representa: isAutomaticSignatureRole(item.representa) ? "" : (item.representa || ""),
           documento: "",
           imagem: item.imagem || null
         };
@@ -2379,12 +2405,23 @@
       const signatures = signatureStats();
       const locationReady = Boolean(String(draft.localizacao_maps || "").trim());
       const technicianReady = Boolean(String(draft.tecnico_agres_responsavel || "").trim());
+      const finalDate = dateInputValue(draft.data_atendimento_final || "");
+      const datesOk = attendanceDateRangeIsValid();
 
       const items = [
         {
           ok: technicianReady,
           title: "Técnico Responsável Agres",
           detail: technicianReady ? draft.tecnico_agres_responsavel : "Selecione o técnico antes de exportar."
+        },
+        {
+          ok: Boolean(finalDate) && datesOk,
+          title: "Data Final do Atendimento",
+          detail: finalDate && datesOk
+            ? finalDate.split("-").reverse().join("/")
+            : finalDate
+            ? "A data inicial não pode ser posterior à data final."
+            : "Informe a data final para nomear o pacote corretamente."
         },
         {
           ok: audioCount > 0 || textReady,
@@ -2522,6 +2559,8 @@
       if (tipoInput) tipoInput.checked = true;
       draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
       document.getElementById("tecnico_agres_responsavel").value = draft.tecnico_agres_responsavel || "";
+      document.getElementById("data_atendimento_inicio").value = dateInputValue(draft.data_atendimento_inicio || "");
+      document.getElementById("data_atendimento_final").value = dateInputValue(draft.data_atendimento_final || "");
       document.getElementById("localizacao_maps").value = draft.localizacao_maps || "";
       document.getElementById("observacoes").value = draft.observacoes || "";
       CATEGORIES.forEach((key) => {
@@ -2544,6 +2583,20 @@
       document.getElementById("tecnico_agres_responsavel").addEventListener("change", (event) => {
         draft.tecnico_agres_responsavel = event.target.value.trim();
         scheduleSave();
+      });
+      document.getElementById("data_atendimento_inicio").addEventListener("change", (event) => {
+        draft.data_atendimento_inicio = event.target.value;
+        if (!draft.data_atendimento_final) {
+          draft.data_atendimento_final = event.target.value;
+          document.getElementById("data_atendimento_final").value = event.target.value;
+        }
+        scheduleSave();
+        renderOfflineChecklist();
+      });
+      document.getElementById("data_atendimento_final").addEventListener("change", (event) => {
+        draft.data_atendimento_final = event.target.value;
+        scheduleSave();
+        renderOfflineChecklist();
       });
       document.getElementById("localizacao_maps").addEventListener("input", (event) => {
         draft.localizacao_maps = event.target.value.trim();
@@ -2723,7 +2776,49 @@
       return cleaned || fallback;
     }
 
+    function dateInputValue(value) {
+      const text = String(value || "").trim();
+      let match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (match) {
+        return validIsoDate(match[1], match[2], match[3]) ? text : "";
+      }
+      match = text.match(/^(\d{4})(\d{2})(\d{2})$/);
+      if (match && validIsoDate(match[1], match[2], match[3])) {
+        return `${match[1]}-${match[2]}-${match[3]}`;
+      }
+      return "";
+    }
+
+    function validIsoDate(year, month, day) {
+      const y = Number.parseInt(year, 10);
+      const m = Number.parseInt(month, 10);
+      const d = Number.parseInt(day, 10);
+      const value = new Date(y, m - 1, d);
+      return (
+        Number.isInteger(y) &&
+        Number.isInteger(m) &&
+        Number.isInteger(d) &&
+        value.getFullYear() === y &&
+        value.getMonth() === m - 1 &&
+        value.getDate() === d
+      );
+    }
+
+    function dateForPackage(value) {
+      const dateValue = dateInputValue(value);
+      return dateValue ? dateValue.replace(/-/g, "") : "";
+    }
+
+    function attendanceDateRangeIsValid() {
+      const start = dateInputValue(draft.data_atendimento_inicio || "");
+      const end = dateInputValue(draft.data_atendimento_final || "");
+      return !start || !end || start <= end;
+    }
+
     function dateForFileName() {
+      const explicitFinalDate = dateForPackage(draft.data_atendimento_final);
+      if (explicitFinalDate) return explicitFinalDate;
+
       const text = String(draft.observacoes || "");
       const candidates = [];
       const validDateValue = (year, month, day) => {
@@ -2816,6 +2911,7 @@
       const pacote = {
         ...draft,
         app_version: APP_VERSION,
+        data_atendimento_inicio: dateForPackage(draft.data_atendimento_inicio),
         data_atendimento_final: dateForFileName(),
         exported_at: new Date().toISOString()
       };
@@ -3144,6 +3240,14 @@
         draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
         if (!draft.tecnico_agres_responsavel) {
           throw new Error("selecione o Técnico Responsável Agres antes de exportar.");
+        }
+        draft.data_atendimento_final = dateInputValue(draft.data_atendimento_final || "");
+        draft.data_atendimento_inicio = dateInputValue(draft.data_atendimento_inicio || "");
+        if (!draft.data_atendimento_final) {
+          throw new Error("informe a Data Final do Atendimento antes de exportar.");
+        }
+        if (!attendanceDateRangeIsValid()) {
+          throw new Error("a Data Inicial do Atendimento não pode ser posterior à Data Final.");
         }
         const saved = await saveDraftNow();
         if (!saved) return;

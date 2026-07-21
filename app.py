@@ -65,6 +65,8 @@ CAMPOS_RELATORIO = (
     "instalacao",
     "treinamento",
     "validacao_homologacao",
+    "data_atendimento_inicio",
+    "data_atendimento_final",
     "data_visita",
     "tecnicos",
     "cliente_local",
@@ -203,15 +205,10 @@ def quantidade_assinaturas_normalizada(valor, padrao: int = MIN_ASSINATURAS) -> 
 
 
 def assinatura_padrao(indice: int) -> dict:
-    titulos_iniciais = [
-        "Responsável da Revenda/Fábrica",
-        "Responsável da Fazenda",
-    ]
-    representa = titulos_iniciais[indice - 1] if indice <= len(titulos_iniciais) else f"Responsável {indice}"
     return {
         "id": f"assinatura_{indice}",
         "nome": "",
-        "representa": representa,
+        "representa": "",
         "documento": "",
         "imagem": None,
     }
@@ -225,6 +222,20 @@ def texto_assinatura(item: dict, *chaves: str, padrao: str = "") -> str:
         if valor:
             return valor
     return limpar_texto(padrao)
+
+
+def papel_assinatura_automatico(texto: str) -> bool:
+    papel = limpar_texto(texto)
+    papel_normalizado = normalizar_busca(papel)
+    return papel_normalizado in {
+        "responsavel da revenda fabrica",
+        "responsavel da fazenda",
+    } or bool(re.fullmatch(r"responsavel\s+\d+", papel_normalizado, flags=re.I))
+
+
+def limpar_papel_assinatura(texto: str) -> str:
+    papel = limpar_texto(texto)
+    return "" if papel_assinatura_automatico(papel) else papel
 
 
 TECNICOS_AGRES_ALIASES = {
@@ -297,13 +308,13 @@ def normalizar_assinaturas_lista(manifesto: dict) -> list[dict]:
     legados = [
         {
             "nome": limpar_texto(manifesto.get("responsaveis", {}).get("revenda_fabrica", "")),
-            "representa": "Responsável da Revenda/Fábrica",
+            "representa": "",
             "documento": limpar_texto(manifesto.get("documentos", {}).get("revenda_fabrica", "")),
             "imagem": manifesto.get("assinaturas", {}).get("revenda_fabrica"),
         },
         {
             "nome": limpar_texto(manifesto.get("responsaveis", {}).get("fazenda", "")),
-            "representa": "Responsável da Fazenda",
+            "representa": "",
             "documento": limpar_texto(manifesto.get("documentos", {}).get("fazenda", "")),
             "imagem": manifesto.get("assinaturas", {}).get("fazenda"),
         },
@@ -339,17 +350,18 @@ def normalizar_assinaturas_lista(manifesto: dict) -> list[dict]:
                     "nomeResponsavel",
                     padrao=legado.get("nome", padrao["nome"]),
                 ),
-                "representa": texto_assinatura(
-                    item,
-                    "representa",
-                    "funcao",
-                    "função",
-                    "cargo",
-                    "papel",
-                    "role",
-                    padrao=legado.get("representa", padrao["representa"]),
-                )
-                or padrao["representa"],
+                "representa": limpar_papel_assinatura(
+                    texto_assinatura(
+                        item,
+                        "representa",
+                        "funcao",
+                        "função",
+                        "cargo",
+                        "papel",
+                        "role",
+                        padrao=legado.get("representa", padrao["representa"]),
+                    )
+                ),
                 "documento": texto_assinatura(
                     item,
                     "documento",
@@ -2043,7 +2055,7 @@ def componente_nome_arquivo(texto: str, padrao: str) -> str:
     return (nome or padrao).upper()
 
 
-def data_para_nome_arquivo(data_visita: str) -> str:
+def data_para_nome_arquivo(data_visita: str, usar_data_atual: bool = True) -> str:
     texto = limpar_texto(data_visita)
     candidatos: list[date] = []
 
@@ -2097,7 +2109,7 @@ def data_para_nome_arquivo(data_visita: str) -> str:
     if candidatos:
         return max(candidatos).strftime("%Y%m%d")
 
-    return data_atual_brasil().strftime("%Y%m%d")
+    return data_atual_brasil().strftime("%Y%m%d") if usar_data_atual else ""
 
 
 def data_final_pacote(texto: str) -> str:
@@ -2115,6 +2127,42 @@ def data_final_pacote(texto: str) -> str:
             except ValueError:
                 continue
     return ""
+
+
+def data_pacote_ou_texto(*valores: str) -> str:
+    for valor in valores:
+        data_pacote = data_final_pacote(valor)
+        if data_pacote:
+            return data_pacote
+        data_texto = data_para_nome_arquivo(valor, usar_data_atual=False)
+        if data_texto:
+            return data_texto
+    return ""
+
+
+def formatar_data_pacote(data_texto: str) -> str:
+    data_normalizada = data_final_pacote(data_texto)
+    if not data_normalizada:
+        return ""
+    return datetime.strptime(data_normalizada, "%Y%m%d").strftime("%d/%m/%Y")
+
+
+def formatar_periodo_atendimento(data_inicio: str, data_final: str) -> str:
+    inicio = data_final_pacote(data_inicio)
+    fim = data_final_pacote(data_final)
+    if not inicio and not fim:
+        return ""
+    if not inicio or inicio == fim:
+        return formatar_data_pacote(fim or inicio)
+    data_ini = datetime.strptime(inicio, "%Y%m%d").date()
+    data_fim = datetime.strptime(fim, "%Y%m%d").date()
+    if data_ini > data_fim:
+        data_ini, data_fim = data_fim, data_ini
+    if data_ini.year == data_fim.year and data_ini.month == data_fim.month:
+        return f"{data_ini.day:02d} a {data_fim.strftime('%d/%m/%Y')}"
+    if data_ini.year == data_fim.year:
+        return f"{data_ini.strftime('%d/%m')} a {data_fim.strftime('%d/%m/%Y')}"
+    return f"{data_ini.strftime('%d/%m/%Y')} a {data_fim.strftime('%d/%m/%Y')}"
 
 
 UF_NOMES = {
@@ -2425,9 +2473,11 @@ def preencher_celula_assinatura(cell, titulo: str, nome: str, documento: str, ca
     formatar_paragrafo_assinatura(paragrafo_linha, space_after=1)
     formatar_run_assinatura(paragrafo_linha.add_run("______________________________________"), tamanho=10)
 
-    paragrafo_titulo = cell.add_paragraph()
-    formatar_paragrafo_assinatura(paragrafo_titulo, space_after=1)
-    formatar_run_assinatura(paragrafo_titulo.add_run(titulo), tamanho=10, bold=True)
+    titulo_limpo = limpar_papel_assinatura(titulo)
+    if titulo_limpo:
+        paragrafo_titulo = cell.add_paragraph()
+        formatar_paragrafo_assinatura(paragrafo_titulo, space_after=1)
+        formatar_run_assinatura(paragrafo_titulo.add_run(titulo_limpo), tamanho=10, bold=True)
 
     paragrafo_nome = cell.add_paragraph()
     formatar_paragrafo_assinatura(paragrafo_nome, space_after=1)
@@ -2512,7 +2562,7 @@ def inserir_assinaturas_docx(caminho_docx: Path, dados: dict, caminhos_assinatur
                 assinaturas_documento.append(
                     {
                         "nome": dados.get(configuracao["campo"], ""),
-                        "representa": configuracao["titulo"],
+                        "representa": "",
                         "caminho": caminho,
                     }
                 )
@@ -2528,15 +2578,16 @@ def inserir_assinaturas_docx(caminho_docx: Path, dados: dict, caminhos_assinatur
                     "nome_responsavel",
                     "nomeResponsavel",
                 ),
-                "representa": texto_assinatura(
-                    assinatura,
-                    "representa",
-                    "funcao",
-                    "função",
-                    "cargo",
-                    "papel",
-                    "role",
-                    padrao=f"Responsável {indice}",
+                "representa": limpar_papel_assinatura(
+                    texto_assinatura(
+                        assinatura,
+                        "representa",
+                        "funcao",
+                        "função",
+                        "cargo",
+                        "papel",
+                        "role",
+                    )
                 ),
             }
             for indice, assinatura in enumerate(caminhos_assinaturas or [], start=1)
@@ -3228,6 +3279,7 @@ def novo_manifesto_rascunho() -> dict:
     return {
         "tipo_atendimento": "suporte",
         "tecnico_agres_responsavel": "",
+        "data_atendimento_inicio": "",
         "data_atendimento_final": "",
         "localizacao_maps": "",
         "audios": [],
@@ -3584,9 +3636,12 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
     manifesto["tecnico_agres_responsavel"] = normalizar_tecnico_agres_responsavel(
         pacote.get("tecnico_agres_responsavel", manifesto.get("tecnico_agres_responsavel", ""))
     )
-    manifesto["data_atendimento_final"] = (
-        data_final_pacote(pacote.get("data_atendimento_final", ""))
-        or data_final_pacote(pacote.get("exported_at", ""))
+    manifesto["data_atendimento_inicio"] = data_final_pacote(pacote.get("data_atendimento_inicio", ""))
+    manifesto["data_atendimento_final"] = data_pacote_ou_texto(
+        pacote.get("data_atendimento_final", ""),
+        pacote.get("periodo_atendimento", ""),
+        pacote.get("data_visita", ""),
+        pacote.get("observacoes", ""),
     )
     manifesto["localizacao_maps"] = limpar_texto(pacote.get("localizacao_maps", ""))
     manifesto["observacoes"] = limpar_texto(pacote.get("observacoes", ""))
@@ -3735,17 +3790,18 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
                         "nome_responsavel",
                         "nomeResponsavel",
                     ),
-                    "representa": texto_assinatura(
-                        item,
-                        "representa",
-                        "funcao",
-                        "função",
-                        "cargo",
-                        "papel",
-                        "role",
-                        padrao=padrao["representa"],
-                    )
-                    or padrao["representa"],
+                    "representa": limpar_papel_assinatura(
+                        texto_assinatura(
+                            item,
+                            "representa",
+                            "funcao",
+                            "função",
+                            "cargo",
+                            "papel",
+                            "role",
+                            padrao=padrao["representa"],
+                        )
+                    ),
                     "documento": texto_assinatura(item, "documento", "cpf_rg", "cpfRg", "cpf", "rg", "doc"),
                     "imagem": imagem,
                 }
@@ -3836,7 +3892,7 @@ def importar_pacote_offline(uploaded_file, draft_dir: Path, manifesto: dict) -> 
     texto_pacote, nome_referencia = extrair_texto_pacote_offline(uploaded_file)
     manifesto_importado = importar_pacote_offline_json(texto_pacote, draft_dir, manifesto)
     data_nome = data_final_pacote(nome_referencia) or data_final_pacote(getattr(uploaded_file, "name", ""))
-    if data_nome:
+    if data_nome and not manifesto_importado.get("data_atendimento_final"):
         manifesto_importado["data_atendimento_final"] = data_nome
         salvar_manifesto(draft_dir, manifesto_importado)
         shutil.copy2(caminho_manifesto(draft_dir), caminho_backup_manifesto(draft_dir))
@@ -4209,7 +4265,7 @@ def atualizar_rascunho_atual(
         assinaturas_atuais[assinatura_id] = {
             "id": assinatura_id,
             "nome": limpar_texto(recebido.get("nome", atual.get("nome", ""))),
-            "representa": limpar_texto(recebido.get("representa", atual.get("representa", ""))) or assinatura_padrao(indice)["representa"],
+            "representa": limpar_papel_assinatura(recebido.get("representa", atual.get("representa", ""))),
             "documento": limpar_texto(recebido.get("documento", atual.get("documento", ""))),
             "imagem": atual.get("imagem"),
         }
@@ -4421,6 +4477,12 @@ def contexto_manifesto_para_geracao(manifesto: dict) -> str:
     tecnico_agres = normalizar_tecnico_agres_responsavel(manifesto.get("tecnico_agres_responsavel", ""))
     if tecnico_agres:
         linhas.append(f"Técnico Responsável Agres: {tecnico_agres}.")
+    periodo_atendimento = formatar_periodo_atendimento(
+        manifesto.get("data_atendimento_inicio", ""),
+        manifesto.get("data_atendimento_final", ""),
+    )
+    if periodo_atendimento:
+        linhas.append(f"Período do atendimento: {periodo_atendimento}.")
     data_atendimento = data_final_pacote(manifesto.get("data_atendimento_final", ""))
     if data_atendimento:
         linhas.append(f"Data final do atendimento: {datetime.strptime(data_atendimento, '%Y%m%d').strftime('%d/%m/%Y')}.")
@@ -4835,6 +4897,12 @@ with st.container(border=True):
     st.caption(f"Tipo de Atendimento: {TIPOS_ATENDIMENTO.get(tipo_atendimento_salvo, 'Suporte')}")
     if tecnico_agres_salvo:
         st.caption(f"Técnico Responsável Agres: {tecnico_agres_salvo}")
+    periodo_salvo = formatar_periodo_atendimento(
+        manifesto_rascunho.get("data_atendimento_inicio", ""),
+        manifesto_rascunho.get("data_atendimento_final", ""),
+    )
+    if periodo_salvo:
+        st.caption(f"Período do atendimento: {periodo_salvo}")
     if localizacao_maps_salva:
         st.caption(f"Localização: {localizacao_maps_salva}")
     importacao_offline = manifesto_rascunho.get("importacao_offline", {}) or {}
@@ -4895,13 +4963,14 @@ localizacao_maps_salva = manifesto_rascunho.get("localizacao_maps", "")
 tecnico_agres_salvo = normalizar_tecnico_agres_responsavel(
     manifesto_rascunho.get("tecnico_agres_responsavel", "")
 )
+data_final_salva = data_final_pacote(manifesto_rascunho.get("data_atendimento_final", ""))
 
 entrada_disponivel = (
     bool(caminhos_audio_salvos)
     or bool(limpar_texto(observacoes_salvas))
     or manifesto_tem_conteudo_para_gerar(manifesto_rascunho)
 )
-pronto_para_geracao = entrada_disponivel and bool(tecnico_agres_salvo)
+pronto_para_geracao = entrada_disponivel and bool(tecnico_agres_salvo) and bool(data_final_salva)
 
 with st.container(border=True):
     st.markdown(
@@ -4920,7 +4989,10 @@ with st.container(border=True):
             unsafe_allow_html=True,
         )
     elif entrada_disponivel:
-        st.warning("Selecione o Técnico Responsável Agres na coleta offline e exporte novamente o pacote.")
+        if not tecnico_agres_salvo:
+            st.warning("Selecione o Técnico Responsável Agres na coleta offline e exporte novamente o pacote.")
+        elif not data_final_salva:
+            st.warning("Informe a Data Final do Atendimento na coleta offline e exporte novamente o pacote.")
 
     if st.button(
         "Gerar relatório técnico agora",
@@ -4949,6 +5021,12 @@ with st.container(border=True):
                     )
                     dados["localizacao_maps"] = localizacao_maps_salva or dados.get("localizacao_maps", "")
                     dados["contexto_coleta"] = observacoes_salvas
+                    periodo_atendimento = formatar_periodo_atendimento(
+                        manifesto_rascunho.get("data_atendimento_inicio", ""),
+                        manifesto_rascunho.get("data_atendimento_final", ""),
+                    )
+                    if periodo_atendimento:
+                        dados["data_visita"] = periodo_atendimento
                     dados["data_atendimento_final"] = manifesto_rascunho.get("data_atendimento_final", "")
                     if tecnico_agres_salvo:
                         dados["tecnico_agres_responsavel"] = tecnico_agres_salvo
