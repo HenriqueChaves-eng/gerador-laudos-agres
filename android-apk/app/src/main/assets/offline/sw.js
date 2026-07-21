@@ -1,4 +1,4 @@
-const CACHE_NAME = "agres-pages-offline-v56";
+const CACHE_NAME = "agres-pages-offline-v57";
 const ASSETS = [
   "./",
   "./index.html",
