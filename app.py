@@ -52,6 +52,7 @@ TAM_EVIDENCIA = 120
 TAM_ASSINATURA = 58
 FIGURA_CANVAS_PX = (1800, 1125)
 FIGURAS_POR_PAGINA = 2
+MAX_IMAGENS_EQUIPAMENTOS_IA = 18
 MAX_PACKAGE_BYTES = 100 * 1024 * 1024
 MAX_IMAGE_BYTES = 25 * 1024 * 1024
 MAX_AUDIO_BYTES = 100 * 1024 * 1024
@@ -231,10 +232,60 @@ TECNICOS_AGRES_ALIASES = {
     "Ronaldo Hiromi Kishida Junior": "Ronaldo Kishida",
 }
 
+TELAS_E_EQUIPAMENTOS_AGRES = (
+    "agroNave 7",
+    "agroNave 12",
+    "agroNave 12W",
+    "isoView",
+    "SprayRate",
+    "Agronave",
+)
+
+ISOVIEW_MODELOS_AGRES = {
+    "ISO30": "ISO 30 (Navegação)",
+    "ISO31FP": "ISO31FP (Pulverização)",
+    "ISO31OFP": "ISO31OFP (Fruticultura)",
+    "ISO32FP": "ISO32FP (Pulverização + Piloto)",
+    "ISO32OFP": "ISO32OFP (Fruticultura + Piloto)",
+    "ISO33E": "ISO33E (Piloto Elétrico)",
+    "ISO33H": "ISO33H (Piloto Hidráulico)",
+    "ISO34": "ISO34 (Adubação)",
+    "ISO35": "ISO35 (Adubação + Piloto)",
+    "ISO36": "ISO36 (Monitor de Plantio)",
+    "ISO37": "ISO37 (Monitor de Plantio + Piloto)",
+}
+
+ECUS_AGRES = (
+    "isoBox Sprayer (Pulverização)",
+    "isoBox Spreader (Adubação)",
+)
+
+COMPENSADORES_TERRENO_AGRES = (
+    "ANP21",
+    "ANP40",
+)
+
 
 def normalizar_tecnico_agres_responsavel(texto: str) -> str:
     tecnico = limpar_texto(texto)
     return TECNICOS_AGRES_ALIASES.get(tecnico, tecnico)
+
+
+def codigo_modelo_isoview(numero: str, sufixo: str = "") -> str:
+    return f"ISO{numero}{sufixo or ''}".upper().replace(" ", "")
+
+
+def rotulo_modelo_isoview(numero: str, sufixo: str = "") -> str:
+    return codigo_modelo_isoview(numero, sufixo)
+
+
+def expandir_modelos_isoview_texto(texto: str) -> str:
+    return re.sub(
+        r"\bISO\s*(30|31|32|33|34|35|36|37)\s*(OFP|FP|E|H)?\b(?:\s*\([^)]*\))?",
+        lambda match: rotulo_modelo_isoview(match.group(1), match.group(2) or ""),
+        texto,
+        flags=re.I,
+    )
 
 
 def assinaturas_padrao_lista(quantidade: int = MIN_ASSINATURAS) -> list[dict]:
@@ -1397,6 +1448,114 @@ def formatar_topicos_tecnicos(texto: str) -> str:
     return "\n".join(topicos)
 
 
+def formatar_equipamentos_agres(texto: str) -> str:
+    texto = limpar_texto(texto)
+    if not texto or normalizar_busca(texto) == "nao informado":
+        return ""
+
+    linhas = []
+    vistos = set()
+    rotulos = (
+        ("tela instalada", "Tela instalada"),
+        ("tela", "Tela instalada"),
+        ("equipamento", "Equipamento"),
+        ("ecu", "ECU"),
+        ("compensador de terreno", "Compensador de terreno"),
+        ("compensador", "Compensador de terreno"),
+        ("piloto hidraulico", "Piloto Hidráulico"),
+        ("piloto hidráulico", "Piloto Hidráulico"),
+        ("modelo", "Modelo"),
+        ("s/n", "S/N"),
+        ("sn", "S/N"),
+        ("numero de serie", "S/N"),
+        ("número de série", "S/N"),
+        ("serial", "S/N"),
+        ("aplicacao", "Aplicação"),
+        ("aplicação", "Aplicação"),
+        ("versao de aplicacao", "Aplicação"),
+        ("versão de aplicação", "Aplicação"),
+        ("sistema", "Sistema"),
+        ("versao de sistema", "Sistema"),
+        ("versão de sistema", "Sistema"),
+        ("versao de software da tela", "Software da tela"),
+        ("versão de software da tela", "Software da tela"),
+        ("versao de software da ecu", "SW"),
+        ("versão de software da ecu", "SW"),
+        ("sw", "SW"),
+        ("hw", "HW"),
+        ("versao do compensador", "Versão do compensador"),
+        ("versão do compensador", "Versão do compensador"),
+        ("comando de pulverizacao", "Comando de pulverização"),
+        ("comando de pulverização", "Comando de pulverização"),
+        ("comando", "Comando"),
+        ("cabeamento", "Cabeamento"),
+    )
+
+    partes = []
+    for linha in texto.replace("•", "\n").split("\n"):
+        for parte in re.split(r"\s*;\s*", linha):
+            parte = parte.strip(" -–—\t")
+            if parte:
+                partes.append(parte)
+
+    for item in partes:
+        item = re.sub(r"\s+", " ", item).strip(" ,.;")
+        if not item:
+            continue
+
+        if ":" in item:
+            rotulo, valor = item.split(":", 1)
+            rotulo_limpo = normalizar_busca(rotulo).strip()
+            valor = valor.strip(" ,.;")
+            valor = expandir_modelos_isoview_texto(valor)
+            rotulo_final = next((final for chave, final in rotulos if rotulo_limpo == chave), rotulo.strip())
+            item = f"{rotulo_final}: {valor}" if valor else f"{rotulo_final}:"
+        else:
+            item_busca = normalizar_busca(item)
+            item = re.sub(r"\bISOBOX\s+SPRAYER\b", "isoBox Sprayer", item, flags=re.I)
+            item = re.sub(r"\bISOBOX\s+SPREADER\b", "isoBox Spreader", item, flags=re.I)
+            item = re.sub(r"\bAGRO\s*NAVE\s*7\b", "agroNave 7", item, flags=re.I)
+            item = re.sub(r"\bAGRO\s*NAVE\s*12W\b", "agroNave 12W", item, flags=re.I)
+            item = re.sub(r"\bAGRO\s*NAVE\s*12\b", "agroNave 12", item, flags=re.I)
+            item = re.sub(r"\bISOVIEW\b", "isoView", item, flags=re.I)
+            item = expandir_modelos_isoview_texto(item)
+            if item_busca.startswith(("sn ", "s n ")):
+                item = re.sub(r"^(?:s\s*n|sn)\s+", "S/N: ", item, flags=re.I)
+
+        chave = normalizar_busca(item)
+        if chave and chave not in vistos:
+            if linhas and re.match(r"^(ECU|Tela instalada|Equipamento|Compensador de terreno|Piloto Hidráulico)\b", item):
+                linhas.append("")
+            linhas.append(item)
+            vistos.add(chave)
+
+    return "\n".join(linhas).strip()
+
+
+def selecionar_imagens_equipamentos_agres(caminhos_cabecalho: dict, evidencias: dict) -> list[Path]:
+    candidatos = []
+    if caminhos_cabecalho.get("info_equip"):
+        candidatos.append(caminhos_cabecalho["info_equip"])
+
+    for categoria in ("fotos_equipamento", "fotos_configuracao"):
+        candidatos.extend(evidencias.get(categoria, []) or [])
+
+    selecionadas = []
+    vistos = set()
+    for caminho in candidatos:
+        if not caminho:
+            continue
+        caminho = Path(caminho)
+        chave = str(caminho.resolve()) if caminho.exists() else str(caminho)
+        if chave in vistos or not caminho.exists() or caminho.suffix.lower().lstrip(".") not in EXTENSOES_IMAGEM:
+            continue
+        selecionadas.append(caminho)
+        vistos.add(chave)
+        if len(selecionadas) >= MAX_IMAGENS_EQUIPAMENTOS_IA:
+            break
+    return selecionadas
+
+
 def contem_termo(texto: str, termos: tuple[str, ...]) -> bool:
     texto_normalizado = normalizar_busca(texto)
     return any(termo in texto_normalizado for termo in termos)
@@ -1631,6 +1790,7 @@ def normalizar_dados_relatorio(dados: dict) -> dict:
 
     dados_normalizados["configuracoes"] = formatar_topicos_tecnicos(configuracoes) or "Não informado"
     dados_normalizados["calibracoes"] = formatar_topicos_tecnicos(calibracoes) or "Não informado"
+    dados_normalizados["equipamentos"] = formatar_equipamentos_agres(dados_normalizados["equipamentos"])
     dados_normalizados["relato"] = adicionar_ao_relato(
         dados_normalizados["relato"],
         itens_config_relato + itens_calibracao_relato + detalhes_para_relato,
@@ -1681,7 +1841,7 @@ def montar_prompt(contexto_manual: str = "") -> str:
     )
 
     return f"""
-Você é redator técnico da Agres e deve transformar áudios/anotações de atendimento de campo em dados para um relatório formal.
+Você é redator técnico da Agres e deve transformar áudios, anotações e fotos de atendimento de campo em dados para um relatório formal.
 
 Use português técnico, claro e objetivo, porém completo e minucioso. Reescreva falas informais em linguagem profissional, sem inventar dados, versões, medidas, peças ou conclusões que não estejam no material recebido.
 Não resuma o atendimento. Preserve o máximo possível de informações técnicas citadas nos áudios/anotações, incluindo nomes, datas, local, cliente, máquina, implemento, equipamento, versões, números de série, sintomas, hipóteses, testes, tentativas, parâmetros, valores, componentes, decisões, dificuldades, pendências e conclusão.
@@ -1693,7 +1853,29 @@ REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 3. data_visita: preserve intervalo de datas quando o atendimento ocorrer em mais de um dia, por exemplo "19 a 21/01/2026".
 4. cliente_local: informar cliente, cidade/UF, revenda, fábrica e propriedade quando existirem.
 5. localizacao_maps: informar somente o link do Google Maps, Maps ou coordenadas da fazenda quando existirem; caso contrário, retornar "".
-6. equipamentos: organizar somente equipamentos, sistemas e componentes da Agres em linhas com modelo, série, versões de aplicação/sistema/carga, ECU, compensador, GPS e identificadores. Não incluir máquina, trator ou implemento de outros fabricantes neste campo.
+6. equipamentos: organizar somente equipamentos, sistemas e componentes da Agres. Use também as fotos/telas recebidas para ler OCR visual de etiquetas, menus, telas de versão, plaquetas, número de série e QR Code quando legível. Não incluir máquina, trator ou implemento de outros fabricantes neste campo.
+   Padronizar o campo "equipamentos" em blocos, uma informação por linha, sem tópicos e sem texto corrido. Usar os rótulos abaixo quando a informação existir:
+   Tela instalada: <modelo da tela ou equipamento>
+   S/N: <número de série da tela/equipamento>
+   Aplicação: <versão de aplicação/software da tela>
+   Sistema: <versão de sistema da tela>
+
+   ECU: <modelo da ECU>
+   S/N: <número de série da ECU>
+   SW: <versão de software da ECU>
+   HW: <versão de hardware da ECU>
+
+   Compensador de terreno: <modelo ou descrição>
+   Modelo: <ANP21 ou ANP40>
+   S/N: <número de série do compensador>
+   Versão do compensador: <versão>
+
+   Modelos conhecidos de tela/equipamento: agroNave 7, agroNave 12, agroNave 12W, isoView, SprayRate e Agronave.
+   Modelos do ISOVIEW: ISO 30 (Navegação), ISO31FP (Pulverização), ISO31OFP (Fruticultura), ISO32FP (Pulverização + Piloto), ISO32OFP (Fruticultura + Piloto), ISO33E (Piloto Elétrico), ISO33H (Piloto Hidráulico), ISO34 (Adubação), ISO35 (Adubação + Piloto), ISO36 (Monitor de Plantio) e ISO37 (Monitor de Plantio + Piloto).
+   Ao registrar um modelo ISOVIEW no relatório, escrever somente o código do modelo, sem a descrição entre parênteses. Exemplo: "ISO33H", não "ISO33H (Piloto Hidráulico)".
+   Modelos conhecidos de compensador: ANP21 e ANP40.
+   Modelos conhecidos de ECU: isoBox Sprayer (Pulverização) e isoBox Spreader (Adubação).
+   Se a foto estiver ilegível ou a informação não tiver sido citada, não inventar. Apenas omitir a linha específica ou retornar "Não informado" quando nenhum equipamento Agres for identificado.
 7. maquinas: organizar máquinas, tratores e implementos de outros fabricantes em linhas com fabricante, modelo, comando de válvulas e características relevantes. Exemplos como Baldan Avolla 2500 pertencem exclusivamente a este campo.
 8. objetivos: escrever somente o objetivo principal do atendimento, em uma ou duas frases.
 9. configuracoes: incluir somente parâmetros de sistema, software, tela, ECU, controlador, seções, geometria, versões, módulos habilitados, ganhos ou ajustes feitos em menus. Retornar em tópicos objetivos, uma linha por item, sem texto corrido. Quando houver valores, use o padrão "Parâmetro: valor".
@@ -1701,9 +1883,9 @@ REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 11. tecnicos: retornar "". O Técnico Responsável Agres é definido exclusivamente pela seleção realizada na coleta offline.
 12. acompanhantes: informar técnicos, operadores, proprietários, consultores, representantes ou demais pessoas que acompanharam o atendimento. Pessoas citadas apenas como acompanhantes nunca devem ser incluídas no campo "tecnicos".
 13. responsavel_revenda_fabrica: informar o nome do responsável da revenda, fábrica ou Agres que validou/acompanhou o atendimento, quando mencionado.
-14. documento_revenda_fabrica: informar CPF, RG ou documento do responsável da revenda/fábrica quando mencionado; caso contrário, retornar "".
+14. documento_revenda_fabrica: retornar sempre "".
 15. responsavel_fazenda: informar o nome do responsável da fazenda, cliente, operador, encarregado ou proprietário que validou/acompanhou o atendimento, quando mencionado.
-16. documento_fazenda: informar CPF, RG ou documento do responsável da fazenda quando mencionado; caso contrário, retornar "".
+16. documento_fazenda: retornar sempre "".
 17. relato: concentrar todo o detalhamento técnico e cronológico. O relato deve ser a parte mais completa do relatório. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
 18. nome_arquivo_sugerido: retornar "". O nome final é montado automaticamente pelo sistema a partir do Técnico Responsável Agres selecionado na coleta.
 
@@ -1719,6 +1901,11 @@ PADRÃO DO RELATO:
 - Em atendimentos de vários dias, separar a sequência por data ou por etapa.
 - Se alguma informação técnica tiver sido mencionada de forma incerta, registrar como "foi informado" ou "foi relatado", sem transformar em certeza absoluta.
 - Informar "Não informado" nos campos textuais quando o dado não for mencionado.
+
+LEITURA DAS FOTOS:
+- Quando houver fotos de identificação do equipamento ou telas de configuração, analisar visualmente os textos legíveis para preencher "equipamentos", "configuracoes" e "calibracoes".
+- Priorizar no campo "equipamentos" os dados de identificação Agres: modelo, número de série, versão de software/aplicação/sistema, ECU, SW/HW, compensador, ANP21/ANP40 e versões.
+- Se uma foto mostrar a tela de sistema com campos como "Versão de Aplicação", "Versão de Sistema", "Número de série", "SW" ou "HW", transcrever exatamente no campo correto.
 
 Retorne apenas um JSON válido, sem markdown e sem comentários, com exatamente esta estrutura:
 {{
@@ -1762,13 +1949,17 @@ def extrair_json_resposta(texto: str) -> dict:
         raise ValueError(f"JSON inválido retornado pela IA: {erro}. Trecho recebido: {trecho}") from erro
 
 
-def processar_atendimento_completo(arquivos_audio_temp: list[Path], contexto_manual: str = "") -> dict:
+def processar_atendimento_completo(
+    arquivos_audio_temp: list[Path],
+    contexto_manual: str = "",
+    imagens_equipamentos_agres: list[Path] | None = None,
+) -> dict:
     materiais_para_ia = []
     arquivos_api = []
 
     try:
-        for audio in arquivos_audio_temp:
-            temp_file = genai_client.files.upload(file=str(audio))
+        def enviar_arquivo_para_ia(caminho: Path, rotulo: str):
+            temp_file = genai_client.files.upload(file=str(caminho))
             arquivos_api.append(temp_file)
             for _ in range(60):
                 estado = str(getattr(getattr(temp_file, "state", None), "name", getattr(temp_file, "state", ""))).upper()
@@ -1778,8 +1969,24 @@ def processar_atendimento_completo(arquivos_audio_temp: list[Path], contexto_man
                 temp_file = genai_client.files.get(name=temp_file.name)
             estado_final = str(getattr(getattr(temp_file, "state", None), "name", getattr(temp_file, "state", ""))).upper()
             if "FAILED" in estado_final or "PROCESSING" in estado_final:
-                raise ValueError(f"O áudio {audio.name} não pôde ser preparado pela IA. Exporte e tente novamente.")
+                raise ValueError(f"{rotulo} {caminho.name} não pôde ser preparado pela IA. Exporte e tente novamente.")
             materiais_para_ia.append(temp_file)
+
+        for audio in arquivos_audio_temp:
+            enviar_arquivo_para_ia(audio, "O áudio")
+
+        imagens_validas = [
+            Path(imagem)
+            for imagem in (imagens_equipamentos_agres or [])
+            if imagem and Path(imagem).exists()
+        ][:MAX_IMAGENS_EQUIPAMENTOS_IA]
+        if imagens_validas:
+            materiais_para_ia.append(
+                "\nFOTOS DE IDENTIFICAÇÃO E CONFIGURAÇÃO DOS EQUIPAMENTOS AGRES:\n"
+                "Analise estas imagens com OCR/visão. Extraia modelo, número de série, versões de tela, ECU, SW, HW, compensador, ANP21/ANP40 e demais identificadores legíveis."
+            )
+        for imagem in imagens_validas:
+            enviar_arquivo_para_ia(imagem, "A foto")
 
         resposta = genai_client.models.generate_content(
             model=MODELO_GEMINI,
@@ -2061,6 +2268,11 @@ def equipamento_para_nome(dados: dict) -> str:
     )
     adicionar_encontrados(
         sistemas_principais,
+        r"\biso\s*(30|31|32|33|34|35|36|37)\s*(OFP|FP|E|H)?\b",
+        lambda match: codigo_modelo_isoview(match.group(1), match.group(2) or ""),
+    )
+    adicionar_encontrados(
+        sistemas_principais,
         r"\biso\s*([0-9]{1,3})(?:\s*(OFP|FPS|FP|C|S))?\b",
         lambda match: f"ISO{match.group(1)}{(match.group(2) or '').upper()}",
     )
@@ -2221,11 +2433,6 @@ def preencher_celula_assinatura(cell, titulo: str, nome: str, documento: str, ca
     formatar_paragrafo_assinatura(paragrafo_nome, space_after=1)
     formatar_run_assinatura(paragrafo_nome.add_run(nome_assinatura_para_exibicao(nome)), tamanho=9)
 
-    paragrafo_documento = cell.add_paragraph()
-    formatar_paragrafo_assinatura(paragrafo_documento)
-    documento_exibicao = texto_ou_padrao(documento)
-    formatar_run_assinatura(paragrafo_documento.add_run(f"CPF/RG: {documento_exibicao}"), tamanho=9)
-
 
 def inserir_elemento_antes_paragrafo(elemento, paragraph) -> None:
     parent = paragraph._p.getparent()
@@ -2301,12 +2508,11 @@ def inserir_assinaturas_docx(caminho_docx: Path, dados: dict, caminhos_assinatur
         assinaturas_documento = []
         for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
             caminho = caminhos_assinaturas.get(chave)
-            if caminho or dados.get(configuracao["campo"]) or dados.get(configuracao["campo_documento"]):
+            if caminho or dados.get(configuracao["campo"]):
                 assinaturas_documento.append(
                     {
                         "nome": dados.get(configuracao["campo"], ""),
                         "representa": configuracao["titulo"],
-                        "documento": dados.get(configuracao["campo_documento"], ""),
                         "caminho": caminho,
                     }
                 )
@@ -2332,7 +2538,6 @@ def inserir_assinaturas_docx(caminho_docx: Path, dados: dict, caminhos_assinatur
                     "role",
                     padrao=f"Responsável {indice}",
                 ),
-                "documento": texto_assinatura(assinatura, "documento", "cpf_rg", "cpfRg", "cpf", "rg", "doc"),
             }
             for indice, assinatura in enumerate(caminhos_assinaturas or [], start=1)
             if isinstance(assinatura, dict)
@@ -2341,7 +2546,7 @@ def inserir_assinaturas_docx(caminho_docx: Path, dados: dict, caminhos_assinatur
     assinaturas_documento = [
         assinatura
         for assinatura in assinaturas_documento
-        if assinatura.get("nome") or assinatura.get("representa") or assinatura.get("documento") or assinatura.get("caminho")
+        if assinatura.get("nome") or assinatura.get("representa") or assinatura.get("caminho")
     ]
     if not assinaturas_documento:
         return
@@ -3764,12 +3969,10 @@ def renderizar_coleta_streamlit() -> None:
         col_nome1, col_nome2 = st.columns(2)
         with col_nome1:
             responsavel_revenda = st.text_input("Responsável da revenda/fábrica", key="coleta_resp_revenda")
-            documento_revenda = st.text_input("CPF/RG", key="coleta_doc_revenda")
         with col_nome2:
             responsavel_fazenda = st.text_input("Responsável da fazenda", key="coleta_resp_fazenda")
-            documento_fazenda = st.text_input("CPF/RG", key="coleta_doc_fazenda")
         responsaveis = {"revenda_fabrica": responsavel_revenda, "fazenda": responsavel_fazenda}
-        documentos = {"revenda_fabrica": documento_revenda, "fazenda": documento_fazenda}
+        documentos = {"revenda_fabrica": "", "fazenda": ""}
         assinaturas = {"revenda_fabrica": None, "fazenda": None}
         if st_canvas is not None:
             usar_coleta_ampliada = st.toggle(
@@ -4244,11 +4447,8 @@ def contexto_manifesto_para_geracao(manifesto: dict) -> str:
     for assinatura in normalizar_assinaturas_lista(manifesto):
         responsavel = limpar_texto(assinatura.get("nome", ""))
         representa = limpar_texto(assinatura.get("representa", ""))
-        documento = limpar_texto(assinatura.get("documento", ""))
         if responsavel:
             linhas.append(f"{representa or 'Responsável'}: {responsavel}.")
-        if documento:
-            linhas.append(f"Documento informado na assinatura: {documento}.")
 
     if linhas and not observacoes:
         linhas.insert(0, "Coleta offline importada sem complemento técnico descritivo. Utilizar os metadados abaixo para compor o relatório sem inventar procedimentos não informados.")
@@ -4501,9 +4701,6 @@ for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
     campo = configuracao["campo"]
     if campo not in st.session_state:
         st.session_state[campo] = manifesto_rascunho.get("responsaveis", {}).get(chave, "")
-    campo_documento = configuracao["campo_documento"]
-    if campo_documento not in st.session_state:
-        st.session_state[campo_documento] = manifesto_rascunho.get("documentos", {}).get(chave, "")
 
 if "assinaturas_habilitadas" not in st.session_state:
     st.session_state.assinaturas_habilitadas = manifesto_rascunho.get("assinaturas_habilitadas", True)
@@ -4515,7 +4712,6 @@ for assinatura in normalizar_assinaturas_lista(manifesto_rascunho):
     for campo, valor in (
         ("nome", assinatura.get("nome", "")),
         ("representa", assinatura.get("representa", "")),
-        ("documento", assinatura.get("documento", "")),
     ):
         chave_estado = f"assinatura_{campo}_{assinatura_id}"
         if chave_estado not in st.session_state:
@@ -4742,7 +4938,15 @@ with st.container(border=True):
                 pasta_temp = Path(pasta_temp_raw)
 
                 with st.status("Gerando relatório...", expanded=False) as status:
-                    dados = processar_atendimento_completo(caminhos_audio_salvos, observacoes_salvas)
+                    imagens_equipamentos_ia = selecionar_imagens_equipamentos_agres(
+                        caminhos_cabecalho_salvos,
+                        evidencias_salvas,
+                    )
+                    dados = processar_atendimento_completo(
+                        caminhos_audio_salvos,
+                        observacoes_salvas,
+                        imagens_equipamentos_ia,
+                    )
                     dados["localizacao_maps"] = localizacao_maps_salva or dados.get("localizacao_maps", "")
                     dados["contexto_coleta"] = observacoes_salvas
                     dados["data_atendimento_final"] = manifesto_rascunho.get("data_atendimento_final", "")
@@ -4754,9 +4958,6 @@ with st.container(border=True):
                         responsavel = limpar_texto(responsaveis_salvos.get(chave, ""))
                         if responsavel:
                             dados[configuracao["campo"]] = responsavel
-                        documento = limpar_texto(documentos_salvos.get(chave, ""))
-                        if documento:
-                            dados[configuracao["campo_documento"]] = documento
 
                     arquivo_final = gerar_docx(
                         dados,

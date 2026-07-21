@@ -1,16 +1,3275 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="refresh" content="0; url=./reset.html?v=34">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#3f4247">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Agres | Coleta Offline</title>
-  <script>
-    window.location.replace("./reset.html?v=34");
-  </script>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./logo_agres.png">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #e7e9ec;
+      --panel: #ffffff;
+      --ink: #272a2f;
+      --muted: #62676e;
+      --line: #d3d6da;
+      --brand: #3f4247;
+      --brand-2: #5d6065;
+      --brand-dark: #26282c;
+      --soft: #f7f8fa;
+      --ok: #176b43;
+      --warn: #985d00;
+      --danger: #8d2424;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 16px;
+      background:
+        radial-gradient(circle at top left, rgba(120, 124, 130, 0.18), transparent 22rem),
+        linear-gradient(180deg, #e6e8eb 0%, #f2f3f5 48%, #e3e5e8 100%);
+      color: var(--ink);
+    }
+    main {
+      width: min(960px, 100%);
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .hero {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      padding: 18px;
+      border-radius: 16px;
+      color: #fff;
+      background: linear-gradient(135deg, #242528 0%, #4f5054 58%, #6b6c70 100%);
+      box-shadow: 0 18px 44px rgba(32, 37, 41, 0.22);
+    }
+    .hero img {
+      width: 168px;
+      max-width: 42vw;
+      filter: brightness(0) invert(1);
+    }
+    .kicker {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #f2f3f5;
+    }
+    h1 {
+      margin: 4px 0 6px;
+      font-size: clamp(28px, 6vw, 44px);
+      line-height: 1.04;
+    }
+    .hero p {
+      margin: 0;
+      color: #f5f6f7;
+      line-height: 1.45;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 14px 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.92);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 10px;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--brand);
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .badge.online { background: var(--ok); }
+    .badge.offline { background: var(--warn); }
+    .notice {
+      margin: 14px 0 0;
+      padding: 12px 14px;
+      border: 1px solid #c9ccd1;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.94);
+      color: var(--ink);
+      line-height: 1.4;
+    }
+    .notice strong { display: block; margin-bottom: 3px; }
+    .notice.warning {
+      border-color: #e7c47a;
+      background: #fff6de;
+    }
+    .notice.ok {
+      border-color: #9bc9b1;
+      background: #edf8f2;
+    }
+    section {
+      margin-top: 14px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 19px;
+      line-height: 1.2;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    label {
+      display: block;
+      margin: 0 0 6px;
+      color: var(--ink);
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    textarea,
+    input[type="text"],
+    select {
+      width: 100%;
+      min-height: 46px;
+      padding: 12px;
+      border: 1px solid #c9ccd1;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+    select {
+      appearance: none;
+      background-image:
+        linear-gradient(45deg, transparent 50%, #3f4247 50%),
+        linear-gradient(135deg, #3f4247 50%, transparent 50%);
+      background-position:
+        calc(100% - 18px) 50%,
+        calc(100% - 12px) 50%;
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      padding-right: 36px;
+      font-weight: 800;
+    }
+    .field input + input,
+    .field input + canvas {
+      margin-top: 8px;
+    }
+    textarea {
+      min-height: 128px;
+      resize: vertical;
+    }
+    #observacoes {
+      min-height: 210px;
+    }
+    .upload-control {
+      display: grid;
+      gap: 6px;
+    }
+    .upload-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(118px, 0.75fr);
+      gap: 8px;
+    }
+    .upload-control input[type="file"] {
+      position: fixed;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+    .upload-button {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      min-height: 64px;
+      margin: 0;
+      padding: 12px 14px;
+      border: 1px solid #b9bec5;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #ffffff 0%, #f4f5f6 100%);
+      color: var(--ink);
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .upload-control:focus-within .upload-button,
+    .upload-button:hover {
+      border-color: var(--brand);
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
+    }
+    .upload-button:active {
+      transform: translateY(1px);
+    }
+    .upload-button.camera {
+      order: -1;
+      grid-template-columns: 42px minmax(0, 1fr);
+      background: linear-gradient(180deg, #f8fffb 0%, #edf8f2 100%);
+      border-color: #9bc9b1;
+    }
+    .upload-symbol {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 13px;
+      background: #eef0f2;
+      color: #656a72;
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .upload-button.gallery .upload-symbol,
+    .upload-button.camera .upload-symbol {
+      font-size: 0;
+    }
+    .upload-button.gallery .upload-symbol::before {
+      content: "";
+      position: absolute;
+      width: 23px;
+      height: 18px;
+      border: 2px solid currentColor;
+      border-radius: 5px;
+    }
+    .upload-button.gallery .upload-symbol::after {
+      content: "";
+      position: absolute;
+      left: 14px;
+      bottom: 13px;
+      width: 15px;
+      height: 10px;
+      border-left: 2px solid currentColor;
+      border-top: 2px solid currentColor;
+      transform: rotate(42deg);
+      transform-origin: center;
+    }
+    .upload-button.camera .upload-symbol {
+      background: #eef0f2;
+      color: #656a72;
+      font-size: 0;
+      letter-spacing: 0;
+    }
+    .upload-button.camera .upload-symbol::before {
+      content: "";
+      position: absolute;
+      width: 25px;
+      height: 18px;
+      border: 2px solid currentColor;
+      border-radius: 5px;
+    }
+    .upload-button.camera .upload-symbol::after {
+      content: "";
+      position: absolute;
+      left: 15px;
+      bottom: 15px;
+      width: 8px;
+      height: 8px;
+      border: 2px solid currentColor;
+      border-radius: 999px;
+      transform: none;
+    }
+    .upload-main {
+      display: block;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.15;
+    }
+    .upload-sub {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+    .field { margin-bottom: 12px; }
+    .hint {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .recording-banner {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      min-height: 48px;
+      margin-top: 10px;
+      padding: 11px 12px;
+      border: 1px solid #f1a4a4;
+      border-radius: 12px;
+      background: #fff1f1;
+      color: #8d2424;
+      font-weight: 900;
+      line-height: 1.25;
+    }
+    .recording-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: #d92d20;
+      box-shadow: 0 0 0 0 rgba(217, 45, 32, 0.55);
+      animation: recordingPulse 1.15s infinite;
+      flex: 0 0 auto;
+    }
+    body.is-recording .recording-banner {
+      display: flex;
+    }
+    body.is-recording #stopBtn {
+      background: #b42318;
+      border-color: #b42318;
+      color: #fff;
+      box-shadow: 0 10px 22px rgba(180, 35, 24, 0.24);
+    }
+    body.is-recording #recordHint {
+      color: #8d2424;
+      font-weight: 900;
+    }
+    @keyframes recordingPulse {
+      0% { box-shadow: 0 0 0 0 rgba(217, 45, 32, 0.55); }
+      70% { box-shadow: 0 0 0 11px rgba(217, 45, 32, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(217, 45, 32, 0); }
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .radio-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .radio-grid label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 50px;
+      margin: 0;
+      padding: 12px;
+      border: 1px solid #bdc2c8;
+      border-radius: 11px;
+      background: var(--soft);
+      font-weight: 800;
+      min-width: 0;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+      cursor: pointer;
+    }
+    .radio-grid input {
+      flex: 0 0 auto;
+      width: 18px;
+      height: 18px;
+      accent-color: var(--brand-dark);
+    }
+    .radio-grid label:has(input:checked) {
+      border-color: var(--brand-dark);
+      background: #eceef1;
+      box-shadow: inset 0 0 0 1px var(--brand-dark);
+    }
+    button,
+    .button {
+      min-height: 50px;
+      padding: 0 14px;
+      border: 1px solid #b9bec5;
+      border-radius: 11px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 800;
+      line-height: 1.15;
+      cursor: pointer;
+      white-space: normal;
+      box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
+      -webkit-tap-highlight-color: transparent;
+    }
+    button.primary,
+    .button.primary {
+      background: linear-gradient(180deg, #46494f 0%, #2c2e33 100%);
+      border-color: var(--brand-dark);
+      color: #fff;
+      box-shadow: 0 10px 22px rgba(39, 42, 47, 0.22);
+    }
+    button.danger {
+      color: var(--danger);
+      border-color: #e2b7b7;
+      background: #fff8f8;
+    }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      box-shadow: none;
+    }
+    button:focus-visible,
+    .button:focus-visible,
+    textarea:focus-visible,
+    input[type="text"]:focus-visible,
+    select:focus-visible {
+      outline: 3px solid rgba(63, 66, 71, 0.28);
+      outline-offset: 2px;
+    }
+    .list {
+      display: grid;
+      gap: 8px;
+      margin: 8px 0 0;
+    }
+    .item {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      padding: 9px 10px;
+      border-radius: 9px;
+      background: #f3f4f6;
+      color: var(--ink);
+      font-size: 14px;
+      word-break: break-word;
+    }
+    .item button {
+      min-height: 34px;
+      padding: 0 10px;
+      font-size: 13px;
+    }
+    .item audio {
+      width: min(100%, 320px);
+      margin-top: 6px;
+    }
+    .item-main {
+      min-width: 0;
+      flex: 1;
+    }
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .evidence-categories,
+    .header-photo-fields {
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+    .evidence-categories > .field,
+    .header-photo-fields > .field {
+      margin: 0;
+      padding: 0 0 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .evidence-categories > .field:last-child,
+    .header-photo-fields > .field:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+    .evidence-categories > .field > label,
+    .header-photo-fields > .field > label {
+      margin-bottom: 8px;
+      font-size: 17px;
+    }
+    .evidence-categories .upload-actions,
+    .header-photo-fields .upload-actions {
+      max-width: 470px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .evidence-categories .upload-button,
+    .header-photo-fields .upload-button {
+      min-height: 58px;
+      padding: 9px 11px;
+    }
+    .header-photo-fields .preview-grid {
+      grid-template-columns: minmax(220px, 320px);
+    }
+    .evidence-categories .preview-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .thumb {
+      overflow: hidden;
+      border: 1px solid #d3d6da;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 5px 14px rgba(15, 23, 42, 0.06);
+    }
+    .thumb img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      background: #fff;
+    }
+    .thumb-footer {
+      display: grid;
+      gap: 8px;
+      padding: 9px;
+    }
+    .thumb-name {
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .thumb button {
+      min-height: 40px;
+      padding: 0 8px;
+      font-size: 12px;
+    }
+    .thumb-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .thumb-actions.single-action {
+      grid-template-columns: 1fr;
+    }
+    .thumb-actions button {
+      width: auto;
+      min-width: 0;
+      padding: 0 10px;
+      line-height: 1.15;
+      white-space: normal;
+    }
+    .order-control {
+      display: grid;
+      gap: 3px;
+    }
+    .order-control span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .order-control select {
+      min-height: 40px;
+      width: 100%;
+      border: 1px solid #c9ccd1;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .caption-control {
+      display: grid;
+      gap: 8px;
+      padding: 0 9px 9px;
+      border-top: 1px solid #e5e7ea;
+    }
+    .caption-control label,
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .caption-control textarea {
+      min-height: 82px;
+      font-size: 13px;
+    }
+    .caption-control textarea:disabled {
+      display: none;
+    }
+    .thumb-remove {
+      border-color: #e2b7b7;
+      background: #fff8f8;
+      color: var(--danger);
+    }
+    .legacy-legends {
+      display: none;
+    }
+    .signature-settings {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 160px;
+      border: 1px solid #c9ccd1;
+      border-radius: 10px;
+      background: #fff;
+      touch-action: none;
+    }
+    .signature-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .signature-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      background: #e7e9ec;
+      padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+        max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    }
+    .signature-modal.open {
+      display: flex;
+      flex-direction: column;
+    }
+    .signature-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .signature-modal-title {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+    .signature-modal-subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .signature-modal canvas {
+      flex: 1;
+      min-height: 58vh;
+      height: calc(100dvh - 176px);
+      border: 2px solid #3f4247;
+      border-radius: 12px;
+      box-shadow: 0 12px 34px rgba(15, 23, 42, 0.12);
+    }
+    .signature-modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .sync-panel {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .sync-actions {
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 0.9fr);
+    }
+    .sync-output {
+      display: none;
+      width: 100%;
+      min-height: 150px;
+      max-height: 34vh;
+      padding: 10px;
+      border: 1px solid #c9ccd1;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+      font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .sync-output.visible {
+      display: block;
+    }
+    .sync-message {
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .offline-checklist {
+      display: grid;
+      gap: 7px;
+      margin: 4px 0 2px;
+    }
+    .offline-check {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 8px;
+      align-items: start;
+      padding: 9px 10px;
+      border: 1px solid #d3d6da;
+      border-radius: 10px;
+      background: #f7f8f9;
+    }
+    .offline-check-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 26px;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--brand);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .offline-check.ok .offline-check-badge { background: var(--ok); }
+    .offline-check.warn .offline-check-badge { background: var(--warn); }
+    .offline-check.info .offline-check-badge { background: var(--brand-2); }
+    .offline-check-title {
+      color: var(--ink);
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    .offline-check-detail {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    body.signature-open {
+      overflow: hidden;
+    }
+    .footer-actions {
+      position: sticky;
+      bottom: 0;
+      z-index: 5;
+      margin: 16px -16px -16px;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      border-top: 1px solid rgba(195, 199, 204, 0.85);
+      background: rgba(239, 241, 243, 0.96);
+      backdrop-filter: blur(12px);
+    }
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    @media (max-width: 680px) {
+      body { font-size: 16px; }
+      main {
+        padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+          max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+      }
+      .hero {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px;
+        border-radius: 14px;
+      }
+      .hero img { width: 150px; max-width: 74vw; }
+      h1 { font-size: 28px; line-height: 1.08; }
+      h2 { font-size: 20px; line-height: 1.18; }
+      .status {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .grid,
+      .actions,
+      .radio-grid {
+        grid-template-columns: 1fr;
+      }
+      .field { margin-bottom: 14px; }
+      label { font-size: 16px; }
+      textarea,
+      input[type="text"],
+      select {
+        font-size: 16px;
+      }
+      .upload-button {
+        grid-template-columns: 44px minmax(0, 1fr);
+        min-height: 68px;
+        border-radius: 14px;
+      }
+      .upload-actions {
+        grid-template-columns: 1fr 0.82fr;
+      }
+      .upload-symbol {
+        width: 44px;
+        height: 44px;
+      }
+      .upload-main {
+        font-size: 16px;
+      }
+      .upload-sub {
+        font-size: 13px;
+      }
+      button,
+      .button {
+        width: 100%;
+        min-height: 54px;
+        padding: 0 12px;
+        font-size: 16px;
+        border-radius: 12px;
+      }
+      .item {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .item button {
+        width: 100%;
+        min-height: 40px;
+      }
+      .preview-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .evidence-categories .preview-grid {
+        grid-template-columns: 1fr;
+      }
+      .header-photo-fields .preview-grid {
+        grid-template-columns: 1fr;
+      }
+      .thumb-footer {
+        padding: 8px;
+      }
+      .thumb-actions {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+      .thumb-name {
+        font-size: 12px;
+      }
+      .offline-check {
+        grid-template-columns: 1fr;
+      }
+      .offline-check-badge {
+        width: fit-content;
+        padding: 0 10px;
+      }
+      .sync-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 8;
+        margin: 14px -14px -14px;
+        padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+        border-top: 1px solid rgba(195, 199, 204, 0.9);
+        background: rgba(239, 241, 243, 0.98);
+        backdrop-filter: blur(12px);
+      }
+      .signature-actions,
+      .signature-modal-actions {
+        grid-template-columns: 1fr;
+      }
+      .signature-settings {
+        grid-template-columns: 1fr;
+      }
+      .signature-modal canvas {
+        min-height: 62vh;
+        height: calc(100dvh - 210px);
+      }
+      .signature-modal-header {
+        flex-direction: column;
+      }
+      section {
+        margin-top: 12px;
+        padding: 14px;
+        border-radius: 13px;
+      }
+    }
+    @media (min-width: 681px) and (max-width: 900px) {
+      .evidence-categories .preview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 380px) {
+      .upload-actions {
+        grid-template-columns: 1fr;
+      }
+      .evidence-categories .upload-actions,
+      .header-photo-fields .upload-actions {
+        max-width: none;
+        grid-template-columns: 1fr;
+      }
+      h1 { font-size: 25px; }
+      h2 { font-size: 18px; }
+    }
+  </style>
 </head>
 <body>
-  <p>Redirecionando para a coleta offline atualizada...</p>
-  <p><a href="./reset.html?v=34">Abrir coleta offline</a></p>
+  <main>
+    <div class="hero">
+      <img src="./logo_agres.png" alt="Agres">
+      <div>
+        <h1>Relatório Técnico Agres</h1>
+      </div>
+    </div>
+
+    <div class="notice warning" id="secureNotice" hidden>
+      <strong>Microfone bloqueado pelo Safari</strong>
+      Abra pelo link HTTPS do GitHub Pages.
+    </div>
+
+    <section>
+      <h2>1. Relato técnico</h2>
+      <div class="field">
+        <label>Tipo de Atendimento</label>
+        <div class="radio-grid">
+          <label><input type="radio" name="tipo_atendimento" value="suporte"> Suporte</label>
+          <label><input type="radio" name="tipo_atendimento" value="instalacao"> Instalação</label>
+          <label><input type="radio" name="tipo_atendimento" value="treinamento"> Treinamento</label>
+          <label><input type="radio" name="tipo_atendimento" value="validacao_homologacao"> Validação/Homologação</label>
+        </div>
+      </div>
+      <div class="field">
+        <label for="tecnico_agres_responsavel">Técnico Responsável Agres</label>
+        <select id="tecnico_agres_responsavel" required>
+          <option value="">Selecione o técnico</option>
+          <option value="Caiky Lima">Caiky Lima</option>
+          <option value="Cristian Lima">Cristian Lima</option>
+          <option value="Denis Ledur">Denis Ledur</option>
+          <option value="Derick Dutra">Derick Dutra</option>
+          <option value="Edison Coltro">Edison Coltro</option>
+          <option value="Guilherme Zancan">Guilherme Zancan</option>
+          <option value="Gustavo Buff">Gustavo Buff</option>
+          <option value="Henrique Chaves">Henrique Chaves</option>
+          <option value="Luiz Henrique Alves">Luiz Henrique Alves</option>
+          <option value="Mauro Hubscher">Mauro Hubscher</option>
+          <option value="Phelippe Ruaro">Phelippe Ruaro</option>
+          <option value="Rodrigo de Souza">Rodrigo de Souza</option>
+          <option value="Ronaldo Kishida">Ronaldo Kishida</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="localizacao_maps">Link de Localização do Atendimento</label>
+        <input id="localizacao_maps" type="text" placeholder="Cole o link do Google Maps/Apple Maps ou as coordenadas">
+        <div class="actions">
+          <button type="button" id="currentLocationBtn">Usar localização atual</button>
+          <button type="button" id="openMapsBtn">Abrir Maps</button>
+        </div>
+        <p class="hint" id="locationHint"></p>
+      </div>
+      <div class="field">
+        <label for="observacoes">Complemento Técnico</label>
+        <textarea id="observacoes" placeholder="Relate em detalhes o atendimento: cliente, local, máquina, implemento, equipamento, versões, sintomas, diagnóstico, procedimentos executados, configurações, calibrações, testes, resultado, pendências e conclusão técnica."></textarea>
+      </div>
+      <div class="actions">
+        <button type="button" class="primary" id="recordBtn">Gravar áudio</button>
+        <button type="button" id="stopBtn" disabled>Parar gravação</button>
+      </div>
+      <div class="recording-banner" id="recordingBanner" aria-live="assertive">
+        <span class="recording-dot"></span>
+        <span>Áudio sendo gravado. Toque em Parar gravação para finalizar.</span>
+      </div>
+      <p class="hint" id="recordHint"></p>
+      <div class="field">
+        <label for="audioFiles">Áudios do Celular</label>
+        <div class="upload-control">
+          <label class="upload-button" for="audioFiles">
+            <span class="upload-symbol">+</span>
+            <span>
+              <span class="upload-main">Selecionar áudios</span>
+              <span class="upload-sub">Arquivos gravados no celular</span>
+            </span>
+          </label>
+          <input id="audioFiles" type="file" accept="audio/*" multiple>
+        </div>
+      </div>
+      <div class="list" id="audiosList"></div>
+    </section>
+
+    <section>
+      <h2>2. Cabeçalho do Relatório</h2>
+      <div class="grid header-photo-fields">
+        <div class="field">
+          <label for="info_equip">Informações do Equipamento</label>
+          <div class="upload-control">
+            <div class="upload-actions">
+              <label class="upload-button gallery" for="info_equip">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Selecionar foto</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="info_equip_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Camera</span>
+                  <span class="upload-sub">Tirar foto</span>
+                </span>
+              </label>
+            </div>
+            <input id="info_equip" type="file" accept="image/*">
+            <input id="info_equip_camera" type="file" accept="image/*" capture="environment">
+          </div>
+          <p class="hint" id="info_equip_status"></p>
+          <div class="preview-grid" id="info_equip_preview"></div>
+        </div>
+        <div class="field">
+          <label for="maquina">Máquina</label>
+          <div class="upload-control">
+            <div class="upload-actions">
+              <label class="upload-button gallery" for="maquina">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Selecionar foto</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="maquina_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Camera</span>
+                  <span class="upload-sub">Tirar foto</span>
+                </span>
+              </label>
+            </div>
+            <input id="maquina" type="file" accept="image/*">
+            <input id="maquina_camera" type="file" accept="image/*" capture="environment">
+          </div>
+          <p class="hint" id="maquina_status"></p>
+          <div class="preview-grid" id="maquina_preview"></div>
+        </div>
+        <div class="field">
+          <label for="implemento">Implemento</label>
+          <div class="upload-control">
+            <div class="upload-actions">
+              <label class="upload-button gallery" for="implemento">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Selecionar foto</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="implemento_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Camera</span>
+                  <span class="upload-sub">Tirar foto</span>
+                </span>
+              </label>
+            </div>
+            <input id="implemento" type="file" accept="image/*">
+            <input id="implemento_camera" type="file" accept="image/*" capture="environment">
+          </div>
+          <p class="hint" id="implemento_status"></p>
+          <div class="preview-grid" id="implemento_preview"></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Evidências Fotográficas</h2>
+      <div class="grid evidence-categories">
+        <div class="field">
+          <label for="fotos_equipamento">Equipamento Agres</label>
+          <div class="upload-control">
+            <div class="upload-actions">
+              <label class="upload-button gallery" for="fotos_equipamento">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Selecionar fotos</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="fotos_equipamento_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Camera</span>
+                  <span class="upload-sub">Tirar foto</span>
+                </span>
+              </label>
+            </div>
+            <input id="fotos_equipamento" type="file" accept="image/*" multiple>
+            <input id="fotos_equipamento_camera" type="file" accept="image/*" capture="environment">
+          </div>
+          <p class="hint" id="fotos_equipamento_status"></p>
+          <div class="preview-grid" id="fotos_equipamento_preview"></div>
+        </div>
+        <div class="field">
+          <label for="fotos_instalacao">Instalação</label>
+          <div class="upload-control">
+            <div class="upload-actions">
+              <label class="upload-button gallery" for="fotos_instalacao">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Selecionar fotos</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="fotos_instalacao_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Camera</span>
+                  <span class="upload-sub">Tirar foto</span>
+                </span>
+              </label>
+            </div>
+            <input id="fotos_instalacao" type="file" accept="image/*" multiple>
+            <input id="fotos_instalacao_camera" type="file" accept="image/*" capture="environment">
+          </div>
+          <p class="hint" id="fotos_instalacao_status"></p>
+          <div class="preview-grid" id="fotos_instalacao_preview"></div>
+        </div>
+        <div class="field">
+          <label for="fotos_configuracao">Configurações</label>
+          <div class="upload-control">
+            <div class="upload-actions">
+              <label class="upload-button gallery" for="fotos_configuracao">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Selecionar fotos</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="fotos_configuracao_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Camera</span>
+                  <span class="upload-sub">Tirar foto</span>
+                </span>
+              </label>
+            </div>
+            <input id="fotos_configuracao" type="file" accept="image/*" multiple>
+            <input id="fotos_configuracao_camera" type="file" accept="image/*" capture="environment">
+          </div>
+          <p class="hint" id="fotos_configuracao_status"></p>
+          <div class="preview-grid" id="fotos_configuracao_preview"></div>
+        </div>
+        <div class="field">
+          <label for="fotos_outros">Outros Registros</label>
+          <div class="upload-control">
+            <div class="upload-actions">
+              <label class="upload-button gallery" for="fotos_outros">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Selecionar fotos</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="fotos_outros_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Camera</span>
+                  <span class="upload-sub">Tirar foto</span>
+                </span>
+              </label>
+            </div>
+            <input id="fotos_outros" type="file" accept="image/*" multiple>
+            <input id="fotos_outros_camera" type="file" accept="image/*" capture="environment">
+          </div>
+          <p class="hint" id="fotos_outros_status"></p>
+          <div class="preview-grid" id="fotos_outros_preview"></div>
+        </div>
+        <div class="field">
+          <label for="fotos_atendimento">Fotos do Atendimento (Somente ZIP)</label>
+          <div class="upload-control">
+            <div class="upload-actions">
+              <label class="upload-button gallery" for="fotos_atendimento">
+                <span class="upload-symbol">+</span>
+                <span>
+                  <span class="upload-main">Galeria</span>
+                  <span class="upload-sub">Selecionar fotos</span>
+                </span>
+              </label>
+              <label class="upload-button camera" for="fotos_atendimento_camera">
+                <span class="upload-symbol">CAM</span>
+                <span>
+                  <span class="upload-main">Camera</span>
+                  <span class="upload-sub">Tirar foto</span>
+                </span>
+              </label>
+            </div>
+            <input id="fotos_atendimento" type="file" accept="image/*" multiple>
+            <input id="fotos_atendimento_camera" type="file" accept="image/*" capture="environment">
+          </div>
+          <p class="hint" id="fotos_atendimento_status"></p>
+          <div class="preview-grid" id="fotos_atendimento_preview"></div>
+        </div>
+      </div>
+      <div class="grid legacy-legends" aria-hidden="true">
+        <div class="field">
+          <label for="legenda_fotos_equipamento">Títulos e legendas - Equipamento</label>
+          <textarea id="legenda_fotos_equipamento" placeholder="Uma linha por foto: Título | legenda | fonte"></textarea>
+        </div>
+        <div class="field">
+          <label for="legenda_fotos_instalacao">Títulos e legendas - Instalação</label>
+          <textarea id="legenda_fotos_instalacao" placeholder="Uma linha por foto: Título | legenda | fonte"></textarea>
+        </div>
+        <div class="field">
+          <label for="legenda_fotos_configuracao">Títulos e legendas - Configurações</label>
+          <textarea id="legenda_fotos_configuracao" placeholder="Uma linha por foto: Título | legenda | fonte"></textarea>
+        </div>
+        <div class="field">
+          <label for="legenda_fotos_outros">Títulos e legendas - Outros</label>
+          <textarea id="legenda_fotos_outros" placeholder="Uma linha por foto: Título | legenda | fonte"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>4. Assinaturas</h2>
+      <div class="signature-settings">
+        <div class="field">
+          <label for="quantidade_assinaturas">Quantidade de Assinaturas</label>
+          <select id="quantidade_assinaturas">
+            <option value="0">0 assinaturas</option>
+            <option value="1">1 assinatura</option>
+            <option value="2">2 assinaturas</option>
+            <option value="3">3 assinaturas</option>
+            <option value="4">4 assinaturas</option>
+            <option value="5">5 assinaturas</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid" id="signatureFields"></div>
+    </section>
+
+    <section>
+      <h2>5. Sincronização</h2>
+      <div class="sync-panel">
+        <div class="offline-checklist" id="offlineChecklist" aria-live="polite"></div>
+        <div class="actions sync-actions">
+          <button type="button" class="primary" id="exportBtn">Exportar Pacote Relatório Offline</button>
+          <button type="button" class="danger" id="clearBtn">Limpar coleta</button>
+        </div>
+        <div class="sync-message" id="syncMessage"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="signature-modal" id="signatureModal" role="dialog" aria-modal="true" aria-labelledby="signatureModalTitle">
+    <div class="signature-modal-header">
+      <div>
+        <h2 class="signature-modal-title" id="signatureModalTitle">Assinatura</h2>
+        <p class="signature-modal-subtitle" id="signatureModalSubtitle">Assine com o aparelho na horizontal.</p>
+      </div>
+      <button type="button" id="closeSignatureModal">Fechar</button>
+    </div>
+    <canvas id="signatureModalCanvas"></canvas>
+    <div class="signature-modal-actions">
+      <button type="button" class="danger" id="clearSignatureModal">Limpar assinatura</button>
+      <button type="button" class="primary" id="finishSignatureModal">Concluir</button>
+    </div>
+  </div>
+
+  <script>
+    const DB_NAME = "agres-offline";
+    const STORE = "drafts";
+    const DRAFT_KEY = "current";
+    const APP_VERSION = "2026.06.18.28";
+    const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
+      ? "agres-offline-v58"
+      : location.pathname.includes("/static/coleta/")
+        ? "agres-coleta-v51"
+        : "agres-pages-offline-v54";
+    const HEADERS = ["info_equip", "maquina", "implemento"];
+    const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
+    const ATTENDANCE_PHOTOS = "fotos_atendimento";
+    const MIN_SIGNATURES = 0;
+    const MAX_SIGNATURES = 5;
+    const IMAGE_MAX_SIDE = 1440;
+    const IMAGE_JPEG_QUALITY = 0.72;
+    const MAX_IMAGE_FILE_BYTES = 25 * 1024 * 1024;
+    const MAX_AUDIO_FILE_BYTES = 100 * 1024 * 1024;
+    const MAX_PACKAGE_BYTES = 100 * 1024 * 1024;
+    const JSON_PACKAGE_MIME = "application/json";
+    const ZIP_PACKAGE_MIME = "application/zip";
+    const MAX_RECORDING_DURATION_MS = 30 * 60 * 1000;
+    const MAX_WAV_DURATION_SECONDS = 8 * 60;
+    const ATTENDANCE_TYPE_FILE_LABELS = {
+      suporte: "SUPORTE",
+      instalacao: "INSTALACAO",
+      treinamento: "TREINAMENTO",
+      validacao_homologacao: "VALIDACAO"
+    };
+    const TECHNICIAN_NAME_ALIASES = {
+      "Cristian Lima Araujo": "Cristian Lima",
+      "Ronaldo Hiromi Kishida Junior": "Ronaldo Kishida"
+    };
+    const HEADER_LABELS = {
+      info_equip: "Informações do Equipamento",
+      maquina: "Máquina",
+      implemento: "Implemento"
+    };
+    const CATEGORY_LABELS = {
+      fotos_equipamento: "Equipamento Agres",
+      fotos_instalacao: "Instalação",
+      fotos_configuracao: "Configurações",
+      fotos_outros: "Outros registros"
+    };
+
+    let db;
+    let draft = defaultDraft();
+    let recorder;
+    let audioChunks = [];
+    let audioStream;
+    let recorderMode = "";
+    let audioContext;
+    let sourceNode;
+    let processorNode;
+    let wavChunks = [];
+    let wavSampleRate = 44100;
+    let wavSampleCount = 0;
+    let recordingLimitTimer = null;
+    let activeSignatureKey = "";
+    let modalSignaturePad;
+    let mainSignaturePads = {};
+    let wakeLock;
+    let saveTimer;
+    let saveQueue = Promise.resolve();
+    let locationWatchId = null;
+    let locationAttemptId = 0;
+    let lastLocationPermissionState = "unknown";
+    let signatureFullscreenRequested = false;
+    let lastExportUrl = "";
+    let lastZipExportUrl = "";
+
+    function defaultDraft() {
+      return {
+        version: 1,
+        app_version: APP_VERSION,
+        updated_at: new Date().toISOString(),
+        tipo_atendimento: "suporte",
+        tecnico_agres_responsavel: "",
+        data_atendimento_final: "",
+        localizacao_maps: "",
+        observacoes: "",
+        audios: [],
+        cabecalho: { info_equip: null, maquina: null, implemento: null },
+        evidencias: {
+          fotos_equipamento: [],
+          fotos_instalacao: [],
+          fotos_configuracao: [],
+          fotos_outros: []
+        },
+        fotos_atendimento: [],
+        legendas_evidencias: {
+          fotos_equipamento: "",
+          fotos_instalacao: "",
+          fotos_configuracao: "",
+          fotos_outros: ""
+        },
+        responsaveis: { revenda_fabrica: "", fazenda: "" },
+        documentos: { revenda_fabrica: "", fazenda: "" },
+        assinaturas: { revenda_fabrica: null, fazenda: null },
+        assinaturas_habilitadas: false,
+        quantidade_assinaturas: MIN_SIGNATURES,
+        assinaturas_lista: defaultSignatures(MIN_SIGNATURES)
+      };
+    }
+
+    function normalizeTechnicianName(name) {
+      const value = String(name || "").trim();
+      return TECHNICIAN_NAME_ALIASES[value] || value;
+    }
+
+    function clampSignatureCount(value) {
+      const count = Number.parseInt(value, 10);
+      if (Number.isNaN(count)) return MIN_SIGNATURES;
+      return Math.max(MIN_SIGNATURES, Math.min(MAX_SIGNATURES, count));
+    }
+
+    function defaultSignature(index) {
+      const labels = ["Responsável da Revenda/Fábrica", "Responsável da Fazenda"];
+      return {
+        id: `assinatura_${index}`,
+        nome: "",
+        representa: labels[index - 1] || `Responsável ${index}`,
+        documento: "",
+        imagem: null
+      };
+    }
+
+    function defaultSignatures(count) {
+      return Array.from({ length: clampSignatureCount(count) }, (_, index) => defaultSignature(index + 1));
+    }
+
+    function normalizeSignatures() {
+      const legacy = [
+        {
+          ...defaultSignature(1),
+          nome: draft.responsaveis?.revenda_fabrica || "",
+          documento: draft.documentos?.revenda_fabrica || "",
+          imagem: draft.assinaturas?.revenda_fabrica || null
+        },
+        {
+          ...defaultSignature(2),
+          nome: draft.responsaveis?.fazenda || "",
+          documento: draft.documentos?.fazenda || "",
+          imagem: draft.assinaturas?.fazenda || null
+        }
+      ];
+      const source = Array.isArray(draft.assinaturas_lista) ? draft.assinaturas_lista : legacy;
+      const quantidadeInformada = draft.quantidade_assinaturas;
+      draft.quantidade_assinaturas = clampSignatureCount(
+        quantidadeInformada === undefined || quantidadeInformada === null ? source.length : quantidadeInformada
+      );
+      draft.assinaturas_lista = defaultSignatures(draft.quantidade_assinaturas).map((fallback, index) => {
+        const item = source[index] || fallback;
+        return {
+          id: fallback.id,
+          nome: item.nome || "",
+          representa: item.representa || fallback.representa,
+          documento: "",
+          imagem: item.imagem || null
+        };
+      });
+      draft.responsaveis = {
+        revenda_fabrica: draft.assinaturas_lista[0]?.nome || "",
+        fazenda: draft.assinaturas_lista[1]?.nome || ""
+      };
+      draft.documentos = {
+        revenda_fabrica: "",
+        fazenda: ""
+      };
+      draft.assinaturas = {
+        revenda_fabrica: draft.assinaturas_lista[0]?.imagem || null,
+        fazenda: draft.assinaturas_lista[1]?.imagem || null
+      };
+      draft.assinaturas_habilitadas = draft.quantidade_assinaturas > 0 && draft.assinaturas_habilitadas !== false;
+    }
+
+    function openDb() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = () => request.result.createObjectStore(STORE);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function getDraft() {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readonly");
+        const request = tx.objectStore(STORE).get(DRAFT_KEY);
+        request.onsuccess = () => resolve(request.result || defaultDraft());
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    function writeDraftTransaction() {
+      draft.app_version = APP_VERSION;
+      draft.updated_at = new Date().toISOString();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).put(draft, DRAFT_KEY);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    function putDraft() {
+      const operation = saveQueue.catch(() => {}).then(() => writeDraftTransaction());
+      saveQueue = operation.catch(() => {});
+      return operation;
+    }
+
+    function formatBytes(bytes) {
+      const value = Number(bytes || 0);
+      if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
+      return `${(value / (1024 * 1024)).toFixed(value < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+    }
+
+    function packageSizeBytesSync() {
+      try {
+        return new Blob([packageTextSync()]).size;
+      } catch (error) {
+        return 0;
+      }
+    }
+
+    async function saveDraftNow(successMessage = "") {
+      clearTimeout(saveTimer);
+      try {
+        await putDraft();
+        if (successMessage) setSyncMessage(successMessage);
+        return true;
+      } catch (error) {
+        setSyncMessage(
+          `Não foi possível salvar no aparelho. Exporte o pacote agora ou remova fotos muito pesadas. Detalhe: ${error.message || error}`
+        );
+        return false;
+      }
+    }
+
+    function scheduleSave() {
+      renderOfflineChecklist();
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        await saveDraftNow();
+      }, 700);
+    }
+
+    function readRawFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({
+          name: file.name,
+          type: file.type || "application/octet-stream",
+          size: file.size,
+          dataUrl: reader.result
+        });
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function blobToDataUrl(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function hasAndroidGalleryBridge() {
+      return Boolean(window.AgresAndroid && typeof window.AgresAndroid.saveImage === "function");
+    }
+
+    function hasAndroidPackageBridge() {
+      return Boolean(window.AgresAndroid && typeof window.AgresAndroid.saveJson === "function");
+    }
+
+    function hasAndroidShareBridge() {
+      return Boolean(window.AgresAndroid && typeof window.AgresAndroid.shareJson === "function");
+    }
+
+    function hasAndroidSignatureBridge() {
+      return Boolean(window.AgresAndroid && typeof window.AgresAndroid.setSignatureLandscape === "function");
+    }
+
+    function savePhotoWithAndroidBridge(item) {
+      if (!hasAndroidGalleryBridge() || !item?.dataUrl) return false;
+      const name = item.name || `foto_agres_${Date.now()}.jpg`;
+      const saved = window.AgresAndroid.saveImage(item.dataUrl, name);
+      return saved === true || saved === "true";
+    }
+
+    async function offerGallerySaveForCameraItems(items) {
+      const fotos = (items || []).filter((item) => item?.dataUrl);
+      if (!fotos.length) return;
+      if (hasAndroidGalleryBridge()) {
+        const saved = fotos.filter(savePhotoWithAndroidBridge).length;
+        setSyncMessage(
+          saved
+            ? `${saved} foto(s) salva(s) na coleta e na galeria do Android.`
+            : "Foto salva na coleta, mas não foi possível gravar uma cópia na galeria."
+        );
+        return;
+      }
+      setSyncMessage(
+        isIosDevice()
+          ? "Foto salva na coleta offline."
+          : "Foto salva na coleta."
+      );
+    }
+
+    function loadImage(dataUrl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("Não foi possível ler a imagem selecionada."));
+        img.src = dataUrl;
+      });
+    }
+
+    function canvasToBlob(canvas, type, quality) {
+      return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Não foi possível compactar a imagem."));
+        }, type, quality);
+      });
+    }
+
+    function jpgName(fileName) {
+      return String(fileName || "imagem").replace(/\.[^.]+$/, "") + ".jpg";
+    }
+
+    async function readImageFile(file) {
+      const original = await readRawFile(file);
+      const img = await loadImage(original.dataUrl);
+      const sourceWidth = img.naturalWidth || img.width;
+      const sourceHeight = img.naturalHeight || img.height;
+      const scale = Math.min(1, IMAGE_MAX_SIDE / Math.max(sourceWidth, sourceHeight));
+      const width = Math.max(1, Math.round(sourceWidth * scale));
+      const height = Math.max(1, Math.round(sourceHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d", { alpha: false });
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      const blob = await canvasToBlob(canvas, "image/jpeg", IMAGE_JPEG_QUALITY);
+      return {
+        name: jpgName(file.name),
+        originalName: file.name,
+        type: "image/jpeg",
+        size: blob.size,
+        originalSize: file.size,
+        dataUrl: await blobToDataUrl(blob)
+      };
+    }
+
+    function isImageFile(file) {
+      return Boolean(
+        file?.type?.startsWith("image/") ||
+        /\.(png|jpe?g|webp|heic|heif)$/i.test(String(file?.name || ""))
+      );
+    }
+
+    async function readFile(file) {
+      const limit = isImageFile(file) ? MAX_IMAGE_FILE_BYTES : MAX_AUDIO_FILE_BYTES;
+      if (Number(file?.size || 0) > limit) {
+        throw new Error(`Arquivo acima do limite de ${Math.round(limit / (1024 * 1024))} MB.`);
+      }
+      if (isImageFile(file)) {
+        return readImageFile(file);
+      }
+      return readRawFile(file);
+    }
+
+    async function readSelectedFiles(fileList, statusId = "") {
+      const files = [...(fileList || [])];
+      const items = [];
+      const errors = [];
+      const status = statusId ? document.getElementById(statusId) : null;
+      for (let index = 0; index < files.length; index += 1) {
+        if (status) {
+          status.textContent = `Processando ${index + 1}/${files.length}...`;
+        }
+        try {
+          items.push(await readFile(files[index]));
+        } catch (error) {
+          errors.push(`${files[index].name || `Arquivo ${index + 1}`}: ${error.message || error}`);
+        }
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+      items.errors = errors;
+      if (status) {
+        status.textContent = errors.length
+          ? `${items.length}/${files.length} arquivo(s) importado(s). ${errors.length} erro(s).`
+          : items.length
+          ? `${items.length} arquivo(s) importado(s).`
+          : "";
+      }
+      return items;
+    }
+
+    function blobToItem(blob, name) {
+      const file = new File([blob], name, { type: blob.type || "audio/mp4" });
+      return readRawFile(file);
+    }
+
+    function updateSecureNotice() {
+      const notice = document.getElementById("secureNotice");
+      if (!notice) return;
+      if (!window.isSecureContext) {
+        notice.hidden = false;
+      } else {
+        notice.hidden = true;
+      }
+    }
+
+    function photoCountLabel(total) {
+      return total === 1 ? "1 foto" : `${total} fotos`;
+    }
+
+    function updateCounts() {
+      HEADERS.forEach((key) => {
+        const item = draft.cabecalho[key];
+        document.getElementById(`${key}_status`).textContent = item ? item.name : "";
+        renderImagePreview(`${key}_preview`, item ? [item] : [], (index) => {
+          draft.cabecalho[key] = null;
+          updateCounts();
+          scheduleSave();
+        });
+      });
+      CATEGORIES.forEach((key) => {
+        const total = draft.evidencias[key].length;
+        document.getElementById(`${key}_status`).textContent = total ? photoCountLabel(total) : "";
+        renderImagePreview(`${key}_preview`, draft.evidencias[key], (index) => {
+          draft.evidencias[key].splice(index, 1);
+          removeMetadataLine(key, index);
+          updateCounts();
+          scheduleSave();
+        }, key, (index, targetIndex) => {
+          reorderItem(draft.evidencias[key], index, targetIndex);
+          reorderMetadataLine(key, index, targetIndex);
+          updateCounts();
+          scheduleSave();
+        });
+      });
+      const fotosAtendimento = draft.fotos_atendimento || [];
+      document.getElementById(`${ATTENDANCE_PHOTOS}_status`).textContent = fotosAtendimento.length ? photoCountLabel(fotosAtendimento.length) : "";
+      renderImagePreview(`${ATTENDANCE_PHOTOS}_preview`, fotosAtendimento, (index) => {
+        draft.fotos_atendimento.splice(index, 1);
+        updateCounts();
+        scheduleSave();
+      }, "", (index, targetIndex) => {
+        reorderItem(draft.fotos_atendimento, index, targetIndex);
+        updateCounts();
+        scheduleSave();
+      });
+      renderAudios();
+      renderOfflineChecklist();
+    }
+
+    function metadataLines(key) {
+      return String(draft.legendas_evidencias?.[key] || "").split(/\r?\n/);
+    }
+
+    function metadataLineParts(line) {
+      const parts = String(line || "").split("|");
+      return {
+        titulo: (parts[0] || "").trim(),
+        legenda: (parts[1] || "").trim(),
+        fonte: (parts[2] || "").trim()
+      };
+    }
+
+    function setMetadataLine(key, index, line) {
+      const lines = metadataLines(key);
+      while (lines.length <= index) lines.push("||");
+      lines[index] = line;
+      draft.legendas_evidencias[key] = lines.join("\n");
+      const legacy = document.getElementById(`legenda_${key}`);
+      if (legacy) legacy.value = draft.legendas_evidencias[key];
+    }
+
+    function removeMetadataLine(key, index) {
+      const lines = metadataLines(key);
+      lines.splice(index, 1);
+      draft.legendas_evidencias[key] = lines.join("\n");
+      const legacy = document.getElementById(`legenda_${key}`);
+      if (legacy) legacy.value = draft.legendas_evidencias[key];
+    }
+
+    function reorderItem(items, index, target) {
+      if (!Array.isArray(items) || target < 0 || target >= items.length || target === index) return;
+      const [item] = items.splice(index, 1);
+      items.splice(target, 0, item);
+    }
+
+    function reorderMetadataLine(key, index, target) {
+      const lines = metadataLines(key);
+      while (lines.length < draft.evidencias[key].length) lines.push("||");
+      reorderItem(lines, index, target);
+      draft.legendas_evidencias[key] = lines.join("\n");
+      const legacy = document.getElementById(`legenda_${key}`);
+      if (legacy) legacy.value = draft.legendas_evidencias[key];
+    }
+
+    function renderImagePreview(containerId, items, onRemove, categoryKey = "", onMove = null) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.innerHTML = "";
+      items.forEach((item, index) => {
+        const card = document.createElement("div");
+        card.className = "thumb";
+
+        const img = document.createElement("img");
+        img.src = item.dataUrl;
+        img.alt = item.name || "Imagem selecionada";
+        img.loading = "lazy";
+        img.decoding = "async";
+        card.appendChild(img);
+
+        const footer = document.createElement("div");
+        footer.className = "thumb-footer";
+        const name = document.createElement("div");
+        name.className = "thumb-name";
+        name.textContent = onMove ? `Foto ${index + 1}` : (item.name || `Foto ${index + 1}`);
+        name.title = item.name || `Foto ${index + 1}`;
+        const actions = document.createElement("div");
+        actions.className = "thumb-actions";
+        if (onMove) {
+          const orderControl = document.createElement("label");
+          orderControl.className = "order-control";
+          const orderLabel = document.createElement("span");
+          orderLabel.textContent = "Posição";
+          const select = document.createElement("select");
+          for (let position = 0; position < items.length; position += 1) {
+            const option = document.createElement("option");
+            option.value = String(position);
+            option.textContent = String(position + 1);
+            option.selected = position === index;
+            select.appendChild(option);
+          }
+          select.addEventListener("change", () => onMove(index, Number.parseInt(select.value, 10)));
+          orderControl.appendChild(orderLabel);
+          orderControl.appendChild(select);
+          actions.appendChild(orderControl);
+        }
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "thumb-remove";
+        remove.textContent = "Excluir";
+        remove.addEventListener("click", () => onRemove(index));
+        actions.appendChild(remove);
+        footer.appendChild(name);
+        footer.appendChild(actions);
+        card.appendChild(footer);
+
+        if (categoryKey) {
+          const line = metadataLines(categoryKey)[index] || "";
+          const parts = metadataLineParts(line);
+          const manual = Boolean(line && line !== "||" && (parts.titulo || parts.legenda || parts.fonte));
+          const caption = document.createElement("div");
+          caption.className = "caption-control";
+          const label = document.createElement("label");
+          const check = document.createElement("input");
+          check.type = "checkbox";
+          check.checked = manual;
+          label.appendChild(check);
+          label.appendChild(document.createTextNode("Adicionar legenda"));
+          const text = document.createElement("textarea");
+          text.placeholder = "Escreva a legenda";
+          text.value = parts.legenda;
+          text.disabled = !manual;
+          check.addEventListener("change", () => {
+            text.disabled = !check.checked;
+            setMetadataLine(categoryKey, index, check.checked ? ` | ${text.value.trim()} | ` : "||");
+            scheduleSave();
+          });
+          text.addEventListener("input", () => {
+            setMetadataLine(categoryKey, index, check.checked ? ` | ${text.value.trim()} | ` : "||");
+            scheduleSave();
+          });
+          caption.appendChild(label);
+          caption.appendChild(text);
+          card.appendChild(caption);
+        }
+        container.appendChild(card);
+      });
+    }
+
+    function renderAudios() {
+      const list = document.getElementById("audiosList");
+      list.innerHTML = "";
+      draft.audios.forEach((audio, index) => {
+        const row = document.createElement("div");
+        row.className = "item";
+        const main = document.createElement("div");
+        main.className = "item-main";
+        const title = document.createElement("div");
+        title.textContent = `${index + 1}. ${audio.name}`;
+        main.appendChild(title);
+        if (audio.dataUrl) {
+          const player = document.createElement("audio");
+          player.controls = true;
+          player.src = audio.dataUrl;
+          main.appendChild(player);
+        }
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "Remover";
+        remove.addEventListener("click", () => {
+          draft.audios.splice(index, 1);
+          scheduleSave();
+          renderAudios();
+        });
+        row.appendChild(main);
+        row.appendChild(remove);
+        list.appendChild(row);
+      });
+    }
+
+    async function requestWakeLock() {
+      if (!("wakeLock" in navigator)) return;
+      try {
+        wakeLock = await navigator.wakeLock.request("screen");
+      } catch (error) {}
+    }
+
+    async function releaseWakeLock() {
+      if (!wakeLock) return;
+      try {
+        await wakeLock.release();
+      } catch (error) {}
+      wakeLock = null;
+    }
+
+    function supportedAudioMime() {
+      const options = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/aac", "audio/wav"];
+      if (!window.MediaRecorder) return "";
+      return options.find((mime) => MediaRecorder.isTypeSupported(mime)) || "";
+    }
+
+    function mergeFloat32(chunks) {
+      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const result = new Float32Array(totalLength);
+      let offset = 0;
+      chunks.forEach((chunk) => {
+        result.set(chunk, offset);
+        offset += chunk.length;
+      });
+      return result;
+    }
+
+    function writeAscii(view, offset, text) {
+      for (let i = 0; i < text.length; i += 1) {
+        view.setUint8(offset + i, text.charCodeAt(i));
+      }
+    }
+
+    function encodeWav(samples, sampleRate) {
+      const buffer = new ArrayBuffer(44 + samples.length * 2);
+      const view = new DataView(buffer);
+      writeAscii(view, 0, "RIFF");
+      view.setUint32(4, 36 + samples.length * 2, true);
+      writeAscii(view, 8, "WAVE");
+      writeAscii(view, 12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeAscii(view, 36, "data");
+      view.setUint32(40, samples.length * 2, true);
+
+      let offset = 44;
+      for (let i = 0; i < samples.length; i += 1, offset += 2) {
+        const sample = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      }
+      return new Blob([view], { type: "audio/wav" });
+    }
+
+    async function finishRecordedBlob(blob, extension) {
+      if (!blob || blob.size <= 0) {
+        throw new Error("A gravação terminou vazia. Grave novamente.");
+      }
+      if (blob.size > MAX_AUDIO_FILE_BYTES) {
+        throw new Error(`A gravação excedeu o limite de ${Math.round(MAX_AUDIO_FILE_BYTES / (1024 * 1024))} MB. Grave em trechos menores.`);
+      }
+      const item = await blobToItem(blob, `audio_offline_${new Date().toISOString().replace(/[:.]/g, "-")}.${extension}`);
+      draft.audios.push(item);
+      stopAudioStream();
+      await releaseWakeLock();
+      recorder = null;
+      recorderMode = "";
+      setRecordingState(false);
+      document.getElementById("recordHint").textContent = "Áudio salvo.";
+      await saveDraftNow("Áudio gravado e salvo no aparelho.");
+      renderAudios();
+    }
+
+    function setRecordingState(recording) {
+      document.body.classList.toggle("is-recording", Boolean(recording));
+      document.getElementById("recordBtn").disabled = Boolean(recording);
+      document.getElementById("stopBtn").disabled = !recording;
+    }
+
+    function stopAudioStream() {
+      clearTimeout(recordingLimitTimer);
+      recordingLimitTimer = null;
+      if (audioStream) {
+        audioStream.getTracks().forEach((track) => track.stop());
+        audioStream = null;
+      }
+    }
+
+    function startMediaRecorder(stream) {
+      if (!window.MediaRecorder) return false;
+      try {
+        const mimeType = supportedAudioMime();
+        recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+        audioChunks = [];
+        recorder.ondataavailable = (event) => {
+          if (event.data && event.data.size) audioChunks.push(event.data);
+        };
+        recorder.onstop = async () => {
+          try {
+            const blob = new Blob(audioChunks, { type: recorder.mimeType || "audio/mp4" });
+            const extension = blob.type.includes("webm") ? "webm" : blob.type.includes("wav") ? "wav" : "m4a";
+            await finishRecordedBlob(blob, extension);
+          } catch (error) {
+            document.getElementById("recordHint").textContent = `Erro ao salvar áudio: ${error.message || error}`;
+            stopAudioStream();
+            await releaseWakeLock();
+            recorder = null;
+            recorderMode = "";
+            setRecordingState(false);
+          } finally {
+            audioChunks = [];
+          }
+        };
+        recorder.start();
+        recorderMode = "media";
+        return true;
+      } catch (error) {
+        recorder = null;
+        recorderMode = "";
+        return false;
+      }
+    }
+
+    async function startWavRecorder(stream) {
+      const Context = window.AudioContext || window.webkitAudioContext;
+      if (!Context) {
+        throw new Error("Este Safari não liberou a gravação de áudio. Atualize o iPadOS ou use a versão HTTPS instalada na tela inicial.");
+      }
+
+      audioContext = new Context();
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+      wavSampleRate = audioContext.sampleRate;
+      wavChunks = [];
+      wavSampleCount = 0;
+      sourceNode = audioContext.createMediaStreamSource(stream);
+      processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+      processorNode.onaudioprocess = (event) => {
+        if (recorderMode !== "wav") return;
+        const chunk = new Float32Array(event.inputBuffer.getChannelData(0));
+        wavChunks.push(chunk);
+        wavSampleCount += chunk.length;
+        if (wavSampleCount >= wavSampleRate * MAX_WAV_DURATION_SECONDS) {
+          recorderMode = "wav-stopping";
+          document.getElementById("recordHint").textContent = "Limite do modo compatível atingido. Salvando o trecho...";
+          stopWavRecorder().catch((error) => {
+            document.getElementById("recordHint").textContent = `Erro ao salvar áudio: ${error.message || error}`;
+            stopAudioStream();
+            releaseWakeLock();
+            recorderMode = "";
+            setRecordingState(false);
+          });
+        }
+        event.outputBuffer.getChannelData(0).fill(0);
+      };
+      sourceNode.connect(processorNode);
+      processorNode.connect(audioContext.destination);
+      recorderMode = "wav";
+    }
+
+    async function stopWavRecorder() {
+      if (processorNode) {
+        processorNode.disconnect();
+        processorNode.onaudioprocess = null;
+        processorNode = null;
+      }
+      if (sourceNode) {
+        sourceNode.disconnect();
+        sourceNode = null;
+      }
+      if (audioContext) {
+        await audioContext.close().catch(() => {});
+        audioContext = null;
+      }
+      const blob = encodeWav(mergeFloat32(wavChunks), wavSampleRate);
+      wavChunks = [];
+      wavSampleCount = 0;
+      await finishRecordedBlob(blob, "wav");
+    }
+
+    async function startRecording() {
+      if (recorderMode || audioStream) {
+        document.getElementById("recordHint").textContent = "Já existe uma gravação em andamento.";
+        return;
+      }
+      if (!window.isSecureContext) {
+        document.getElementById("recordHint").textContent = "Microfone bloqueado em HTTP. Abra pelo link HTTPS.";
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        document.getElementById("recordHint").textContent = "Microfone indisponível neste navegador.";
+        return;
+      }
+
+      setRecordingState(true);
+      document.getElementById("recordHint").textContent = "Solicitando microfone...";
+      audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const started = startMediaRecorder(audioStream);
+      if (!started) {
+        await startWavRecorder(audioStream);
+      }
+      await requestWakeLock();
+      recordingLimitTimer = setTimeout(() => {
+        document.getElementById("recordHint").textContent = "Limite de 30 minutos atingido. Salvando o áudio...";
+        stopRecording().catch(() => {});
+      }, MAX_RECORDING_DURATION_MS);
+      document.getElementById("recordHint").textContent = "Gravando...";
+    }
+
+    async function stopRecording() {
+      if (recorderMode === "media" && recorder && recorder.state !== "inactive") {
+        recorder.stop();
+        return;
+      }
+      if (recorderMode === "wav") {
+        await stopWavRecorder();
+        return;
+      }
+      stopAudioStream();
+      setRecordingState(false);
+    }
+
+    function clearCanvasSurface(canvas) {
+      const ctx = canvas.getContext("2d");
+      const rect = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.round(rect.width * ratio));
+      canvas.height = Math.max(1, Math.round(rect.height * ratio));
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, rect.width, rect.height);
+    }
+
+    function signatureById(key) {
+      normalizeSignatures();
+      return draft.assinaturas_lista.find((item) => item.id === key);
+    }
+
+    function signatureLabel(key) {
+      return signatureById(key)?.representa || "Assinatura";
+    }
+
+    function updateSignatureField(key, field, value) {
+      normalizeSignatures();
+      const assinatura = draft.assinaturas_lista.find((item) => item.id === key);
+      if (!assinatura) return;
+      assinatura[field] = value;
+      normalizeSignatures();
+      renderOfflineChecklist();
+      scheduleSave();
+    }
+
+    function paintStoredSignature(canvas, key) {
+      if (!key) {
+        clearCanvasSurface(canvas);
+        return;
+      }
+      clearCanvasSurface(canvas);
+      const assinatura = signatureById(key);
+      if (assinatura?.imagem?.dataUrl) {
+        const rect = canvas.getBoundingClientRect();
+        const ctx = canvas.getContext("2d");
+        const img = new Image();
+        img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        img.src = assinatura.imagem.dataUrl;
+      }
+    }
+
+    function saveCanvasSignature(canvas, key) {
+      if (!key) return;
+      const assinatura = signatureById(key);
+      if (!assinatura) return;
+      assinatura.imagem = {
+        name: `assinatura_${key}.png`,
+        type: "image/png",
+        size: 0,
+        dataUrl: canvas.toDataURL("image/png")
+      };
+      normalizeSignatures();
+      scheduleSave();
+    }
+
+    function refreshSignatureCanvases(key, sourceCanvas) {
+      const mainPad = mainSignaturePads[key];
+      if (mainPad && mainPad.canvas !== sourceCanvas) {
+        mainPad.resize(true);
+      }
+      if (modalSignaturePad && activeSignatureKey === key && modalSignaturePad.canvas !== sourceCanvas) {
+        modalSignaturePad.resize(true);
+      }
+    }
+
+    function setupDrawingCanvas(canvas, getKey, readOnly = false) {
+      const ctx = canvas.getContext("2d");
+      let drawing = false;
+      let dirty = false;
+      let lastCanvasWidth = 0;
+      let lastCanvasHeight = 0;
+      let resizeTimer = null;
+
+      function resize(force = false) {
+        const rect = canvas.getBoundingClientRect();
+        const currentWidth = Math.round(rect.width);
+        const currentHeight = Math.round(rect.height);
+        if (!force && currentWidth === lastCanvasWidth && currentHeight === lastCanvasHeight) {
+          return;
+        }
+        lastCanvasWidth = currentWidth;
+        lastCanvasHeight = currentHeight;
+        paintStoredSignature(canvas, getKey());
+      }
+
+      function scheduleCanvasResize() {
+        window.clearTimeout(resizeTimer);
+        resizeTimer = window.setTimeout(() => resize(false), 120);
+      }
+
+      function point(event) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      }
+
+      function saveSignature() {
+        const key = getKey();
+        if (!dirty || !key) return;
+        saveCanvasSignature(canvas, key);
+        dirty = false;
+        refreshSignatureCanvases(key, canvas);
+      }
+
+      if (!readOnly) {
+        canvas.addEventListener("pointerdown", (event) => {
+          const key = getKey();
+          if (!key) return;
+          drawing = true;
+          dirty = true;
+          canvas.setPointerCapture(event.pointerId);
+          const p = point(event);
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+        });
+        canvas.addEventListener("pointermove", (event) => {
+          if (!drawing) return;
+          const p = point(event);
+          ctx.lineWidth = 3;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.strokeStyle = "#25272b";
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+        });
+        canvas.addEventListener("pointerup", () => {
+          drawing = false;
+          saveSignature();
+        });
+        canvas.addEventListener("pointercancel", () => {
+          drawing = false;
+          saveSignature();
+        });
+      }
+
+      resize(true);
+      window.addEventListener("resize", scheduleCanvasResize);
+      return {
+        canvas,
+        resize,
+        clear() {
+          const key = getKey();
+          clearCanvasSurface(canvas);
+          if (key) {
+            const assinatura = signatureById(key);
+            if (assinatura) assinatura.imagem = null;
+            normalizeSignatures();
+            scheduleSave();
+            refreshSignatureCanvases(key, canvas);
+          }
+          dirty = false;
+        }
+      };
+    }
+
+    function setSignatureModalHint(text) {
+      const element = document.getElementById("signatureModalSubtitle");
+      if (element) element.textContent = text;
+    }
+
+    async function requestSignatureLandscape() {
+      signatureFullscreenRequested = false;
+      setSignatureModalHint("Solicitando modo horizontal para assinar.");
+      if (hasAndroidSignatureBridge()) {
+        window.AgresAndroid.setSignatureLandscape(true);
+        setSignatureModalHint("Modo horizontal ativo. Assine na área branca.");
+        return;
+      }
+      try {
+        if (document.fullscreenEnabled && !document.fullscreenElement && window.innerWidth < window.innerHeight) {
+          await document.documentElement.requestFullscreen();
+          signatureFullscreenRequested = true;
+        }
+      } catch (error) {}
+
+      try {
+        if (screen.orientation?.lock) {
+          await screen.orientation.lock("landscape");
+          setSignatureModalHint("Modo horizontal ativo. Assine na área branca.");
+          return;
+        }
+      } catch (error) {}
+
+      setSignatureModalHint("Se a tela não girar, desative o bloqueio de rotação e vire o aparelho para horizontal.");
+    }
+
+    async function releaseSignatureLandscape() {
+      if (hasAndroidSignatureBridge()) {
+        window.AgresAndroid.setSignatureLandscape(false);
+      }
+      try {
+        if (screen.orientation?.unlock) {
+          screen.orientation.unlock();
+        }
+      } catch (error) {}
+      try {
+        if (signatureFullscreenRequested && document.fullscreenElement) {
+          await document.exitFullscreen();
+        }
+      } catch (error) {}
+      signatureFullscreenRequested = false;
+    }
+
+    async function openSignatureModal(key) {
+      const assinatura = signatureById(key);
+      const mensagem = assinatura?.imagem?.dataUrl ? "Deseja editar esta assinatura?" : "Deseja assinar agora?";
+      if (!confirm(mensagem)) return;
+      activeSignatureKey = key;
+      document.getElementById("signatureModalTitle").textContent = signatureLabel(key);
+      document.getElementById("signatureModal").classList.add("open");
+      document.body.classList.add("signature-open");
+      await requestSignatureLandscape();
+      window.setTimeout(() => modalSignaturePad.resize(true), 60);
+    }
+
+    async function closeSignatureModal() {
+      document.getElementById("signatureModal").classList.remove("open");
+      document.body.classList.remove("signature-open");
+      await releaseSignatureLandscape();
+      if (activeSignatureKey) {
+        refreshSignatureCanvases(activeSignatureKey, null);
+      }
+      activeSignatureKey = "";
+    }
+
+    function escapeAttr(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function totalEvidencePhotos() {
+      return CATEGORIES.reduce((sum, key) => sum + (draft.evidencias[key]?.length || 0), 0);
+    }
+
+    function manualCaptionCount() {
+      return CATEGORIES.reduce((sum, key) => {
+        const lines = String(draft.legendas_evidencias?.[key] || "").split(/\r?\n/);
+        return sum + lines.filter((line) => {
+          const parts = metadataLineParts(line);
+          return line && line !== "||" && (parts.titulo || parts.legenda || parts.fonte);
+        }).length;
+      }, 0);
+    }
+
+    function signatureStats() {
+      normalizeSignatures();
+      const signatures = draft.assinaturas_habilitadas ? draft.assinaturas_lista : [];
+      return {
+        total: signatures.length,
+        names: signatures.filter((item) => String(item.nome || "").trim()).length,
+        images: signatures.filter((item) => item.imagem?.dataUrl).length
+      };
+    }
+
+    function draftValidationItems() {
+      const audioCount = draft.audios?.length || 0;
+      const textReady = Boolean(String(draft.observacoes || "").trim());
+      const headerCount = HEADERS.filter((key) => draft.cabecalho?.[key]).length;
+      const evidenceCount = totalEvidencePhotos();
+      const extraPhotos = draft.fotos_atendimento?.length || 0;
+      const captions = manualCaptionCount();
+      const signatures = signatureStats();
+      const locationReady = Boolean(String(draft.localizacao_maps || "").trim());
+      const technicianReady = Boolean(String(draft.tecnico_agres_responsavel || "").trim());
+
+      const items = [
+        {
+          ok: technicianReady,
+          title: "Técnico Responsável Agres",
+          detail: technicianReady ? draft.tecnico_agres_responsavel : "Selecione o técnico antes de exportar."
+        },
+        {
+          ok: audioCount > 0 || textReady,
+          title: "Relato técnico",
+          detail: audioCount > 0
+            ? `${audioCount} áudio(s) salvo(s)${textReady ? " e complemento escrito preenchido" : ""}.`
+            : textReady
+            ? "Complemento escrito preenchido, sem áudio gravado."
+            : "Sem áudio e sem complemento técnico."
+        },
+        {
+          ok: locationReady,
+          title: "Localização",
+          detail: locationReady ? "Link/coordenada preenchido." : "Sem localização da fazenda."
+        },
+        {
+          ok: headerCount >= 1,
+          title: "Cabeçalho",
+          detail: `${headerCount}/3 foto(s) de cabeçalho selecionada(s).`
+        },
+        {
+          ok: evidenceCount >= 1,
+          title: "Fotos do relatório",
+          detail: `${evidenceCount} foto(s) serão inserida(s) no Word.`
+        },
+        {
+          ok: true,
+          type: "info",
+          title: "Fotos extras",
+          detail: `${extraPhotos} foto(s) irão apenas para a pasta FOTOS DO ATENDIMENTO.`
+        },
+        {
+          ok: true,
+          type: "info",
+          title: "Legendas",
+          detail: captions
+            ? `${captions} legenda(s) personalizada(s); as demais usam o padrão técnico.`
+            : "Sem legendas personalizadas; o padrão técnico será aplicado automaticamente."
+        }
+      ];
+
+      if (draft.assinaturas_habilitadas !== false) {
+        items.push({
+          ok: signatures.images >= 1,
+          title: "Assinaturas",
+          detail: `${signatures.images}/${signatures.total} assinatura(s) e ${signatures.names} nome(s).`
+        });
+      } else {
+        items.push({
+          ok: true,
+          type: "info",
+          title: "Assinaturas",
+          detail: "Assinaturas desabilitadas para este atendimento."
+        });
+      }
+
+      return items;
+    }
+
+    function renderOfflineChecklist() {
+      const container = document.getElementById("offlineChecklist");
+      if (!container) return;
+      container.innerHTML = draftValidationItems().map((item) => {
+        const status = item.type === "info" ? "info" : item.ok ? "ok" : "warn";
+        const label = status === "ok" ? "Pronto" : status === "info" ? "Info" : "Ajustar";
+        return `
+          <div class="offline-check ${status}">
+            <span class="offline-check-badge">${label}</span>
+            <div>
+              <div class="offline-check-title">${escapeAttr(item.title)}</div>
+              <div class="offline-check-detail">${escapeAttr(item.detail)}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function updateExportButtonMode() {
+      const button = document.getElementById("exportBtn");
+      if (!button) return;
+      button.textContent = hasAndroidShareBridge()
+        ? "Compartilhar Pacote Relatório Offline"
+        : "Exportar Pacote Relatório Offline";
+    }
+
+    function renderSignatureFields() {
+      normalizeSignatures();
+      const container = document.getElementById("signatureFields");
+      container.innerHTML = "";
+      mainSignaturePads = {};
+      if (!draft.assinaturas_habilitadas || draft.quantidade_assinaturas === 0) {
+        container.innerHTML = '<p class="hint">As assinaturas não serão inseridas no relatório.</p>';
+        renderOfflineChecklist();
+        return;
+      }
+
+      draft.assinaturas_lista.forEach((assinatura, index) => {
+        const card = document.createElement("div");
+        card.className = "field";
+        card.innerHTML = `
+          <label>Assinatura ${index + 1}</label>
+          <input type="text" data-signature-name="${assinatura.id}" placeholder="Nome do responsável" value="${escapeAttr(assinatura.nome)}">
+          <input type="text" data-signature-role="${assinatura.id}" placeholder="Representa" value="${escapeAttr(assinatura.representa)}">
+          <canvas id="canvas_${assinatura.id}"></canvas>
+          <div class="signature-actions">
+            <button type="button" class="primary" data-open-signature="${assinatura.id}">Assinar em tela cheia</button>
+            <button type="button" data-clear-signature="${assinatura.id}">Limpar assinatura</button>
+          </div>
+        `;
+        container.appendChild(card);
+        card.querySelector(`[data-signature-name="${assinatura.id}"]`).addEventListener("input", (event) => {
+          updateSignatureField(assinatura.id, "nome", event.target.value);
+        });
+        card.querySelector(`[data-signature-role="${assinatura.id}"]`).addEventListener("input", (event) => {
+          updateSignatureField(assinatura.id, "representa", event.target.value);
+        });
+        mainSignaturePads[assinatura.id] = setupDrawingCanvas(
+          card.querySelector(`#canvas_${assinatura.id}`),
+          () => assinatura.id,
+          true
+        );
+        card.querySelector(`[data-clear-signature="${assinatura.id}"]`).addEventListener("click", () => {
+          if (confirm(`Limpar a assinatura ${index + 1}?`)) {
+            mainSignaturePads[assinatura.id].clear();
+          }
+        });
+        card.querySelector(`[data-open-signature="${assinatura.id}"]`).addEventListener("click", () => openSignatureModal(assinatura.id));
+      });
+      renderOfflineChecklist();
+    }
+
+    function hydrateFields() {
+      const tipo = draft.tipo_atendimento || "suporte";
+      const tipoInput = document.querySelector(`input[name="tipo_atendimento"][value="${tipo}"]`);
+      if (tipoInput) tipoInput.checked = true;
+      draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
+      document.getElementById("tecnico_agres_responsavel").value = draft.tecnico_agres_responsavel || "";
+      document.getElementById("localizacao_maps").value = draft.localizacao_maps || "";
+      document.getElementById("observacoes").value = draft.observacoes || "";
+      CATEGORIES.forEach((key) => {
+        document.getElementById(`legenda_${key}`).value = draft.legendas_evidencias[key] || "";
+      });
+      document.getElementById("quantidade_assinaturas").value = String(clampSignatureCount(draft.quantidade_assinaturas));
+      renderSignatureFields();
+      updateCounts();
+    }
+
+    function wireFields() {
+      document.querySelectorAll('input[name="tipo_atendimento"]').forEach((input) => {
+        input.addEventListener("change", (event) => {
+          if (event.target.checked) {
+            draft.tipo_atendimento = event.target.value;
+            scheduleSave();
+          }
+        });
+      });
+      document.getElementById("tecnico_agres_responsavel").addEventListener("change", (event) => {
+        draft.tecnico_agres_responsavel = event.target.value.trim();
+        scheduleSave();
+      });
+      document.getElementById("localizacao_maps").addEventListener("input", (event) => {
+        draft.localizacao_maps = event.target.value.trim();
+        scheduleSave();
+      });
+      document.getElementById("observacoes").addEventListener("input", (event) => {
+        draft.observacoes = event.target.value;
+        scheduleSave();
+      });
+      document.getElementById("quantidade_assinaturas").addEventListener("change", (event) => {
+        draft.quantidade_assinaturas = clampSignatureCount(event.target.value);
+        draft.assinaturas_habilitadas = draft.quantidade_assinaturas > 0;
+        normalizeSignatures();
+        renderSignatureFields();
+        scheduleSave();
+      });
+
+      async function importEvidenceInput(key, event, fromCamera = false) {
+        try {
+          const arquivos = await readSelectedFiles(event.target.files, `${key}_status`);
+          if (arquivos.length) {
+            draft.evidencias[key] = [...(draft.evidencias[key] || []), ...arquivos];
+          }
+          updateCounts();
+          await saveDraftNow(
+            arquivos.length
+              ? `${arquivos.length} foto(s) adicionada(s) em ${CATEGORY_LABELS[key]}.`
+              : "Nenhuma foto foi adicionada."
+          );
+          if (arquivos.errors?.length) {
+            setSyncMessage(`Algumas fotos não foram importadas: ${arquivos.errors.slice(0, 2).join(" | ")}`);
+          }
+          if (fromCamera && arquivos.length) {
+            await offerGallerySaveForCameraItems(arquivos);
+          }
+        } catch (error) {
+          document.getElementById(`${key}_status`).textContent = `Erro ao importar imagens: ${error.message}`;
+        } finally {
+          event.target.value = "";
+        }
+      }
+
+      async function importAttendanceInput(event, fromCamera = false) {
+        try {
+          const arquivos = await readSelectedFiles(event.target.files, `${ATTENDANCE_PHOTOS}_status`);
+          if (arquivos.length) {
+            draft.fotos_atendimento = [...(draft.fotos_atendimento || []), ...arquivos];
+          }
+          updateCounts();
+          await saveDraftNow(
+            arquivos.length
+              ? `${arquivos.length} foto(s) adicionada(s) em Fotos do atendimento.`
+              : "Nenhuma foto foi adicionada."
+          );
+          if (arquivos.errors?.length) {
+            setSyncMessage(`Algumas fotos não foram importadas: ${arquivos.errors.slice(0, 2).join(" | ")}`);
+          }
+          if (fromCamera && arquivos.length) {
+            await offerGallerySaveForCameraItems(arquivos);
+          }
+        } catch (error) {
+          document.getElementById(`${ATTENDANCE_PHOTOS}_status`).textContent = `Erro ao importar imagens: ${error.message}`;
+        } finally {
+          event.target.value = "";
+        }
+      }
+
+      async function importHeaderInput(key, event, fromCamera = false) {
+        try {
+          const file = event.target.files[0];
+          draft.cabecalho[key] = file ? await readFile(file) : null;
+          updateCounts();
+          await saveDraftNow(file ? `${HEADER_LABELS[key]} salvo no aparelho.` : "");
+          if (fromCamera && draft.cabecalho[key]) {
+            await offerGallerySaveForCameraItems([draft.cabecalho[key]]);
+          }
+        } catch (error) {
+          document.getElementById(`${key}_status`).textContent = `Erro ao importar imagem: ${error.message}`;
+        } finally {
+          event.target.value = "";
+        }
+      }
+
+      CATEGORIES.forEach((key) => {
+        document.getElementById(`legenda_${key}`).addEventListener("input", (event) => {
+          draft.legendas_evidencias[key] = event.target.value;
+          scheduleSave();
+        });
+        document.getElementById(key).addEventListener("change", (event) => importEvidenceInput(key, event));
+        document.getElementById(`${key}_camera`).addEventListener("change", (event) => importEvidenceInput(key, event, true));
+      });
+
+      document.getElementById(ATTENDANCE_PHOTOS).addEventListener("change", importAttendanceInput);
+      document.getElementById(`${ATTENDANCE_PHOTOS}_camera`).addEventListener("change", (event) => importAttendanceInput(event, true));
+      HEADERS.forEach((key) => {
+        document.getElementById(key).addEventListener("change", (event) => importHeaderInput(key, event));
+        document.getElementById(`${key}_camera`).addEventListener("change", (event) => importHeaderInput(key, event, true));
+      });
+
+      document.getElementById("audioFiles").addEventListener("change", async (event) => {
+        const arquivos = await readSelectedFiles(event.target.files);
+        if (arquivos.length) {
+          draft.audios.push(...arquivos);
+        }
+        event.target.value = "";
+        renderAudios();
+        await saveDraftNow(
+          arquivos.length ? `${arquivos.length} áudio(s) importado(s) e salvo(s).` : "Nenhum áudio foi importado."
+        );
+        if (arquivos.errors?.length) {
+          setSyncMessage(`Alguns áudios não foram importados: ${arquivos.errors.slice(0, 2).join(" | ")}`);
+        }
+      });
+
+      document.getElementById("recordBtn").addEventListener("click", () => startRecording().catch((error) => {
+        document.getElementById("recordHint").textContent = `Erro na gravação: ${error.message}`;
+        stopAudioStream();
+        releaseWakeLock();
+        recorder = null;
+        recorderMode = "";
+        setRecordingState(false);
+      }));
+      document.getElementById("stopBtn").addEventListener("click", () => stopRecording().catch((error) => {
+        document.getElementById("recordHint").textContent = `Erro ao salvar áudio: ${error.message}`;
+        stopAudioStream();
+        releaseWakeLock();
+        recorder = null;
+        recorderMode = "";
+        setRecordingState(false);
+      }));
+
+      modalSignaturePad = setupDrawingCanvas(
+        document.getElementById("signatureModalCanvas"),
+        () => activeSignatureKey
+      );
+
+      document.getElementById("clearSignatureModal").addEventListener("click", () => {
+        if (confirm("Limpar a assinatura aberta?")) {
+          modalSignaturePad.clear();
+        }
+      });
+      document.getElementById("closeSignatureModal").addEventListener("click", closeSignatureModal);
+      document.getElementById("finishSignatureModal").addEventListener("click", closeSignatureModal);
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && activeSignatureKey) {
+          closeSignatureModal();
+        }
+      });
+
+      document.getElementById("currentLocationBtn").addEventListener("click", useCurrentLocation);
+      document.getElementById("openMapsBtn").addEventListener("click", openMaps);
+      document.getElementById("exportBtn").addEventListener("click", exportDraft);
+      document.getElementById("clearBtn").addEventListener("click", clearDraft);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+          saveDraftNow();
+        }
+      });
+      window.addEventListener("pagehide", () => {
+        saveDraftNow();
+      });
+    }
+
+    function packageFileName() {
+      return `${automaticReportBaseName()}.json`;
+    }
+
+    function normalizeFilePart(text, fallback = "") {
+      const cleaned = String(text || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[\\/*?:"<>|]/g, " ")
+        .replace(/[^0-9A-Za-z]+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .toUpperCase();
+      return cleaned || fallback;
+    }
+
+    function dateForFileName() {
+      const text = String(draft.observacoes || "");
+      const candidates = [];
+      const validDateValue = (year, month, day) => {
+        const y = Number.parseInt(year, 10);
+        const m = Number.parseInt(month, 10);
+        const d = Number.parseInt(day, 10);
+        const value = new Date(y, m - 1, d);
+        if (
+          !Number.isInteger(y) ||
+          !Number.isInteger(m) ||
+          !Number.isInteger(d) ||
+          value.getFullYear() !== y ||
+          value.getMonth() !== m - 1 ||
+          value.getDate() !== d
+        ) {
+          return "";
+        }
+        return `${String(y).padStart(4, "0")}${String(m).padStart(2, "0")}${String(d).padStart(2, "0")}`;
+      };
+      const addCandidate = (index, year, month, day) => {
+        const value = validDateValue(year, month, day);
+        if (value) candidates.push({ index, value });
+      };
+      for (const match of text.matchAll(/\b(\d{1,2})\s*(?:a|até|-)\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\b/gi)) {
+        const [, , finalDay, month, year] = match;
+        addCandidate(match.index || 0, year, month, finalDay);
+      }
+      for (const match of text.matchAll(/\b(\d{1,2})\/(\d{1,2})\s*(?:a|até|-)\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\b/gi)) {
+        const [, , , finalDay, finalMonth, year] = match;
+        addCandidate(match.index || 0, year, finalMonth, finalDay);
+      }
+      for (const match of text.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g)) {
+        const [, day, month, year] = match;
+        addCandidate(match.index || 0, year, month, day);
+      }
+      for (const match of text.matchAll(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/g)) {
+        const [, year, month, day] = match;
+        addCandidate(match.index || 0, year, month, day);
+      }
+      const months = {
+        janeiro: "01",
+        fevereiro: "02",
+        marco: "03",
+        março: "03",
+        abril: "04",
+        maio: "05",
+        junho: "06",
+        julho: "07",
+        agosto: "08",
+        setembro: "09",
+        outubro: "10",
+        novembro: "11",
+        dezembro: "12"
+      };
+      const extendedRange = /\b\d{1,2}\s*(?:a|até|-)\s*(\d{1,2})\s*(?:de\s+)?(janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(?:de\s+)?(\d{4})\b/gi;
+      for (const match of text.matchAll(extendedRange)) {
+        const [, day, monthName, year] = match;
+        const month = months[monthName.toLowerCase().replace("ç", "c")];
+        if (month) {
+          addCandidate(match.index || 0, year, month, day);
+        }
+      }
+      if (candidates.length) {
+        candidates.sort((a, b) => a.value.localeCompare(b.value));
+        return candidates[candidates.length - 1].value;
+      }
+      const now = new Date();
+      return validDateValue(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    }
+
+    function attendanceTypeForFileName() {
+      return ATTENDANCE_TYPE_FILE_LABELS[draft.tipo_atendimento] || "ATENDIMENTO";
+    }
+
+    function technicianForFileName() {
+      const explicit = normalizeFilePart(draft.tecnico_agres_responsavel || "");
+      return explicit ? explicit.split("_").filter(Boolean)[0] || explicit : "TECNICO";
+    }
+
+    function automaticReportBaseName() {
+      const data = dateForFileName();
+      const tipo = attendanceTypeForFileName();
+      const tecnico = technicianForFileName();
+      return `${data}_RELATORIO_ATIVIDADES_${tipo}_${tecnico}`.slice(0, 150);
+    }
+
+    function packageTextSync() {
+      normalizeSignatures();
+      draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
+      const pacote = {
+        ...draft,
+        app_version: APP_VERSION,
+        data_atendimento_final: dateForFileName(),
+        exported_at: new Date().toISOString()
+      };
+      return JSON.stringify(pacote);
+    }
+
+    async function packageText() {
+      await putDraft();
+      return packageTextSync();
+    }
+
+    async function packageBlob() {
+      return new Blob([await packageText()], { type: JSON_PACKAGE_MIME });
+    }
+
+    function packageBlobSync() {
+      return new Blob([packageTextSync()], { type: JSON_PACKAGE_MIME });
+    }
+
+    function zipFileName(jsonFileName) {
+      return String(jsonFileName || "pacote_relatorio.json").replace(/\.json$/i, "") + ".zip";
+    }
+
+    function textToBytes(text) {
+      return new TextEncoder().encode(String(text || ""));
+    }
+
+    let crc32Table = null;
+    function buildCrc32Table() {
+      const table = new Uint32Array(256);
+      for (let index = 0; index < 256; index += 1) {
+        let value = index;
+        for (let bit = 0; bit < 8; bit += 1) {
+          value = (value & 1) ? (0xedb88320 ^ (value >>> 1)) : (value >>> 1);
+        }
+        table[index] = value >>> 0;
+      }
+      return table;
+    }
+
+    function crc32(bytes) {
+      if (!crc32Table) crc32Table = buildCrc32Table();
+      let crc = 0xffffffff;
+      for (let index = 0; index < bytes.length; index += 1) {
+        crc = crc32Table[(crc ^ bytes[index]) & 0xff] ^ (crc >>> 8);
+      }
+      return (crc ^ 0xffffffff) >>> 0;
+    }
+
+    function writeUint16(buffer, offset, value) {
+      buffer[offset] = value & 0xff;
+      buffer[offset + 1] = (value >>> 8) & 0xff;
+    }
+
+    function writeUint32(buffer, offset, value) {
+      buffer[offset] = value & 0xff;
+      buffer[offset + 1] = (value >>> 8) & 0xff;
+      buffer[offset + 2] = (value >>> 16) & 0xff;
+      buffer[offset + 3] = (value >>> 24) & 0xff;
+    }
+
+    function dosDateTime() {
+      const now = new Date();
+      const time = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
+      const date = ((Math.max(1980, now.getFullYear()) - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+      return { time, date };
+    }
+
+    function packageZipBlob(jsonFileName, jsonText) {
+      const dataBytes = textToBytes(jsonText);
+      const nameBytes = textToBytes(jsonFileName);
+      const crc = crc32(dataBytes);
+      const stamp = dosDateTime();
+      const flags = 0x0800;
+
+      const localHeader = new Uint8Array(30 + nameBytes.length);
+      writeUint32(localHeader, 0, 0x04034b50);
+      writeUint16(localHeader, 4, 20);
+      writeUint16(localHeader, 6, flags);
+      writeUint16(localHeader, 8, 0);
+      writeUint16(localHeader, 10, stamp.time);
+      writeUint16(localHeader, 12, stamp.date);
+      writeUint32(localHeader, 14, crc);
+      writeUint32(localHeader, 18, dataBytes.length);
+      writeUint32(localHeader, 22, dataBytes.length);
+      writeUint16(localHeader, 26, nameBytes.length);
+      writeUint16(localHeader, 28, 0);
+      localHeader.set(nameBytes, 30);
+
+      const centralOffset = localHeader.length + dataBytes.length;
+      const centralHeader = new Uint8Array(46 + nameBytes.length);
+      writeUint32(centralHeader, 0, 0x02014b50);
+      writeUint16(centralHeader, 4, 20);
+      writeUint16(centralHeader, 6, 20);
+      writeUint16(centralHeader, 8, flags);
+      writeUint16(centralHeader, 10, 0);
+      writeUint16(centralHeader, 12, stamp.time);
+      writeUint16(centralHeader, 14, stamp.date);
+      writeUint32(centralHeader, 16, crc);
+      writeUint32(centralHeader, 20, dataBytes.length);
+      writeUint32(centralHeader, 24, dataBytes.length);
+      writeUint16(centralHeader, 28, nameBytes.length);
+      writeUint16(centralHeader, 30, 0);
+      writeUint16(centralHeader, 32, 0);
+      writeUint16(centralHeader, 34, 0);
+      writeUint16(centralHeader, 36, 0);
+      writeUint32(centralHeader, 38, 0);
+      writeUint32(centralHeader, 42, 0);
+      centralHeader.set(nameBytes, 46);
+
+      const endRecord = new Uint8Array(22);
+      writeUint32(endRecord, 0, 0x06054b50);
+      writeUint16(endRecord, 4, 0);
+      writeUint16(endRecord, 6, 0);
+      writeUint16(endRecord, 8, 1);
+      writeUint16(endRecord, 10, 1);
+      writeUint32(endRecord, 12, centralHeader.length);
+      writeUint32(endRecord, 16, centralOffset);
+      writeUint16(endRecord, 20, 0);
+
+      return new Blob([localHeader, dataBytes, centralHeader, endRecord], { type: ZIP_PACKAGE_MIME });
+    }
+
+    function setSyncMessage(texto) {
+      document.getElementById("syncMessage").textContent = texto || "";
+    }
+
+    function showDownloadFallback(url, fileName, label = "baixar pacote") {
+      const container = document.getElementById("syncMessage");
+      container.innerHTML = "";
+      container.appendChild(document.createTextNode("Pacote relatório offline pronto. Se não baixar automaticamente, toque em "));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.textContent = label;
+      container.appendChild(link);
+      container.appendChild(document.createTextNode("."));
+    }
+
+    function setLocationHint(texto) {
+      document.getElementById("locationHint").textContent = texto || "";
+    }
+
+    function setLocationButtonBusy(busy) {
+      const button = document.getElementById("currentLocationBtn");
+      if (!button) return;
+      button.disabled = busy;
+      button.textContent = busy ? "Buscando localização..." : "Atualizar localização atual";
+    }
+
+    function applyCurrentPosition(position) {
+      const lat = position.coords.latitude.toFixed(6);
+      const lng = position.coords.longitude.toFixed(6);
+      const link = `https://maps.google.com/?q=${lat},${lng}`;
+      draft.localizacao_maps = link;
+      document.getElementById("localizacao_maps").value = link;
+      scheduleSave();
+      const precisao = Number.isFinite(position.coords.accuracy)
+        ? ` Precisão aproximada: ${Math.round(position.coords.accuracy)} m.`
+        : "";
+      setLocationHint(`Localização atualizada: ${lat}, ${lng}.${precisao}`);
+    }
+
+    function clearLocationWatch() {
+      if (locationWatchId !== null) {
+        navigator.geolocation.clearWatch(locationWatchId);
+        locationWatchId = null;
+      }
+    }
+
+    function isIosDevice() {
+      return /iPad|iPhone|iPod/i.test(navigator.userAgent)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    }
+
+    function isStandaloneApp() {
+      return navigator.standalone === true
+        || Boolean(window.matchMedia?.("(display-mode: standalone)")?.matches);
+    }
+
+    async function readGeolocationPermissionState() {
+      try {
+        if (!navigator.permissions?.query) return "unknown";
+        const status = await navigator.permissions.query({ name: "geolocation" });
+        return status?.state || "unknown";
+      } catch {
+        return "unknown";
+      }
+    }
+
+    function locationPermissionInstructions() {
+      if (isIosDevice()) {
+        if (isStandaloneApp()) {
+          return "O iPhone bloqueou a localização para a coleta instalada. Ela possui permissão separada do Safari. Abra Ajustes > Privacidade e Segurança > Serviços de Localização > Agres Offline (ou Safari Websites), selecione Durante o Uso e ative Localização Precisa. Depois feche e abra a coleta.";
+        }
+        return "O iPhone bloqueou a localização para este site. Abra Ajustes > Privacidade e Segurança > Serviços de Localização > Safari Websites, selecione Durante o Uso e ative Localização Precisa. Depois volte ao Safari e tente novamente.";
+      }
+      return "Permissão de localização negada. Ative Localização para o navegador/app da Agres e tente novamente.";
+    }
+
+    function locationErrorMessage(error) {
+      const code = Number(error?.code || 0);
+      if (!window.isSecureContext) {
+        return "Localização bloqueada em HTTP. No celular, abra a coleta offline instalada pelo link HTTPS publicado antes de ficar sem internet.";
+      }
+      if (code === 1 || lastLocationPermissionState === "denied") {
+        return locationPermissionInstructions();
+      }
+      if (code === 2) {
+        return "O aparelho não conseguiu encontrar a posição. Ative GPS/localização, saia para área aberta e tente novamente.";
+      }
+      if (code === 3) {
+        return "Tempo esgotado ao buscar localização. Verifique se o GPS está ativo e tente novamente.";
+      }
+      return "Não foi possível obter a localização. Cole o link do Maps ou tente novamente em área aberta.";
+    }
+
+    function getPositionOnce(options) {
+      return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, options);
+      });
+    }
+
+    function watchPositionOnce(options, maxWaitMs = 30000) {
+      return new Promise((resolve, reject) => {
+        let finished = false;
+        const finish = (position, error) => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timer);
+          clearLocationWatch();
+          if (position) resolve(position);
+          else reject(error || new Error("Tempo esgotado"));
+        };
+        const timer = window.setTimeout(() => finish(null, { code: 3 }), maxWaitMs);
+        locationWatchId = navigator.geolocation.watchPosition(
+          (position) => finish(position, null),
+          (error) => finish(null, error),
+          options
+        );
+      });
+    }
+
+    async function useCurrentLocation() {
+      if (!navigator.geolocation) {
+        setLocationHint("Localização indisponível. Cole o link do Maps.");
+        return;
+      }
+
+      if (!window.isSecureContext) {
+        setLocationHint(locationErrorMessage({ code: 0 }));
+        return;
+      }
+
+      lastLocationPermissionState = await readGeolocationPermissionState();
+      if (lastLocationPermissionState === "denied") {
+        setLocationHint(locationPermissionInstructions());
+        return;
+      }
+
+      const attemptId = ++locationAttemptId;
+      clearLocationWatch();
+      setLocationButtonBusy(true);
+      setLocationHint("Buscando localização...");
+
+      try {
+        let position;
+        try {
+          position = await getPositionOnce({ enableHighAccuracy: true, timeout: 25000, maximumAge: 60000 });
+        } catch (firstError) {
+          if (Number(firstError?.code || 0) === 1) throw firstError;
+          if (attemptId !== locationAttemptId) return;
+          setLocationHint("Primeira tentativa não localizou. Tentando modo compatível...");
+          try {
+            position = await getPositionOnce({ enableHighAccuracy: false, timeout: 20000, maximumAge: 600000 });
+          } catch (secondError) {
+            if (Number(secondError?.code || 0) === 1) throw secondError;
+            if (attemptId !== locationAttemptId) return;
+            setLocationHint("Aguardando sinal de GPS...");
+            position = await watchPositionOnce(
+              { enableHighAccuracy: false, timeout: 30000, maximumAge: 600000 },
+              32000
+            );
+          }
+        }
+
+        if (attemptId === locationAttemptId) {
+          applyCurrentPosition(position);
+        }
+      } catch (error) {
+        if (attemptId === locationAttemptId) {
+          lastLocationPermissionState = await readGeolocationPermissionState();
+          setLocationHint(locationErrorMessage(error));
+        }
+      } finally {
+        if (attemptId === locationAttemptId) {
+          clearLocationWatch();
+          setLocationButtonBusy(false);
+        }
+      }
+    }
+    function openMaps() {
+      const link = (draft.localizacao_maps || document.getElementById("localizacao_maps").value || "").trim();
+      if (link) {
+        window.open(link, "_blank", "noopener");
+      } else {
+        window.open("https://maps.google.com/", "_blank", "noopener");
+      }
+    }
+
+    async function ensureOfflineReady() {
+      const assets = ["./", "./index.html", "./sw.js", "./manifest.webmanifest", "./logo_agres.png"];
+      if ("caches" in window) {
+        const cache = await caches.open(APP_SHELL_CACHE);
+        await Promise.allSettled(assets.map((asset) => cache.add(asset)));
+      }
+      if ("serviceWorker" in navigator) {
+        await navigator.serviceWorker.register("./sw.js", { scope: "./" });
+        await navigator.serviceWorker.ready;
+      }
+    }
+
+    async function exportDraft() {
+      try {
+        normalizeSignatures();
+        draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
+        if (!draft.tecnico_agres_responsavel) {
+          throw new Error("selecione o Técnico Responsável Agres antes de exportar.");
+        }
+        const saved = await saveDraftNow();
+        if (!saved) return;
+        const fileName = packageFileName();
+        const zipName = zipFileName(fileName);
+        const jsonText = packageTextSync();
+        const blob = new Blob([jsonText], { type: JSON_PACKAGE_MIME });
+        const zipBlob = packageZipBlob(fileName, jsonText);
+        const packageSize = formatBytes(blob.size);
+        if (blob.size > MAX_PACKAGE_BYTES) {
+          throw new Error(
+            `o pacote atingiu ${packageSize}, acima do limite seguro de ${formatBytes(MAX_PACKAGE_BYTES)}. Remova arquivos muito pesados.`
+          );
+        }
+
+        if (hasAndroidShareBridge()) {
+          const shared = window.AgresAndroid.shareJson(jsonText, fileName);
+          if (shared === true || shared === "true") {
+            setSyncMessage(`Tela de compartilhamento aberta para enviar o pacote relatório offline (${packageSize}).`);
+            return;
+          }
+          setSyncMessage("Não foi possível abrir o compartilhamento no Android. Tentando salvar em Downloads...");
+        }
+
+        if (hasAndroidPackageBridge()) {
+          const saved = window.AgresAndroid.saveJson(jsonText, fileName);
+          if (saved === true || saved === "true") {
+            setSyncMessage(`Pacote relatório offline salvo em Downloads/Agres Relatorios (${packageSize}).`);
+            return;
+          }
+          setSyncMessage("Não foi possível salvar automaticamente no Android. Tentando modo de compartilhamento...");
+        }
+
+        if (typeof File === "function" && navigator.share) {
+          const shareCandidates = [
+            {
+              file: new File([zipBlob], zipName, { type: ZIP_PACKAGE_MIME }),
+              label: "ZIP"
+            },
+            {
+              file: new File([blob], fileName, { type: JSON_PACKAGE_MIME }),
+              label: "JSON"
+            }
+          ];
+          for (const candidate of shareCandidates) {
+            const canShareFile = !navigator.canShare || navigator.canShare({ files: [candidate.file] });
+            if (!canShareFile) continue;
+            try {
+              await navigator.share({ files: [candidate.file] });
+              setSyncMessage(`Pacote relatório offline exportado em ${candidate.label} (${packageSize}).`);
+              return;
+            } catch (error) {
+              if (error?.name === "AbortError") {
+                setSyncMessage("Exportação cancelada. Toque novamente para exportar o pacote.");
+                return;
+              }
+            }
+          }
+        }
+
+        if (lastExportUrl) URL.revokeObjectURL(lastExportUrl);
+        if (lastZipExportUrl) URL.revokeObjectURL(lastZipExportUrl);
+        lastExportUrl = URL.createObjectURL(blob);
+        lastZipExportUrl = URL.createObjectURL(zipBlob);
+        const link = document.createElement("a");
+        link.href = lastZipExportUrl;
+        link.download = zipName;
+        link.rel = "noopener";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        showDownloadFallback(lastZipExportUrl, zipName, "baixar pacote ZIP");
+        const container = document.getElementById("syncMessage");
+        container.appendChild(document.createTextNode(` O ZIP pode ser importado diretamente no gerador online. Tamanho aproximado: ${packageSize}.`));
+      } catch (error) {
+        setSyncMessage(`Não foi possível exportar o pacote: ${error.message}`);
+      }
+    }
+
+    async function clearDraft() {
+      if (!confirm("Limpar toda a coleta deste aparelho? Esta ação apaga textos, áudios, fotos e assinaturas salvos no modo offline.")) return;
+      draft = defaultDraft();
+      await putDraft();
+      location.reload();
+    }
+
+    async function init() {
+      updateSecureNotice();
+      ensureOfflineReady().catch(() => {});
+      if (navigator.storage?.persist) {
+        await navigator.storage.persist();
+      }
+      db = await openDb();
+      draft = { ...defaultDraft(), ...(await getDraft()) };
+      draft.tipo_atendimento = draft.tipo_atendimento || "suporte";
+      draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
+      draft.localizacao_maps = draft.localizacao_maps || "";
+      draft.observacoes = String(draft.observacoes || "");
+      draft.audios = Array.isArray(draft.audios) ? draft.audios.filter((item) => item && item.dataUrl) : [];
+      draft.cabecalho = { ...defaultDraft().cabecalho, ...(draft.cabecalho || {}) };
+      HEADERS.forEach((key) => {
+        if (!draft.cabecalho[key]?.dataUrl) draft.cabecalho[key] = null;
+      });
+      draft.evidencias = { ...defaultDraft().evidencias, ...(draft.evidencias || {}) };
+      CATEGORIES.forEach((key) => {
+        draft.evidencias[key] = Array.isArray(draft.evidencias[key])
+          ? draft.evidencias[key].filter((item) => item && item.dataUrl)
+          : [];
+      });
+      draft.fotos_atendimento = Array.isArray(draft.fotos_atendimento) ? draft.fotos_atendimento : [];
+      draft.fotos_atendimento = draft.fotos_atendimento.filter((item) => item && item.dataUrl);
+      draft.legendas_evidencias = { ...defaultDraft().legendas_evidencias, ...(draft.legendas_evidencias || {}) };
+      draft.responsaveis = { ...defaultDraft().responsaveis, ...(draft.responsaveis || {}) };
+      draft.documentos = { ...defaultDraft().documentos, ...(draft.documentos || {}) };
+      draft.assinaturas = { ...defaultDraft().assinaturas, ...(draft.assinaturas || {}) };
+      draft.assinaturas_habilitadas = draft.assinaturas_habilitadas !== false;
+      normalizeSignatures();
+      hydrateFields();
+      wireFields();
+      updateExportButtonMode();
+      await putDraft();
+    }
+
+    init().catch((error) => {
+      alert(`Erro no modo offline: ${error.message}`);
+    });
+  </script>
 </body>
 </html>

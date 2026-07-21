@@ -1160,7 +1160,7 @@
           <div class="preview-grid" id="fotos_outros_preview"></div>
         </div>
         <div class="field">
-          <label for="fotos_atendimento">Fotos Extras (Somente ZIP)</label>
+          <label for="fotos_atendimento">Fotos do Atendimento (Somente ZIP)</label>
           <div class="upload-control">
             <div class="upload-actions">
               <label class="upload-button gallery" for="fotos_atendimento">
@@ -1255,12 +1255,12 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.06.18.26";
+    const APP_VERSION = "2026.06.18.28";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v56"
+      ? "agres-offline-v58"
       : location.pathname.includes("/static/coleta/")
-        ? "agres-coleta-v49"
-        : "agres-pages-offline-v52";
+        ? "agres-coleta-v51"
+        : "agres-pages-offline-v54";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
@@ -1409,7 +1409,7 @@
           id: fallback.id,
           nome: item.nome || "",
           representa: item.representa || fallback.representa,
-          documento: item.documento || "",
+          documento: "",
           imagem: item.imagem || null
         };
       });
@@ -1418,8 +1418,8 @@
         fazenda: draft.assinaturas_lista[1]?.nome || ""
       };
       draft.documentos = {
-        revenda_fabrica: draft.assinaturas_lista[0]?.documento || "",
-        fazenda: draft.assinaturas_lista[1]?.documento || ""
+        revenda_fabrica: "",
+        fazenda: ""
       };
       draft.assinaturas = {
         revenda_fabrica: draft.assinaturas_lista[0]?.imagem || null,
@@ -2365,7 +2365,6 @@
       return {
         total: signatures.length,
         names: signatures.filter((item) => String(item.nome || "").trim()).length,
-        docs: signatures.filter((item) => String(item.documento || "").trim()).length,
         images: signatures.filter((item) => item.imagem?.dataUrl).length
       };
     }
@@ -2431,7 +2430,7 @@
         items.push({
           ok: signatures.images >= 1,
           title: "Assinaturas",
-          detail: `${signatures.images}/${signatures.total} assinatura(s), ${signatures.names} nome(s) e ${signatures.docs} documento(s).`
+          detail: `${signatures.images}/${signatures.total} assinatura(s) e ${signatures.names} nome(s).`
         });
       } else {
         items.push({
@@ -2489,7 +2488,6 @@
           <label>Assinatura ${index + 1}</label>
           <input type="text" data-signature-name="${assinatura.id}" placeholder="Nome do responsável" value="${escapeAttr(assinatura.nome)}">
           <input type="text" data-signature-role="${assinatura.id}" placeholder="Representa" value="${escapeAttr(assinatura.representa)}">
-          <input type="text" data-signature-doc="${assinatura.id}" placeholder="CPF/RG ou documento" value="${escapeAttr(assinatura.documento)}">
           <canvas id="canvas_${assinatura.id}"></canvas>
           <div class="signature-actions">
             <button type="button" class="primary" data-open-signature="${assinatura.id}">Assinar em tela cheia</button>
@@ -2502,9 +2500,6 @@
         });
         card.querySelector(`[data-signature-role="${assinatura.id}"]`).addEventListener("input", (event) => {
           updateSignatureField(assinatura.id, "representa", event.target.value);
-        });
-        card.querySelector(`[data-signature-doc="${assinatura.id}"]`).addEventListener("input", (event) => {
-          updateSignatureField(assinatura.id, "documento", event.target.value);
         });
         mainSignaturePads[assinatura.id] = setupDrawingCanvas(
           card.querySelector(`#canvas_${assinatura.id}`),
