@@ -1285,12 +1285,12 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.07.21.02";
+    const APP_VERSION = "2026.07.22.01";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v63"
+      ? "agres-offline-v64"
       : location.pathname.includes("/static/coleta/")
-        ? "agres-coleta-v56"
-        : "agres-pages-offline-v59";
+        ? "agres-coleta-v57"
+        : "agres-pages-offline-v60";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
@@ -3362,7 +3362,9 @@
           throw new Error("a Data Inicial do Atendimento não pode ser posterior à Data Final.");
         }
         const saved = await saveDraftNow();
-        if (!saved) return;
+        const saveWarning = saved
+          ? ""
+          : " O salvamento local não foi atualizado, mas o pacote foi gerado com os dados carregados na tela.";
         const fileName = packageFileName();
         const zipName = zipFileName(fileName);
         const jsonText = packageTextSync();
@@ -3378,7 +3380,7 @@
         if (hasAndroidShareBridge()) {
           const shared = window.AgresAndroid.shareJson(jsonText, fileName);
           if (shared === true || shared === "true") {
-            setSyncMessage(`Tela de compartilhamento aberta para enviar o pacote relatório offline (${packageSize}).`);
+            setSyncMessage(`Tela de compartilhamento aberta para enviar o pacote relatório offline (${packageSize}).${saveWarning}`);
             return;
           }
           setSyncMessage("Não foi possível abrir o compartilhamento no Android. Tentando salvar em Downloads...");
@@ -3387,7 +3389,7 @@
         if (hasAndroidPackageBridge()) {
           const saved = window.AgresAndroid.saveJson(jsonText, fileName);
           if (saved === true || saved === "true") {
-            setSyncMessage(`Pacote relatório offline salvo em Downloads/Agres Relatorios (${packageSize}).`);
+            setSyncMessage(`Pacote relatório offline salvo em Downloads/Agres Relatorios (${packageSize}).${saveWarning}`);
             return;
           }
           setSyncMessage("Não foi possível salvar automaticamente no Android. Tentando modo de compartilhamento...");
@@ -3409,7 +3411,7 @@
             if (!canShareFile) continue;
             try {
               await navigator.share({ files: [candidate.file] });
-              setSyncMessage(`Pacote relatório offline exportado em ${candidate.label} (${packageSize}).`);
+              setSyncMessage(`Pacote relatório offline exportado em ${candidate.label} (${packageSize}).${saveWarning}`);
               return;
             } catch (error) {
               if (error?.name === "AbortError") {
@@ -3433,7 +3435,7 @@
         link.remove();
         showDownloadFallback(lastZipExportUrl, zipName, "baixar pacote ZIP");
         const container = document.getElementById("syncMessage");
-        container.appendChild(document.createTextNode(` O ZIP pode ser importado diretamente no gerador online. Tamanho aproximado: ${packageSize}.`));
+        container.appendChild(document.createTextNode(` O ZIP pode ser importado diretamente no gerador online. Tamanho aproximado: ${packageSize}.${saveWarning}`));
       } catch (error) {
         setSyncMessage(`Não foi possível exportar o pacote: ${error.message}`);
       }

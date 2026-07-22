@@ -1,8 +1,8 @@
 # Auditoria Final de Campo - Agres
 
-Data: 21/07/2026
+Data: 22/07/2026
 
-Versao offline: 2026.07.21.02  
+Versao offline: 2026.07.22.01  
 Versao APK Android: 1.0.18 (versionCode 19)
 
 ## Escopo Revalidado
@@ -29,19 +29,26 @@ Versao APK Android: 1.0.18 (versionCode 19)
 - Textos do online foram ajustados de "JSON" para "pacote JSON ou ZIP" onde o tecnico interage com a tela.
 - Removido texto/titulo do Web Share API no iPhone/iPad; o compartilhamento agora envia apenas `{ files: [...] }`.
 - Cache da PWA atualizado:
-  - GitHub Pages: `agres-pages-offline-v59`
-  - Streamlit static offline: `agres-offline-v63`
-  - Streamlit static coleta: `agres-coleta-v56`
+  - GitHub Pages: `agres-pages-offline-v60`
+  - Streamlit static offline: `agres-offline-v64`
+  - Streamlit static coleta: `agres-coleta-v57`
 - APK Android atualizado para `1.0.18`.
 - Tipo de atendimento alterado de opcao unica para selecao de ate duas opcoes, mantendo compatibilidade com pacotes antigos.
 - Regra aplicada: `Suporte + Treinamento` e `Instalacao + Treinamento` sao combinacoes permitidas; `Validacao/Homologacao` fica isolada.
 - Corrigida a selecao de tipo de atendimento: o app nao marca mais `Suporte` automaticamente em coleta nova, permite corrigir clique acidental em `Validacao/Homologacao` e bloqueia exportacao sem tipo selecionado.
+- Corrigido o parser da resposta da IA para recuperar JSON com quebras de linha/caracteres de controle dentro de campos técnicos, evitando erro na geração quando a IA retorna texto quase válido.
+- Reforçada a extração visual/OCR das imagens de `2. Cabeçalho do Relatório - Equipamento Agres/Informações do Equipamento` e `3. Evidências Fotográficas - Equipamento Agres`, com priorização de modelo, número de série, versões de tela, ECU, SW/HW e compensador.
+- Padronizada a leitura de modelos Agres em texto extraído de imagem, incluindo `AGRONAVE7` para `agroNave 7`, `ISOBOXSPRAYER` para `isoBox Sprayer` e modelos `ISO31OFP`, `ISO33H`, etc. como códigos limpos.
+- Corrigida a exportacao offline para continuar gerando o pacote mesmo quando o salvamento local do IndexedDB falhar por armazenamento cheio ou indisponivel, usando os dados carregados na tela.
 - Guia do iPad atualizado para explicar que o pacote pode sair como ZIP.
 
 ## Testes Executados Nesta Revalidacao
 
-- Bateria automatizada ampliada de 50 testes executada em 21/07/2026.
+- Bateria automatizada ampliada de 50 testes executada em 22/07/2026.
 - Resultado da bateria de 50 testes: 50 aprovados, 0 falhas.
+- Validado caso real de resposta da IA com quebra de linha dentro do campo `equipamentos`.
+- Validada padronizacao de dados técnicos extraídos por OCR para tela, ECU e modelo isoView.
+- Validada protecao contra perda de dados na exportacao offline quando o salvamento local falha.
 - Escopo da bateria ampliada: sintaxe Python, sintaxe JavaScript, service workers, PWA iPhone/iPad, pacote APK Android, permissões nativas, persistência offline, mídia, áudio, localização, assinatura, modelo Word, importação JSON/ZIP, geração online, ZIP final, ausência de `secrets.toml`, versões e referências antigas.
 - PWA aberta por servidor local limpo em `http://127.0.0.1:8766/index.html`.
 - Validado carregamento sem erros de console da PWA atual.

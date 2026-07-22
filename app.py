@@ -52,7 +52,7 @@ TAM_EVIDENCIA = 120
 TAM_ASSINATURA = 58
 FIGURA_CANVAS_PX = (1800, 1125)
 FIGURAS_POR_PAGINA = 2
-MAX_IMAGENS_EQUIPAMENTOS_IA = 18
+MAX_IMAGENS_EQUIPAMENTOS_IA = 30
 MAX_PACKAGE_BYTES = 100 * 1024 * 1024
 MAX_IMAGE_BYTES = 25 * 1024 * 1024
 MAX_AUDIO_BYTES = 100 * 1024 * 1024
@@ -306,6 +306,24 @@ def expandir_modelos_isoview_texto(texto: str) -> str:
         texto,
         flags=re.I,
     )
+
+
+def normalizar_modelos_equipamentos_agres(texto: str) -> str:
+    texto = expandir_modelos_isoview_texto(str(texto or ""))
+    substituicoes = (
+        (r"\bISO\s*BOX\s*SPRAYER\b", "isoBox Sprayer"),
+        (r"\bISOBOXSPRAYER\b", "isoBox Sprayer"),
+        (r"\bISO\s*BOX\s*SPREADER\b", "isoBox Spreader"),
+        (r"\bISOBOXSPREADER\b", "isoBox Spreader"),
+        (r"\bAGRO\s*NAVE\s*7\b", "agroNave 7"),
+        (r"\bAGRO\s*NAVE\s*12W\b", "agroNave 12W"),
+        (r"\bAGRO\s*NAVE\s*12\b", "agroNave 12"),
+        (r"\bISO\s*VIEW\b", "isoView"),
+        (r"\bSPRAY\s*RATE\b", "SprayRate"),
+    )
+    for padrao, destino in substituicoes:
+        texto = re.sub(padrao, destino, texto, flags=re.I)
+    return texto
 
 
 def assinaturas_padrao_lista(quantidade: int = MIN_ASSINATURAS) -> list[dict]:
@@ -1528,18 +1546,12 @@ def formatar_equipamentos_agres(texto: str) -> str:
             rotulo, valor = item.split(":", 1)
             rotulo_limpo = normalizar_busca(rotulo).strip()
             valor = valor.strip(" ,.;")
-            valor = expandir_modelos_isoview_texto(valor)
+            valor = normalizar_modelos_equipamentos_agres(valor)
             rotulo_final = next((final for chave, final in rotulos if rotulo_limpo == chave), rotulo.strip())
             item = f"{rotulo_final}: {valor}" if valor else f"{rotulo_final}:"
         else:
             item_busca = normalizar_busca(item)
-            item = re.sub(r"\bISOBOX\s+SPRAYER\b", "isoBox Sprayer", item, flags=re.I)
-            item = re.sub(r"\bISOBOX\s+SPREADER\b", "isoBox Spreader", item, flags=re.I)
-            item = re.sub(r"\bAGRO\s*NAVE\s*7\b", "agroNave 7", item, flags=re.I)
-            item = re.sub(r"\bAGRO\s*NAVE\s*12W\b", "agroNave 12W", item, flags=re.I)
-            item = re.sub(r"\bAGRO\s*NAVE\s*12\b", "agroNave 12", item, flags=re.I)
-            item = re.sub(r"\bISOVIEW\b", "isoView", item, flags=re.I)
-            item = expandir_modelos_isoview_texto(item)
+            item = normalizar_modelos_equipamentos_agres(item)
             if item_busca.startswith(("sn ", "s n ")):
                 item = re.sub(r"^(?:s\s*n|sn)\s+", "S/N: ", item, flags=re.I)
 
@@ -1553,28 +1565,70 @@ def formatar_equipamentos_agres(texto: str) -> str:
     return "\n".join(linhas).strip()
 
 
-def selecionar_imagens_equipamentos_agres(caminhos_cabecalho: dict, evidencias: dict) -> list[Path]:
+def selecionar_imagens_equipamentos_agres(caminhos_cabecalho: dict, evidencias: dict) -> list[dict]:
     candidatos = []
     if caminhos_cabecalho.get("info_equip"):
-        candidatos.append(caminhos_cabecalho["info_equip"])
+        candidatos.append(
+            {
+                "caminho": caminhos_cabecalho["info_equip"],
+                "origem": "2. Cabeçalho do Relatório - Informações do Equipamento / Equipamento Agres",
+            }
+        )
 
-    for categoria in ("fotos_equipamento", "fotos_configuracao"):
-        candidatos.extend(evidencias.get(categoria, []) or [])
+    for indice, caminho in enumerate(evidencias.get("fotos_equipamento", []) or [], start=1):
+        candidatos.append(
+            {
+                "caminho": caminho,
+                "origem": f"3. Evidências Fotográficas - Equipamento Agres, foto {indice}",
+            }
+        )
+
+    for indice, caminho in enumerate(evidencias.get("fotos_configuracao", []) or [], start=1):
+        candidatos.append(
+            {
+                "caminho": caminho,
+                "origem": f"3. Evidências Fotográficas - Configurações, foto {indice}",
+            }
+        )
 
     selecionadas = []
     vistos = set()
-    for caminho in candidatos:
+    for item in candidatos:
+        caminho = item.get("caminho")
         if not caminho:
             continue
         caminho = Path(caminho)
         chave = str(caminho.resolve()) if caminho.exists() else str(caminho)
         if chave in vistos or not caminho.exists() or caminho.suffix.lower().lstrip(".") not in EXTENSOES_IMAGEM:
             continue
-        selecionadas.append(caminho)
+        selecionadas.append({"caminho": caminho, "origem": item["origem"]})
         vistos.add(chave)
         if len(selecionadas) >= MAX_IMAGENS_EQUIPAMENTOS_IA:
             break
     return selecionadas
+
+
+def normalizar_imagens_equipamentos_ia(imagens: list | None) -> list[dict]:
+    imagens_validas = []
+    vistos = set()
+    for indice, item in enumerate(imagens or [], start=1):
+        if isinstance(item, dict):
+            caminho = item.get("caminho") or item.get("path") or item.get("arquivo")
+            origem = limpar_texto(item.get("origem", "")) or f"Imagem de equipamento Agres {indice}"
+        else:
+            caminho = item
+            origem = f"Imagem de equipamento Agres {indice}"
+        if not caminho:
+            continue
+        caminho = Path(caminho)
+        chave = str(caminho.resolve()) if caminho.exists() else str(caminho)
+        if chave in vistos or not caminho.exists() or caminho.suffix.lower().lstrip(".") not in EXTENSOES_IMAGEM:
+            continue
+        imagens_validas.append({"caminho": caminho, "origem": origem})
+        vistos.add(chave)
+        if len(imagens_validas) >= MAX_IMAGENS_EQUIPAMENTOS_IA:
+            break
+    return imagens_validas
 
 
 def contem_termo(texto: str, termos: tuple[str, ...]) -> bool:
@@ -1951,10 +2005,10 @@ REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 3. data_visita: preserve intervalo de datas quando o atendimento ocorrer em mais de um dia, por exemplo "19 a 21/01/2026".
 4. cliente_local: informar cliente, cidade/UF, revenda, fábrica e propriedade quando existirem.
 5. localizacao_maps: informar somente o link do Google Maps, Maps ou coordenadas da fazenda quando existirem; caso contrário, retornar "".
-6. equipamentos: organizar somente equipamentos, sistemas e componentes da Agres. Use também as fotos/telas recebidas para ler OCR visual de etiquetas, menus, telas de versão, plaquetas, número de série e QR Code quando legível. Não incluir máquina, trator ou implemento de outros fabricantes neste campo.
+6. equipamentos: organizar somente equipamentos, sistemas e componentes da Agres. As imagens dos campos "2. Cabeçalho do Relatório - Equipamento Agres/Informações do Equipamento" e "3. Evidências Fotográficas - Equipamento Agres" são fonte primária para este campo. Use OCR visual nas fotos/telas recebidas para ler etiquetas, menus, telas de versão, plaquetas, número de série e QR Code quando legível. Não incluir máquina, trator ou implemento de outros fabricantes neste campo.
    Padronizar o campo "equipamentos" em blocos, uma informação por linha, sem tópicos e sem texto corrido. Usar os rótulos abaixo quando a informação existir:
-   Tela instalada: <modelo da tela ou equipamento>
-   S/N: <número de série da tela/equipamento>
+   Tela instalada: <modelo da tela ou equipamento Agres>
+   S/N: <número de série da tela/equipamento Agres>
    Aplicação: <versão de aplicação/software da tela>
    Sistema: <versão de sistema da tela>
 
@@ -1973,6 +2027,9 @@ REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
    Ao registrar um modelo ISOVIEW no relatório, escrever somente o código do modelo, sem a descrição entre parênteses. Exemplo: "ISO33H", não "ISO33H (Piloto Hidráulico)".
    Modelos conhecidos de compensador: ANP21 e ANP40.
    Modelos conhecidos de ECU: isoBox Sprayer (Pulverização) e isoBox Spreader (Adubação).
+   Se existir mais de uma tela, ECU, compensador ou módulo Agres, repetir o bloco para cada equipamento identificado, sem sobrescrever informações.
+   Preservar números de série exatamente como aparecem na foto, incluindo zeros à esquerda, letras, hífens e maiúsculas/minúsculas relevantes.
+   Se a foto mostrar "Tela instalada", "Versão de Aplicação", "Versão de Sistema", "Número de série", "ECU", "SW", "HW", "ANP21" ou "ANP40", esses dados devem ir obrigatoriamente para o campo "equipamentos" quando legíveis.
    Se a foto estiver ilegível ou a informação não tiver sido citada, não inventar. Apenas omitir a linha específica ou retornar "Não informado" quando nenhum equipamento Agres for identificado.
 7. maquinas: organizar máquinas, tratores e implementos de outros fabricantes em linhas com fabricante, modelo, comando de válvulas e características relevantes. Exemplos como Baldan Avolla 2500 pertencem exclusivamente a este campo.
 8. objetivos: escrever somente o objetivo principal do atendimento, em uma ou duas frases.
@@ -2002,8 +2059,10 @@ PADRÃO DO RELATO:
 
 LEITURA DAS FOTOS:
 - Quando houver fotos de identificação do equipamento ou telas de configuração, analisar visualmente os textos legíveis para preencher "equipamentos", "configuracoes" e "calibracoes".
-- Priorizar no campo "equipamentos" os dados de identificação Agres: modelo, número de série, versão de software/aplicação/sistema, ECU, SW/HW, compensador, ANP21/ANP40 e versões.
+- As fotos de "2. Cabeçalho - Equipamento Agres/Informações do Equipamento" e "3. Evidência Fotográfica - Equipamento Agres" devem ser analisadas antes do áudio para identificação técnica.
+- Priorizar no campo "equipamentos" os dados de identificação Agres: modelo da tela/equipamento, número de série, versão de software/aplicação/sistema, ECU, SW/HW, compensador, ANP21/ANP40 e versões.
 - Se uma foto mostrar a tela de sistema com campos como "Versão de Aplicação", "Versão de Sistema", "Número de série", "SW" ou "HW", transcrever exatamente no campo correto.
+- Não classificar como equipamento Agres nomes de máquinas ou implementos de terceiros, como Baldan, Avolla, Jacto, Massey, John Deere, Case, New Holland, Stara ou similares; esses nomes pertencem ao campo "maquinas".
 
 Retorne apenas um JSON válido, sem markdown e sem comentários, com exatamente esta estrutura:
 {{
@@ -2043,6 +2102,10 @@ def extrair_json_resposta(texto: str) -> dict:
     try:
         return json.loads(texto_json)
     except json.JSONDecodeError as erro:
+        try:
+            return json.loads(texto_json, strict=False)
+        except json.JSONDecodeError:
+            pass
         trecho = texto_json[:500]
         raise ValueError(f"JSON inválido retornado pela IA: {erro}. Trecho recebido: {trecho}") from erro
 
@@ -2073,18 +2136,21 @@ def processar_atendimento_completo(
         for audio in arquivos_audio_temp:
             enviar_arquivo_para_ia(audio, "O áudio")
 
-        imagens_validas = [
-            Path(imagem)
-            for imagem in (imagens_equipamentos_agres or [])
-            if imagem and Path(imagem).exists()
-        ][:MAX_IMAGENS_EQUIPAMENTOS_IA]
+        imagens_validas = normalizar_imagens_equipamentos_ia(imagens_equipamentos_agres)
         if imagens_validas:
             materiais_para_ia.append(
-                "\nFOTOS DE IDENTIFICAÇÃO E CONFIGURAÇÃO DOS EQUIPAMENTOS AGRES:\n"
-                "Analise estas imagens com OCR/visão. Extraia modelo, número de série, versões de tela, ECU, SW, HW, compensador, ANP21/ANP40 e demais identificadores legíveis."
+                "\nIMAGENS PRIORITÁRIAS PARA IDENTIFICAÇÃO DOS EQUIPAMENTOS AGRES:\n"
+                "As próximas imagens vieram dos campos '2. Cabeçalho do Relatório - Equipamento Agres/Informações do Equipamento' "
+                "e '3. Evidências Fotográficas - Equipamento Agres/Configurações'. Use-as como fonte primária para OCR técnico.\n"
+                "Extraia somente informações legíveis de equipamentos Agres: modelo da tela/equipamento, número de série, aplicação/software da tela, sistema, ECU, SW, HW, compensador, ANP21/ANP40, versões e demais identificadores técnicos."
             )
-        for imagem in imagens_validas:
-            enviar_arquivo_para_ia(imagem, "A foto")
+        for indice, imagem in enumerate(imagens_validas, start=1):
+            materiais_para_ia.append(
+                f"\nIMAGEM PRIORITÁRIA {indice}/{len(imagens_validas)} - {imagem['origem']}:\n"
+                "Leia textos, menus, etiquetas, telas de versão, QR Code/identificação e plaquetas. "
+                "Se houver dados de tela, ECU ou compensador, preencher o campo 'equipamentos' com os rótulos padronizados."
+            )
+            enviar_arquivo_para_ia(imagem["caminho"], "A imagem prioritária de equipamento Agres")
 
         resposta = genai_client.models.generate_content(
             model=MODELO_GEMINI,
