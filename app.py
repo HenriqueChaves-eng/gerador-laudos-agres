@@ -61,6 +61,7 @@ DRAFT_RETENTION_DAYS = 7
 
 CAMPOS_RELATORIO = (
     "tipo_atendimento",
+    "tipos_atendimento",
     "suporte",
     "instalacao",
     "treinamento",
@@ -86,12 +87,20 @@ CAMPOS_RELATORIO = (
 )
 
 CAMPOS_SERVICO = ("suporte", "instalacao", "treinamento", "validacao_homologacao")
+ORDEM_TIPOS_ATENDIMENTO = ("suporte", "instalacao", "validacao_homologacao", "treinamento")
 
 TIPOS_ATENDIMENTO = {
     "suporte": "Suporte",
     "instalacao": "Instalação",
     "treinamento": "Treinamento",
     "validacao_homologacao": "Validação/Homologação",
+}
+
+TIPOS_ATENDIMENTO_ARQUIVO = {
+    "suporte": "SUPORTE",
+    "instalacao": "INSTALACAO",
+    "treinamento": "TREINAMENTO",
+    "validacao_homologacao": "VALIDACAO",
 }
 
 ROTULOS_CAMPOS = {
@@ -1618,15 +1627,64 @@ def normalizar_tipo_atendimento(valor, padrao: str = "") -> str:
     return padrao
 
 
-def escolher_tipo_atendimento_unico(dados: dict, marcadores: dict | None = None) -> str:
-    tipo = normalizar_tipo_atendimento(dados.get("tipo_atendimento"))
-    if tipo:
-        return tipo
+def normalizar_tipos_atendimento(valor, padrao=None, limite: int = 2) -> list[str]:
+    tipos: list[str] = []
+
+    def adicionar(tipo: str) -> None:
+        tipo_normalizado = normalizar_tipo_atendimento(tipo)
+        if tipo_normalizado and tipo_normalizado not in tipos:
+            tipos.append(tipo_normalizado)
+
+    if isinstance(valor, dict):
+        for chave in CAMPOS_SERVICO:
+            if valor.get(chave):
+                adicionar(chave)
+    elif isinstance(valor, (list, tuple, set)):
+        for item in valor:
+            adicionar(str(item))
+    else:
+        texto_original = limpar_texto(valor)
+        texto = normalizar_busca(texto_original)
+        if texto in TIPOS_ATENDIMENTO:
+            adicionar(texto)
+        else:
+            if "valid" in texto or "homolog" in texto:
+                adicionar("validacao_homologacao")
+            if "suporte" in texto or "assist" in texto or "diagnost" in texto:
+                adicionar("suporte")
+            if "instal" in texto:
+                adicionar("instalacao")
+            if "trein" in texto:
+                adicionar("treinamento")
+
+    if not tipos and padrao is not None:
+        tipos = normalizar_tipos_atendimento(padrao, None, limite)
+
+    if "validacao_homologacao" in tipos:
+        return ["validacao_homologacao"]
+
+    tipos = sorted(tipos, key=lambda tipo: ORDEM_TIPOS_ATENDIMENTO.index(tipo) if tipo in ORDEM_TIPOS_ATENDIMENTO else 99)
+    if "treinamento" in tipos:
+        primario = next((tipo for tipo in tipos if tipo in {"suporte", "instalacao"}), "")
+        return ([primario] if primario else []) + ["treinamento"]
+    if "suporte" in tipos and "instalacao" in tipos:
+        return [tipos[0]]
+    return tipos[:limite]
+
+
+def escolher_tipos_atendimento(dados: dict, marcadores: dict | None = None, limite: int = 2) -> list[str]:
+    tipos = normalizar_tipos_atendimento(dados.get("tipos_atendimento") or dados.get("tipo_atendimento"), limite=limite)
+    if tipos:
+        return tipos
 
     marcadores = marcadores or {}
-    marcados = [campo for campo in CAMPOS_SERVICO if marcadores.get(campo) == "X" or dados.get(campo) == "X"]
-    if len(marcados) == 1:
-        return marcados[0]
+    marcados = [
+        campo
+        for campo in CAMPOS_SERVICO
+        if marcadores.get(campo) == "X" or dados.get(campo) == "X"
+    ]
+    if marcados:
+        return marcados[:limite]
 
     texto = normalizar_busca(
         "\n".join(
@@ -1634,23 +1692,34 @@ def escolher_tipo_atendimento_unico(dados: dict, marcadores: dict | None = None)
             for campo in ("objetivos", "relato", "equipamentos", "maquinas", "configuracoes")
         )
     )
+    inferidos: list[str] = []
     if re.search(r"\b(validacao|validar|validado|homologacao|homologar|homologado)\b", texto):
-        return "validacao_homologacao"
-    if re.search(r"\b(instalacao|instalar|instalado|montagem|chicote|fixacao)\b", texto):
-        return "instalacao"
-    if re.search(r"\b(treinamento|treinar|orientacao operacional|capacitacao)\b", texto):
-        return "treinamento"
+        inferidos.append("validacao_homologacao")
     if re.search(r"\b(suporte|falha|diagnostico|correcao|ajuste|manutencao)\b", texto):
-        return "suporte"
-    return marcados[0] if marcados else "suporte"
+        inferidos.append("suporte")
+    if re.search(r"\b(instalacao|instalar|instalado|montagem|chicote|fixacao)\b", texto):
+        inferidos.append("instalacao")
+    if re.search(r"\b(treinamento|treinar|orientacao operacional|capacitacao)\b", texto):
+        inferidos.append("treinamento")
+
+    return inferidos[:limite] or ["suporte"]
+
+
+def escolher_tipo_atendimento_unico(dados: dict, marcadores: dict | None = None) -> str:
+    return escolher_tipos_atendimento(dados, marcadores, limite=1)[0]
+
+
+def aplicar_tipos_atendimento(dados: dict, tipos_preferidos=None) -> dict:
+    tipos = normalizar_tipos_atendimento(tipos_preferidos, limite=2) or escolher_tipos_atendimento(dados)
+    dados["tipos_atendimento"] = tipos
+    dados["tipo_atendimento"] = tipos[0] if tipos else "suporte"
+    for campo in CAMPOS_SERVICO:
+        dados[campo] = "X" if campo in tipos else ""
+    return dados
 
 
 def aplicar_tipo_atendimento_unico(dados: dict, tipo_preferido: str = "") -> dict:
-    tipo = normalizar_tipo_atendimento(tipo_preferido) or escolher_tipo_atendimento_unico(dados)
-    dados["tipo_atendimento"] = tipo
-    for campo in CAMPOS_SERVICO:
-        dados[campo] = "X" if campo == tipo else ""
-    return dados
+    return aplicar_tipos_atendimento(dados, tipo_preferido)
 
 
 def escrever_celula_servico(cell: _Cell, texto: str, tamanho: int = 14) -> None:
@@ -1665,10 +1734,11 @@ def escrever_celula_servico(cell: _Cell, texto: str, tamanho: int = 14) -> None:
 
 
 def aplicar_tipo_atendimento_word(caminho_docx: Path, dados: dict) -> None:
-    tipo = normalizar_tipo_atendimento(dados.get("tipo_atendimento"))
-    if tipo != "validacao_homologacao":
+    tipos = normalizar_tipos_atendimento(dados.get("tipos_atendimento") or dados.get("tipo_atendimento"), limite=2)
+    if "validacao_homologacao" not in tipos:
         return
 
+    outros_tipos = [tipo for tipo in tipos if tipo != "validacao_homologacao"]
     documento = Document(caminho_docx)
     for tabela in documento.tables:
         if not tabela.rows:
@@ -1680,15 +1750,26 @@ def aplicar_tipo_atendimento_word(caminho_docx: Path, dados: dict) -> None:
 
         celulas = primeira_linha.cells
         try:
-            celula_rotulo = celulas[0].merge(celulas[4])
-            celula_marcador = celulas[5]
-            escrever_celula_servico(celula_rotulo, "VALIDAÇÃO/HOMOLOGAÇÃO", tamanho=13)
-            escrever_celula_servico(celula_marcador, "X", tamanho=14)
+            if outros_tipos:
+                celula_validacao = celulas[0].merge(celulas[2])
+                escrever_celula_servico(celula_validacao, "VALIDAÇÃO/HOMOLOGAÇÃO", tamanho=11)
+                escrever_celula_servico(celulas[3], "X", tamanho=14)
+                escrever_celula_servico(celulas[4], TIPOS_ATENDIMENTO[outros_tipos[0]].upper(), tamanho=11)
+                escrever_celula_servico(celulas[5], "X", tamanho=14)
+            else:
+                celula_rotulo = celulas[0].merge(celulas[4])
+                celula_marcador = celulas[5]
+                escrever_celula_servico(celula_rotulo, "VALIDAÇÃO/HOMOLOGAÇÃO", tamanho=13)
+                escrever_celula_servico(celula_marcador, "X", tamanho=14)
         except Exception:
-            escrever_celula_servico(celulas[0], "VALIDAÇÃO/HOMOLOGAÇÃO", tamanho=11)
+            escrever_celula_servico(celulas[0], "VALIDAÇÃO/HOMOLOGAÇÃO", tamanho=10)
             escrever_celula_servico(celulas[1], "X", tamanho=14)
+            if outros_tipos and len(celulas) >= 4:
+                escrever_celula_servico(celulas[2], TIPOS_ATENDIMENTO[outros_tipos[0]].upper(), tamanho=10)
+                escrever_celula_servico(celulas[3], "X", tamanho=14)
             for celula in celulas[2:]:
-                escrever_celula_servico(celula, "", tamanho=13)
+                if not outros_tipos or celula not in celulas[2:4]:
+                    escrever_celula_servico(celula, "", tamanho=13)
         documento.save(caminho_docx)
         return
 
@@ -1789,7 +1870,12 @@ def normalizar_dados_relatorio(dados: dict) -> dict:
         marcadores_servico[campo] = marcador
         detalhes_para_relato.extend(f"{ROTULOS_CAMPOS[campo]}: {detalhe}" for detalhe in detalhes)
 
-    aplicar_tipo_atendimento_unico(dados_normalizados, dados_normalizados.get("tipo_atendimento") or escolher_tipo_atendimento_unico(dados_normalizados, marcadores_servico))
+    aplicar_tipos_atendimento(
+        dados_normalizados,
+        dados_normalizados.get("tipos_atendimento")
+        or dados_normalizados.get("tipo_atendimento")
+        or escolher_tipos_atendimento(dados_normalizados, marcadores_servico),
+    )
 
     configuracoes, itens_config_relato = filtrar_campo_curto(
         dados_normalizados["configuracoes"],
@@ -1859,8 +1945,8 @@ Use português técnico, claro e objetivo, porém completo e minucioso. Reescrev
 Não resuma o atendimento. Preserve o máximo possível de informações técnicas citadas nos áudios/anotações, incluindo nomes, datas, local, cliente, máquina, implemento, equipamento, versões, números de série, sintomas, hipóteses, testes, tentativas, parâmetros, valores, componentes, decisões, dificuldades, pendências e conclusão.
 {bloco_contexto}
 REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
-1. tipo_atendimento: retornar apenas uma opção entre "suporte", "instalacao", "treinamento" ou "validacao_homologacao". Nunca marcar mais de um tipo no relatório.
-2. suporte, instalacao, treinamento e validacao_homologacao: retornar "X" somente no tipo principal do atendimento e retornar "" nos demais campos.
+1. tipo_atendimento: retornar a opção principal entre "suporte", "instalacao", "treinamento" ou "validacao_homologacao".
+2. suporte, instalacao, treinamento e validacao_homologacao: retornar "X" no tipo principal identificado e retornar "" nos demais campos. Quando o pacote offline trouxer dois tipos selecionados pelo técnico, o sistema aplicará essa seleção após o processamento da IA.
    Use "validacao_homologacao" quando o atendimento tiver objetivo de validar, homologar, aprovar funcionamento, acompanhar testes de aceitação ou confirmar desempenho de equipamento/sistema.
 3. data_visita: preserve intervalo de datas quando o atendimento ocorrer em mais de um dia, por exemplo "19 a 21/01/2026".
 4. cliente_local: informar cliente, cidade/UF, revenda, fábrica e propriedade quando existirem.
@@ -2276,8 +2362,13 @@ def extrair_cidade_uf(cliente_local: str) -> tuple[str, str]:
 
 
 def tipo_atendimento_para_nome(dados: dict) -> str:
-    tipo = normalizar_tipo_atendimento(dados.get("tipo_atendimento")) or escolher_tipo_atendimento_unico(dados)
-    return TIPOS_ATENDIMENTO.get(tipo, "Atendimento").upper()
+    tipos = normalizar_tipos_atendimento(dados.get("tipos_atendimento") or dados.get("tipo_atendimento")) or escolher_tipos_atendimento(dados)
+    return "_".join(TIPOS_ATENDIMENTO_ARQUIVO.get(tipo, "ATENDIMENTO") for tipo in tipos)
+
+
+def tipos_atendimento_para_texto(valor) -> str:
+    tipos = normalizar_tipos_atendimento(valor, ["suporte"])
+    return " + ".join(TIPOS_ATENDIMENTO.get(tipo, tipo) for tipo in tipos)
 
 
 def equipamento_para_nome(dados: dict) -> str:
@@ -3278,6 +3369,7 @@ def salvar_upload(
 def novo_manifesto_rascunho() -> dict:
     return {
         "tipo_atendimento": "suporte",
+        "tipos_atendimento": ["suporte"],
         "tecnico_agres_responsavel": "",
         "data_atendimento_inicio": "",
         "data_atendimento_final": "",
@@ -3632,7 +3724,12 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
             raise ValueError(f"Pacote offline corrompido: as fotos de '{categoria}' possuem formato inválido.")
 
     manifesto = novo_manifesto_rascunho()
-    manifesto["tipo_atendimento"] = normalizar_tipo_atendimento(pacote.get("tipo_atendimento"), manifesto.get("tipo_atendimento", "suporte"))
+    tipos_pacote = normalizar_tipos_atendimento(
+        pacote.get("tipos_atendimento") or pacote.get("tipo_atendimento"),
+        manifesto.get("tipos_atendimento", ["suporte"]),
+    )
+    manifesto["tipos_atendimento"] = tipos_pacote
+    manifesto["tipo_atendimento"] = tipos_pacote[0] if tipos_pacote else "suporte"
     manifesto["tecnico_agres_responsavel"] = normalizar_tecnico_agres_responsavel(
         pacote.get("tecnico_agres_responsavel", manifesto.get("tecnico_agres_responsavel", ""))
     )
@@ -3900,7 +3997,12 @@ def importar_pacote_offline(uploaded_file, draft_dir: Path, manifesto: dict) -> 
 
 
 def aplicar_manifesto_na_sessao(manifesto: dict) -> None:
-    st.session_state.tipo_atendimento = normalizar_tipo_atendimento(manifesto.get("tipo_atendimento"), "suporte")
+    tipos = normalizar_tipos_atendimento(
+        manifesto.get("tipos_atendimento") or manifesto.get("tipo_atendimento"),
+        ["suporte"],
+    )
+    st.session_state.tipos_atendimento = tipos
+    st.session_state.tipo_atendimento = tipos[0] if tipos else "suporte"
     st.session_state.localizacao_maps = manifesto.get("localizacao_maps", "")
     st.session_state.observacoes_texto = manifesto.get("observacoes", "")
     for categoria in CATEGORIAS_EVIDENCIAS:
@@ -3973,13 +4075,16 @@ def renderizar_coleta_streamlit() -> None:
 
     with st.container(border=True):
         st.markdown("### 1. Relato técnico")
-        coleta_tipo_atendimento = st.radio(
+        coleta_tipos_atendimento = st.multiselect(
             "Tipo de Atendimento",
             options=list(TIPOS_ATENDIMENTO),
+            default=normalizar_tipos_atendimento(st.session_state.get("tipos_atendimento"), ["suporte"]),
             format_func=lambda chave: TIPOS_ATENDIMENTO[chave],
-            horizontal=True,
-            key="coleta_tipo_atendimento",
+            key="coleta_tipos_atendimento",
+            max_selections=2,
         )
+        coleta_tipos_atendimento = normalizar_tipos_atendimento(coleta_tipos_atendimento, ["suporte"])
+        coleta_tipo_atendimento = coleta_tipos_atendimento[0]
         coleta_localizacao_maps = st.text_input(
             "Link de Localização do Atendimento",
             key="coleta_localizacao_maps",
@@ -4082,6 +4187,7 @@ def renderizar_coleta_streamlit() -> None:
     pacote = {
         "version": 1,
         "tipo_atendimento": coleta_tipo_atendimento,
+        "tipos_atendimento": coleta_tipos_atendimento,
         "localizacao_maps": coleta_localizacao_maps or "",
         "observacoes": coleta_observacoes or "",
         "audios": audios,
@@ -4182,7 +4288,7 @@ def salvar_assinatura_canvas(canvas_result, draft_dir: Path, chave: str) -> dict
 def atualizar_rascunho_atual(
     draft_dir: Path,
     manifesto: dict,
-    tipo_atendimento: str,
+    tipo_atendimento,
     localizacao_maps: str,
     audios,
     cabecalho: dict,
@@ -4198,7 +4304,9 @@ def atualizar_rascunho_atual(
     assinaturas_canvas: dict | None = None,
     assinaturas_upload: dict | None = None,
 ) -> dict:
-    manifesto["tipo_atendimento"] = normalizar_tipo_atendimento(tipo_atendimento, "suporte")
+    tipos = normalizar_tipos_atendimento(tipo_atendimento, ["suporte"])
+    manifesto["tipos_atendimento"] = tipos
+    manifesto["tipo_atendimento"] = tipos[0] if tipos else "suporte"
     manifesto["localizacao_maps"] = limpar_texto(localizacao_maps)
 
     if audios:
@@ -4353,8 +4461,17 @@ def itens_checklist_pacote(manifesto: dict) -> list[dict]:
     texto_tecnico = limpar_texto(manifesto.get("observacoes", ""))
     localizacao = limpar_texto(manifesto.get("localizacao_maps", ""))
     tecnico_agres = normalizar_tecnico_agres_responsavel(manifesto.get("tecnico_agres_responsavel", ""))
+    tipos_atendimento = normalizar_tipos_atendimento(
+        manifesto.get("tipos_atendimento") or manifesto.get("tipo_atendimento"),
+        ["suporte"],
+    )
 
     itens = [
+        {
+            "ok": bool(tipos_atendimento),
+            "titulo": "Tipo de Atendimento",
+            "detalhe": tipos_atendimento_para_texto(tipos_atendimento),
+        },
         {
             "ok": bool(tecnico_agres),
             "titulo": "Técnico Responsável Agres",
@@ -4471,9 +4588,12 @@ def contexto_manifesto_para_geracao(manifesto: dict) -> str:
     if observacoes:
         linhas.append(observacoes)
 
-    tipo = normalizar_tipo_atendimento(manifesto.get("tipo_atendimento"), "")
-    if tipo:
-        linhas.append(f"Tipo de Atendimento selecionado: {TIPOS_ATENDIMENTO.get(tipo, tipo)}.")
+    tipos = normalizar_tipos_atendimento(
+        manifesto.get("tipos_atendimento") or manifesto.get("tipo_atendimento"),
+        [],
+    )
+    if tipos:
+        linhas.append(f"Tipo de Atendimento selecionado: {tipos_atendimento_para_texto(tipos)}.")
     tecnico_agres = normalizar_tecnico_agres_responsavel(manifesto.get("tecnico_agres_responsavel", ""))
     if tecnico_agres:
         linhas.append(f"Técnico Responsável Agres: {tecnico_agres}.")
@@ -4526,6 +4646,7 @@ def limpar_rascunho_atual() -> None:
     st.query_params["draft"] = st.session_state.draft_id
     for chave in (
         "tipo_atendimento",
+        "tipos_atendimento",
         "localizacao_maps",
         "observacoes_texto",
         "fotos_atendimento_zip",
@@ -4750,7 +4871,12 @@ manifesto_rascunho = carregar_manifesto(draft_dir)
 if "observacoes_texto" not in st.session_state:
     st.session_state.observacoes_texto = manifesto_rascunho.get("observacoes", "")
 if "tipo_atendimento" not in st.session_state:
-    st.session_state.tipo_atendimento = normalizar_tipo_atendimento(manifesto_rascunho.get("tipo_atendimento"), "suporte")
+    tipos_manifesto = normalizar_tipos_atendimento(
+        manifesto_rascunho.get("tipos_atendimento") or manifesto_rascunho.get("tipo_atendimento"),
+        ["suporte"],
+    )
+    st.session_state.tipos_atendimento = tipos_manifesto
+    st.session_state.tipo_atendimento = tipos_manifesto[0] if tipos_manifesto else "suporte"
 if "localizacao_maps" not in st.session_state:
     st.session_state.localizacao_maps = manifesto_rascunho.get("localizacao_maps", "")
 
@@ -4886,15 +5012,15 @@ with st.container(border=True):
 
     renderizar_checklist_pacote(manifesto_rascunho)
 
-    tipo_atendimento_salvo = normalizar_tipo_atendimento(
-        manifesto_rascunho.get("tipo_atendimento"),
-        "suporte",
+    tipos_atendimento_salvos = normalizar_tipos_atendimento(
+        manifesto_rascunho.get("tipos_atendimento") or manifesto_rascunho.get("tipo_atendimento"),
+        ["suporte"],
     )
     localizacao_maps_salva = manifesto_rascunho.get("localizacao_maps", "")
     tecnico_agres_salvo = normalizar_tecnico_agres_responsavel(
         manifesto_rascunho.get("tecnico_agres_responsavel", "")
     )
-    st.caption(f"Tipo de Atendimento: {TIPOS_ATENDIMENTO.get(tipo_atendimento_salvo, 'Suporte')}")
+    st.caption(f"Tipo de Atendimento: {tipos_atendimento_para_texto(tipos_atendimento_salvos)}")
     if tecnico_agres_salvo:
         st.caption(f"Técnico Responsável Agres: {tecnico_agres_salvo}")
     periodo_salvo = formatar_periodo_atendimento(
@@ -4955,9 +5081,9 @@ documentos_salvos = {
     chave: manifesto_rascunho.get("documentos", {}).get(chave, "")
     for chave in ASSINATURAS_RESPONSAVEIS
 }
-tipo_atendimento_salvo = normalizar_tipo_atendimento(
-    manifesto_rascunho.get("tipo_atendimento"),
-    "suporte",
+tipos_atendimento_salvos = normalizar_tipos_atendimento(
+    manifesto_rascunho.get("tipos_atendimento") or manifesto_rascunho.get("tipo_atendimento"),
+    ["suporte"],
 )
 localizacao_maps_salva = manifesto_rascunho.get("localizacao_maps", "")
 tecnico_agres_salvo = normalizar_tecnico_agres_responsavel(
@@ -5031,7 +5157,7 @@ with st.container(border=True):
                     if tecnico_agres_salvo:
                         dados["tecnico_agres_responsavel"] = tecnico_agres_salvo
                         dados["tecnicos"] = tecnico_agres_salvo
-                    aplicar_tipo_atendimento_unico(dados, tipo_atendimento_salvo)
+                    aplicar_tipos_atendimento(dados, tipos_atendimento_salvos)
                     for chave, configuracao in ASSINATURAS_RESPONSAVEIS.items():
                         responsavel = limpar_texto(responsaveis_salvos.get(chave, ""))
                         if responsavel:

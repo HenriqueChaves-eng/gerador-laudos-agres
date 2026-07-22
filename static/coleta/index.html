@@ -932,10 +932,10 @@
       <div class="field">
         <label>Tipo de Atendimento</label>
         <div class="radio-grid">
-          <label><input type="radio" name="tipo_atendimento" value="suporte"> Suporte</label>
-          <label><input type="radio" name="tipo_atendimento" value="instalacao"> Instalação</label>
-          <label><input type="radio" name="tipo_atendimento" value="treinamento"> Treinamento</label>
-          <label><input type="radio" name="tipo_atendimento" value="validacao_homologacao"> Validação/Homologação</label>
+          <label><input type="checkbox" name="tipo_atendimento" value="suporte"> Suporte</label>
+          <label><input type="checkbox" name="tipo_atendimento" value="instalacao"> Instalação</label>
+          <label><input type="checkbox" name="tipo_atendimento" value="treinamento"> Treinamento</label>
+          <label><input type="checkbox" name="tipo_atendimento" value="validacao_homologacao"> Validação/Homologação</label>
         </div>
       </div>
       <div class="field">
@@ -1285,12 +1285,12 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.06.18.31";
+    const APP_VERSION = "2026.07.21.01";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v61"
+      ? "agres-offline-v62"
       : location.pathname.includes("/static/coleta/")
-        ? "agres-coleta-v54"
-        : "agres-pages-offline-v57";
+        ? "agres-coleta-v55"
+        : "agres-pages-offline-v58";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
@@ -1311,6 +1311,8 @@
       treinamento: "TREINAMENTO",
       validacao_homologacao: "VALIDACAO"
     };
+    const ATTENDANCE_TYPE_ORDER = ["suporte", "instalacao", "validacao_homologacao", "treinamento"];
+    const ATTENDANCE_TYPE_LIMIT = 2;
     const TECHNICIAN_NAME_ALIASES = {
       "Cristian Lima Araujo": "Cristian Lima",
       "Ronaldo Hiromi Kishida Junior": "Ronaldo Kishida"
@@ -1359,6 +1361,7 @@
         app_version: APP_VERSION,
         updated_at: new Date().toISOString(),
         tipo_atendimento: "suporte",
+        tipos_atendimento: ["suporte"],
         tecnico_agres_responsavel: "",
         data_atendimento_inicio: "",
         data_atendimento_final: "",
@@ -1391,6 +1394,58 @@
     function normalizeTechnicianName(name) {
       const value = String(name || "").trim();
       return TECHNICIAN_NAME_ALIASES[value] || value;
+    }
+
+    function normalizeAttendanceTypes(value) {
+      const selected = [];
+      const addType = (type) => {
+        const key = String(type || "").trim();
+        if (ATTENDANCE_TYPE_FILE_LABELS[key] && !selected.includes(key)) {
+          selected.push(key);
+        }
+      };
+
+      if (Array.isArray(value)) {
+        value.forEach(addType);
+      } else {
+        const text = String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        if (ATTENDANCE_TYPE_FILE_LABELS[text]) {
+          addType(text);
+        } else {
+          if (text.includes("valid") || text.includes("homolog")) addType("validacao_homologacao");
+          if (text.includes("suporte") || text.includes("assist") || text.includes("diagnost")) addType("suporte");
+          if (text.includes("instal")) addType("instalacao");
+          if (text.includes("trein")) addType("treinamento");
+        }
+      }
+
+      if (selected.includes("validacao_homologacao")) {
+        return ["validacao_homologacao"];
+      }
+      selected.sort((left, right) => ATTENDANCE_TYPE_ORDER.indexOf(left) - ATTENDANCE_TYPE_ORDER.indexOf(right));
+      if (selected.includes("treinamento")) {
+        const primary = selected.find((type) => type === "suporte" || type === "instalacao");
+        return (primary ? [primary] : []).concat(["treinamento"]);
+      }
+      if (selected.includes("suporte") && selected.includes("instalacao")) {
+        return [selected[0]];
+      }
+      return selected.slice(0, ATTENDANCE_TYPE_LIMIT);
+    }
+
+    function selectedAttendanceTypesFromInputs() {
+      return Array.from(document.querySelectorAll('input[name="tipo_atendimento"]:checked'))
+        .map((input) => input.value)
+        .filter((value, index, values) => values.indexOf(value) === index);
+    }
+
+    function setDraftAttendanceTypes(value) {
+      const selected = normalizeAttendanceTypes(value);
+      draft.tipos_atendimento = selected.length ? selected : ["suporte"];
+      draft.tipo_atendimento = draft.tipos_atendimento[0];
+      document.querySelectorAll('input[name="tipo_atendimento"]').forEach((input) => {
+        input.checked = draft.tipos_atendimento.includes(input.value);
+      });
     }
 
     function clampSignatureCount(value) {
@@ -2573,9 +2628,7 @@
     }
 
     function hydrateFields() {
-      const tipo = draft.tipo_atendimento || "suporte";
-      const tipoInput = document.querySelector(`input[name="tipo_atendimento"][value="${tipo}"]`);
-      if (tipoInput) tipoInput.checked = true;
+      setDraftAttendanceTypes(draft.tipos_atendimento || draft.tipo_atendimento || "suporte");
       draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
       document.getElementById("tecnico_agres_responsavel").value = draft.tecnico_agres_responsavel || "";
       document.getElementById("data_atendimento_inicio").value = dateInputValue(draft.data_atendimento_inicio || "");
@@ -2593,10 +2646,35 @@
     function wireFields() {
       document.querySelectorAll('input[name="tipo_atendimento"]').forEach((input) => {
         input.addEventListener("change", (event) => {
-          if (event.target.checked) {
-            draft.tipo_atendimento = event.target.value;
-            scheduleSave();
+          let selected = selectedAttendanceTypesFromInputs();
+          if (event.target.checked && event.target.value === "validacao_homologacao") {
+            document.querySelectorAll('input[name="tipo_atendimento"]').forEach((otherInput) => {
+              if (otherInput.value !== "validacao_homologacao") otherInput.checked = false;
+            });
+            selected = ["validacao_homologacao"];
+          } else if (event.target.checked && selected.includes("validacao_homologacao")) {
+            event.target.checked = false;
+            selected = ["validacao_homologacao"];
+            alert("Validação/Homologação é um tipo exclusivo e não pode ser combinado com outro atendimento.");
           }
+          if (event.target.checked && selected.includes("suporte") && selected.includes("instalacao")) {
+            event.target.checked = false;
+            selected = selectedAttendanceTypesFromInputs();
+            alert("Suporte e Instalação não devem ser combinados. Use um deles com Treinamento quando aplicável.");
+          }
+          if (event.target.checked && selected.length > ATTENDANCE_TYPE_LIMIT) {
+            event.target.checked = false;
+            selected = selectedAttendanceTypesFromInputs();
+            alert("Selecione no máximo 2 tipos de atendimento.");
+          }
+          if (!selected.length) {
+            event.target.checked = true;
+            selected = selectedAttendanceTypesFromInputs();
+            alert("Mantenha pelo menos 1 tipo de atendimento selecionado.");
+          }
+          setDraftAttendanceTypes(selected);
+          scheduleSave();
+          renderOfflineChecklist();
         });
       });
       document.getElementById("tecnico_agres_responsavel").addEventListener("change", (event) => {
@@ -2909,7 +2987,8 @@
     }
 
     function attendanceTypeForFileName() {
-      return ATTENDANCE_TYPE_FILE_LABELS[draft.tipo_atendimento] || "ATENDIMENTO";
+      const selected = normalizeAttendanceTypes(draft.tipos_atendimento || draft.tipo_atendimento);
+      return selected.map((type) => ATTENDANCE_TYPE_FILE_LABELS[type]).filter(Boolean).join("_") || "ATENDIMENTO";
     }
 
     function technicianForFileName() {
@@ -2926,6 +3005,7 @@
 
     function packageTextSync() {
       normalizeSignatures();
+      setDraftAttendanceTypes(draft.tipos_atendimento || draft.tipo_atendimento || "suporte");
       draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
       const pacote = {
         ...draft,
@@ -3360,8 +3440,13 @@
         await navigator.storage.persist();
       }
       db = await openDb();
-      draft = { ...defaultDraft(), ...(await getDraft()) };
-      draft.tipo_atendimento = draft.tipo_atendimento || "suporte";
+      const savedDraft = await getDraft();
+      draft = { ...defaultDraft(), ...(savedDraft || {}) };
+      setDraftAttendanceTypes(
+        Array.isArray(savedDraft?.tipos_atendimento) && savedDraft.tipos_atendimento.length
+          ? savedDraft.tipos_atendimento
+          : draft.tipo_atendimento || "suporte"
+      );
       draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
       draft.localizacao_maps = draft.localizacao_maps || "";
       draft.observacoes = String(draft.observacoes || "");

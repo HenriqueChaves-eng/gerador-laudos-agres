@@ -18,7 +18,7 @@ Use este pacote para gerar o APK pelo GitHub Actions. Extraia e envie as pastas 
 
 Versão esperada:
 
-`Agres Offline 1.0.17`
+`Agres Offline 1.0.18`
 
 ## iPhone e iPad
 
@@ -32,6 +32,6 @@ O iPhone/iPad utiliza uma PWA, não um APK. Extraia e publique a pasta `docs` pe
 
 Arquivo:
 
-`MANUAL_UTILIZACAO_RELATORIOS_TECNICOS_AGRES_ABNT_1.0.17.docx`
+`MANUAL_UTILIZACAO_RELATORIOS_TECNICOS_AGRES_ABNT_1.0.18.docx`
 
 Manual separado por plataforma, com capítulos próprios para APK Android e iPhone/iPad.

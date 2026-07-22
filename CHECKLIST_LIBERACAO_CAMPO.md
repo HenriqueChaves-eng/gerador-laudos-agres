@@ -31,4 +31,4 @@
 - Exportar o Pacote Relatorio Offline assim que possivel.
 - Preservar o pacote original.
 - Registrar o modelo do aparelho, versao do sistema e a mensagem exibida.
-- Consultar o manual `MANUAL_UTILIZACAO_RELATORIOS_TECNICOS_AGRES_ABNT_1.0.17.docx`.
+- Consultar o manual `MANUAL_UTILIZACAO_RELATORIOS_TECNICOS_AGRES_ABNT_1.0.18.docx`.

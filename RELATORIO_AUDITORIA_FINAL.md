@@ -1,9 +1,9 @@
 # Auditoria Final de Campo - Agres
 
-Data: 18/06/2026
+Data: 21/07/2026
 
-Versao offline: 2026.06.18.26  
-Versao APK Android: 1.0.17 (versionCode 18)
+Versao offline: 2026.07.21.01  
+Versao APK Android: 1.0.18 (versionCode 19)
 
 ## Escopo Revalidado
 
@@ -16,6 +16,8 @@ Versao APK Android: 1.0.17 (versionCode 18)
 - Importacao online de pacote JSON ou ZIP.
 - Geracao do Word e do ZIP final com pasta unica de fotos.
 - Atualizacao de cache offline para evitar versoes antigas no iPad/iPhone.
+- Selecao de ate dois tipos de atendimento no pacote offline e no gerador online.
+- Validação/Homologação tratada como tipo exclusivo, sem combinacao com Treinamento.
 
 ## Correcoes Desta Revisao
 
@@ -26,14 +28,19 @@ Versao APK Android: 1.0.17 (versionCode 18)
 - Textos do online foram ajustados de "JSON" para "pacote JSON ou ZIP" onde o tecnico interage com a tela.
 - Removido texto/titulo do Web Share API no iPhone/iPad; o compartilhamento agora envia apenas `{ files: [...] }`.
 - Cache da PWA atualizado:
-  - GitHub Pages: `agres-pages-offline-v52`
-  - Streamlit static offline: `agres-offline-v56`
-  - Streamlit static coleta: `agres-coleta-v49`
-- APK Android atualizado para `1.0.17`.
+  - GitHub Pages: `agres-pages-offline-v58`
+  - Streamlit static offline: `agres-offline-v62`
+  - Streamlit static coleta: `agres-coleta-v55`
+- APK Android atualizado para `1.0.18`.
+- Tipo de atendimento alterado de opcao unica para selecao de ate duas opcoes, mantendo compatibilidade com pacotes antigos.
+- Regra aplicada: `Suporte + Treinamento` e `Instalacao + Treinamento` sao combinacoes permitidas; `Validacao/Homologacao` fica isolada.
 - Guia do iPad atualizado para explicar que o pacote pode sair como ZIP.
 
 ## Testes Executados Nesta Revalidacao
 
+- Bateria automatizada ampliada de 50 testes executada em 21/07/2026.
+- Resultado da bateria de 50 testes: 50 aprovados, 0 falhas.
+- Escopo da bateria ampliada: sintaxe Python, sintaxe JavaScript, service workers, PWA iPhone/iPad, pacote APK Android, permissões nativas, persistência offline, mídia, áudio, localização, assinatura, modelo Word, importação JSON/ZIP, geração online, ZIP final, ausência de `secrets.toml`, versões e referências antigas.
 - PWA aberta por servidor local limpo em `http://127.0.0.1:8766/index.html`.
 - Validado carregamento sem erros de console da PWA atual.
 - Validada presenca do botao `Exportar Pacote Relatorio Offline`.
@@ -58,7 +65,7 @@ Versao APK Android: 1.0.17 (versionCode 18)
 - `arquivos_finais_github.zip`: projeto completo para GitHub/Streamlit.
 - `agres_offline_android_project.zip`: projeto Android para gerar APK pelo GitHub Actions.
 - `agres_offline_iphone_ipad_pwa.zip`: PWA iPhone/iPad para publicar pelo GitHub Pages.
-- `MANUAL_UTILIZACAO_RELATORIOS_TECNICOS_AGRES_ABNT_1.0.17.docx`: manual de uso.
+- `MANUAL_UTILIZACAO_RELATORIOS_TECNICOS_AGRES_ABNT_1.0.18.docx`: manual de uso.
 
 ## Observacoes Importantes
 
