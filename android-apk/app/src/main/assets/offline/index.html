@@ -1285,12 +1285,12 @@
     const DB_NAME = "agres-offline";
     const STORE = "drafts";
     const DRAFT_KEY = "current";
-    const APP_VERSION = "2026.07.21.01";
+    const APP_VERSION = "2026.07.21.02";
     const APP_SHELL_CACHE = location.pathname.includes("/static/offline/")
-      ? "agres-offline-v62"
+      ? "agres-offline-v63"
       : location.pathname.includes("/static/coleta/")
-        ? "agres-coleta-v55"
-        : "agres-pages-offline-v58";
+        ? "agres-coleta-v56"
+        : "agres-pages-offline-v59";
     const HEADERS = ["info_equip", "maquina", "implemento"];
     const CATEGORIES = ["fotos_equipamento", "fotos_instalacao", "fotos_configuracao", "fotos_outros"];
     const ATTENDANCE_PHOTOS = "fotos_atendimento";
@@ -1310,6 +1310,12 @@
       instalacao: "INSTALACAO",
       treinamento: "TREINAMENTO",
       validacao_homologacao: "VALIDACAO"
+    };
+    const ATTENDANCE_TYPE_LABELS = {
+      suporte: "Suporte",
+      instalacao: "Instalação",
+      treinamento: "Treinamento",
+      validacao_homologacao: "Validação/Homologação"
     };
     const ATTENDANCE_TYPE_ORDER = ["suporte", "instalacao", "validacao_homologacao", "treinamento"];
     const ATTENDANCE_TYPE_LIMIT = 2;
@@ -1360,8 +1366,8 @@
         version: 1,
         app_version: APP_VERSION,
         updated_at: new Date().toISOString(),
-        tipo_atendimento: "suporte",
-        tipos_atendimento: ["suporte"],
+        tipo_atendimento: "",
+        tipos_atendimento: [],
         tecnico_agres_responsavel: "",
         data_atendimento_inicio: "",
         data_atendimento_final: "",
@@ -1441,8 +1447,8 @@
 
     function setDraftAttendanceTypes(value) {
       const selected = normalizeAttendanceTypes(value);
-      draft.tipos_atendimento = selected.length ? selected : ["suporte"];
-      draft.tipo_atendimento = draft.tipos_atendimento[0];
+      draft.tipos_atendimento = selected;
+      draft.tipo_atendimento = selected[0] || "";
       document.querySelectorAll('input[name="tipo_atendimento"]').forEach((input) => {
         input.checked = draft.tipos_atendimento.includes(input.value);
       });
@@ -2481,8 +2487,17 @@
       const technicianReady = Boolean(String(draft.tecnico_agres_responsavel || "").trim());
       const finalDate = dateInputValue(draft.data_atendimento_final || "");
       const datesOk = attendanceDateRangeIsValid();
+      const attendanceTypes = normalizeAttendanceTypes(draft.tipos_atendimento || draft.tipo_atendimento);
+      const attendanceReady = attendanceTypes.length > 0;
 
       const items = [
+        {
+          ok: attendanceReady,
+          title: "Tipo de Atendimento",
+          detail: attendanceReady
+            ? attendanceTypes.map((type) => ATTENDANCE_TYPE_LABELS[type] || type).join(" + ")
+            : "Selecione o tipo antes de exportar."
+        },
         {
           ok: technicianReady,
           title: "Técnico Responsável Agres",
@@ -2628,7 +2643,7 @@
     }
 
     function hydrateFields() {
-      setDraftAttendanceTypes(draft.tipos_atendimento || draft.tipo_atendimento || "suporte");
+      setDraftAttendanceTypes(draft.tipos_atendimento || draft.tipo_atendimento || []);
       draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
       document.getElementById("tecnico_agres_responsavel").value = draft.tecnico_agres_responsavel || "";
       document.getElementById("data_atendimento_inicio").value = dateInputValue(draft.data_atendimento_inicio || "");
@@ -2653,9 +2668,8 @@
             });
             selected = ["validacao_homologacao"];
           } else if (event.target.checked && selected.includes("validacao_homologacao")) {
-            event.target.checked = false;
-            selected = ["validacao_homologacao"];
-            alert("Validação/Homologação é um tipo exclusivo e não pode ser combinado com outro atendimento.");
+            document.querySelector('input[name="tipo_atendimento"][value="validacao_homologacao"]').checked = false;
+            selected = selectedAttendanceTypesFromInputs();
           }
           if (event.target.checked && selected.includes("suporte") && selected.includes("instalacao")) {
             event.target.checked = false;
@@ -2666,11 +2680,6 @@
             event.target.checked = false;
             selected = selectedAttendanceTypesFromInputs();
             alert("Selecione no máximo 2 tipos de atendimento.");
-          }
-          if (!selected.length) {
-            event.target.checked = true;
-            selected = selectedAttendanceTypesFromInputs();
-            alert("Mantenha pelo menos 1 tipo de atendimento selecionado.");
           }
           setDraftAttendanceTypes(selected);
           scheduleSave();
@@ -3005,7 +3014,7 @@
 
     function packageTextSync() {
       normalizeSignatures();
-      setDraftAttendanceTypes(draft.tipos_atendimento || draft.tipo_atendimento || "suporte");
+      setDraftAttendanceTypes(draft.tipos_atendimento || draft.tipo_atendimento || []);
       draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
       const pacote = {
         ...draft,
@@ -3336,6 +3345,10 @@
     async function exportDraft() {
       try {
         normalizeSignatures();
+        setDraftAttendanceTypes(draft.tipos_atendimento || draft.tipo_atendimento || []);
+        if (!draft.tipos_atendimento.length) {
+          throw new Error("selecione o Tipo de Atendimento antes de exportar.");
+        }
         draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
         if (!draft.tecnico_agres_responsavel) {
           throw new Error("selecione o Técnico Responsável Agres antes de exportar.");
@@ -3445,7 +3458,7 @@
       setDraftAttendanceTypes(
         Array.isArray(savedDraft?.tipos_atendimento) && savedDraft.tipos_atendimento.length
           ? savedDraft.tipos_atendimento
-          : draft.tipo_atendimento || "suporte"
+          : draft.tipo_atendimento || []
       );
       draft.tecnico_agres_responsavel = normalizeTechnicianName(draft.tecnico_agres_responsavel);
       draft.localizacao_maps = draft.localizacao_maps || "";

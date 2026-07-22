@@ -2,7 +2,7 @@
 
 Data: 21/07/2026
 
-Versao offline: 2026.07.21.01  
+Versao offline: 2026.07.21.02  
 Versao APK Android: 1.0.18 (versionCode 19)
 
 ## Escopo Revalidado
@@ -18,6 +18,7 @@ Versao APK Android: 1.0.18 (versionCode 19)
 - Atualizacao de cache offline para evitar versoes antigas no iPad/iPhone.
 - Selecao de ate dois tipos de atendimento no pacote offline e no gerador online.
 - Validação/Homologação tratada como tipo exclusivo, sem combinacao com Treinamento.
+- Novas coletas abrem sem tipo de atendimento pre-selecionado.
 
 ## Correcoes Desta Revisao
 
@@ -28,12 +29,13 @@ Versao APK Android: 1.0.18 (versionCode 19)
 - Textos do online foram ajustados de "JSON" para "pacote JSON ou ZIP" onde o tecnico interage com a tela.
 - Removido texto/titulo do Web Share API no iPhone/iPad; o compartilhamento agora envia apenas `{ files: [...] }`.
 - Cache da PWA atualizado:
-  - GitHub Pages: `agres-pages-offline-v58`
-  - Streamlit static offline: `agres-offline-v62`
-  - Streamlit static coleta: `agres-coleta-v55`
+  - GitHub Pages: `agres-pages-offline-v59`
+  - Streamlit static offline: `agres-offline-v63`
+  - Streamlit static coleta: `agres-coleta-v56`
 - APK Android atualizado para `1.0.18`.
 - Tipo de atendimento alterado de opcao unica para selecao de ate duas opcoes, mantendo compatibilidade com pacotes antigos.
 - Regra aplicada: `Suporte + Treinamento` e `Instalacao + Treinamento` sao combinacoes permitidas; `Validacao/Homologacao` fica isolada.
+- Corrigida a selecao de tipo de atendimento: o app nao marca mais `Suporte` automaticamente em coleta nova, permite corrigir clique acidental em `Validacao/Homologacao` e bloqueia exportacao sem tipo selecionado.
 - Guia do iPad atualizado para explicar que o pacote pode sair como ZIP.
 
 ## Testes Executados Nesta Revalidacao

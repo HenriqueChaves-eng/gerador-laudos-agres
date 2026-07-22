@@ -1,4 +1,4 @@
-const CACHE_NAME = "agres-coleta-v55";
+const CACHE_NAME = "agres-coleta-v56";
 const ASSETS = [
   "./",
   "./index.html",

@@ -1712,7 +1712,7 @@ def escolher_tipo_atendimento_unico(dados: dict, marcadores: dict | None = None)
 def aplicar_tipos_atendimento(dados: dict, tipos_preferidos=None) -> dict:
     tipos = normalizar_tipos_atendimento(tipos_preferidos, limite=2) or escolher_tipos_atendimento(dados)
     dados["tipos_atendimento"] = tipos
-    dados["tipo_atendimento"] = tipos[0] if tipos else "suporte"
+    dados["tipo_atendimento"] = tipos[0] if tipos else ""
     for campo in CAMPOS_SERVICO:
         dados[campo] = "X" if campo in tipos else ""
     return dados
@@ -2367,8 +2367,8 @@ def tipo_atendimento_para_nome(dados: dict) -> str:
 
 
 def tipos_atendimento_para_texto(valor) -> str:
-    tipos = normalizar_tipos_atendimento(valor, ["suporte"])
-    return " + ".join(TIPOS_ATENDIMENTO.get(tipo, tipo) for tipo in tipos)
+    tipos = normalizar_tipos_atendimento(valor, [])
+    return " + ".join(TIPOS_ATENDIMENTO.get(tipo, tipo) for tipo in tipos) if tipos else "Não informado"
 
 
 def equipamento_para_nome(dados: dict) -> str:
@@ -3368,8 +3368,8 @@ def salvar_upload(
 
 def novo_manifesto_rascunho() -> dict:
     return {
-        "tipo_atendimento": "suporte",
-        "tipos_atendimento": ["suporte"],
+        "tipo_atendimento": "",
+        "tipos_atendimento": [],
         "tecnico_agres_responsavel": "",
         "data_atendimento_inicio": "",
         "data_atendimento_final": "",
@@ -3726,10 +3726,10 @@ def importar_pacote_offline_json(texto_pacote: str, draft_dir: Path, manifesto: 
     manifesto = novo_manifesto_rascunho()
     tipos_pacote = normalizar_tipos_atendimento(
         pacote.get("tipos_atendimento") or pacote.get("tipo_atendimento"),
-        manifesto.get("tipos_atendimento", ["suporte"]),
+        manifesto.get("tipos_atendimento", []),
     )
     manifesto["tipos_atendimento"] = tipos_pacote
-    manifesto["tipo_atendimento"] = tipos_pacote[0] if tipos_pacote else "suporte"
+    manifesto["tipo_atendimento"] = tipos_pacote[0] if tipos_pacote else ""
     manifesto["tecnico_agres_responsavel"] = normalizar_tecnico_agres_responsavel(
         pacote.get("tecnico_agres_responsavel", manifesto.get("tecnico_agres_responsavel", ""))
     )
@@ -3999,10 +3999,10 @@ def importar_pacote_offline(uploaded_file, draft_dir: Path, manifesto: dict) -> 
 def aplicar_manifesto_na_sessao(manifesto: dict) -> None:
     tipos = normalizar_tipos_atendimento(
         manifesto.get("tipos_atendimento") or manifesto.get("tipo_atendimento"),
-        ["suporte"],
+        [],
     )
     st.session_state.tipos_atendimento = tipos
-    st.session_state.tipo_atendimento = tipos[0] if tipos else "suporte"
+    st.session_state.tipo_atendimento = tipos[0] if tipos else ""
     st.session_state.localizacao_maps = manifesto.get("localizacao_maps", "")
     st.session_state.observacoes_texto = manifesto.get("observacoes", "")
     for categoria in CATEGORIAS_EVIDENCIAS:
@@ -4078,13 +4078,13 @@ def renderizar_coleta_streamlit() -> None:
         coleta_tipos_atendimento = st.multiselect(
             "Tipo de Atendimento",
             options=list(TIPOS_ATENDIMENTO),
-            default=normalizar_tipos_atendimento(st.session_state.get("tipos_atendimento"), ["suporte"]),
+            default=normalizar_tipos_atendimento(st.session_state.get("tipos_atendimento"), []),
             format_func=lambda chave: TIPOS_ATENDIMENTO[chave],
             key="coleta_tipos_atendimento",
             max_selections=2,
         )
-        coleta_tipos_atendimento = normalizar_tipos_atendimento(coleta_tipos_atendimento, ["suporte"])
-        coleta_tipo_atendimento = coleta_tipos_atendimento[0]
+        coleta_tipos_atendimento = normalizar_tipos_atendimento(coleta_tipos_atendimento, [])
+        coleta_tipo_atendimento = coleta_tipos_atendimento[0] if coleta_tipos_atendimento else ""
         coleta_localizacao_maps = st.text_input(
             "Link de Localização do Atendimento",
             key="coleta_localizacao_maps",
@@ -4304,9 +4304,9 @@ def atualizar_rascunho_atual(
     assinaturas_canvas: dict | None = None,
     assinaturas_upload: dict | None = None,
 ) -> dict:
-    tipos = normalizar_tipos_atendimento(tipo_atendimento, ["suporte"])
+    tipos = normalizar_tipos_atendimento(tipo_atendimento, [])
     manifesto["tipos_atendimento"] = tipos
-    manifesto["tipo_atendimento"] = tipos[0] if tipos else "suporte"
+    manifesto["tipo_atendimento"] = tipos[0] if tipos else ""
     manifesto["localizacao_maps"] = limpar_texto(localizacao_maps)
 
     if audios:
@@ -4463,7 +4463,7 @@ def itens_checklist_pacote(manifesto: dict) -> list[dict]:
     tecnico_agres = normalizar_tecnico_agres_responsavel(manifesto.get("tecnico_agres_responsavel", ""))
     tipos_atendimento = normalizar_tipos_atendimento(
         manifesto.get("tipos_atendimento") or manifesto.get("tipo_atendimento"),
-        ["suporte"],
+        [],
     )
 
     itens = [
@@ -4873,10 +4873,10 @@ if "observacoes_texto" not in st.session_state:
 if "tipo_atendimento" not in st.session_state:
     tipos_manifesto = normalizar_tipos_atendimento(
         manifesto_rascunho.get("tipos_atendimento") or manifesto_rascunho.get("tipo_atendimento"),
-        ["suporte"],
+        [],
     )
     st.session_state.tipos_atendimento = tipos_manifesto
-    st.session_state.tipo_atendimento = tipos_manifesto[0] if tipos_manifesto else "suporte"
+    st.session_state.tipo_atendimento = tipos_manifesto[0] if tipos_manifesto else ""
 if "localizacao_maps" not in st.session_state:
     st.session_state.localizacao_maps = manifesto_rascunho.get("localizacao_maps", "")
 
@@ -5014,7 +5014,7 @@ with st.container(border=True):
 
     tipos_atendimento_salvos = normalizar_tipos_atendimento(
         manifesto_rascunho.get("tipos_atendimento") or manifesto_rascunho.get("tipo_atendimento"),
-        ["suporte"],
+        [],
     )
     localizacao_maps_salva = manifesto_rascunho.get("localizacao_maps", "")
     tecnico_agres_salvo = normalizar_tecnico_agres_responsavel(
@@ -5083,7 +5083,7 @@ documentos_salvos = {
 }
 tipos_atendimento_salvos = normalizar_tipos_atendimento(
     manifesto_rascunho.get("tipos_atendimento") or manifesto_rascunho.get("tipo_atendimento"),
-    ["suporte"],
+    [],
 )
 localizacao_maps_salva = manifesto_rascunho.get("localizacao_maps", "")
 tecnico_agres_salvo = normalizar_tecnico_agres_responsavel(
@@ -5096,7 +5096,12 @@ entrada_disponivel = (
     or bool(limpar_texto(observacoes_salvas))
     or manifesto_tem_conteudo_para_gerar(manifesto_rascunho)
 )
-pronto_para_geracao = entrada_disponivel and bool(tecnico_agres_salvo) and bool(data_final_salva)
+pronto_para_geracao = (
+    entrada_disponivel
+    and bool(tipos_atendimento_salvos)
+    and bool(tecnico_agres_salvo)
+    and bool(data_final_salva)
+)
 
 with st.container(border=True):
     st.markdown(
@@ -5115,7 +5120,9 @@ with st.container(border=True):
             unsafe_allow_html=True,
         )
     elif entrada_disponivel:
-        if not tecnico_agres_salvo:
+        if not tipos_atendimento_salvos:
+            st.warning("Selecione o Tipo de Atendimento na coleta offline e exporte novamente o pacote.")
+        elif not tecnico_agres_salvo:
             st.warning("Selecione o Técnico Responsável Agres na coleta offline e exporte novamente o pacote.")
         elif not data_final_salva:
             st.warning("Informe a Data Final do Atendimento na coleta offline e exporte novamente o pacote.")
