@@ -40,6 +40,7 @@ Versao APK Android: 1.0.18 (versionCode 19)
 - Reforçada a extração visual/OCR das imagens de `2. Cabeçalho do Relatório - Equipamento Agres/Informações do Equipamento` e `3. Evidências Fotográficas - Equipamento Agres`, com priorização de modelo, número de série, versões de tela, ECU, SW/HW e compensador.
 - Padronizada a leitura de modelos Agres em texto extraído de imagem, incluindo `AGRONAVE7` para `agroNave 7`, `ISOBOXSPRAYER` para `isoBox Sprayer` e modelos `ISO31OFP`, `ISO33H`, etc. como códigos limpos.
 - Corrigida a exportacao offline para continuar gerando o pacote mesmo quando o salvamento local do IndexedDB falhar por armazenamento cheio ou indisponivel, usando os dados carregados na tela.
+- Ajustada a IA para nao duplicar listas de configuracoes, calibracoes e parametros no campo `Relato`; o relato passa a manter apenas a narrativa técnica e, quando necessário, identificação essencial de equipamento como modelo, numero de serie e versoes.
 - Guia do iPad atualizado para explicar que o pacote pode sair como ZIP.
 
 ## Testes Executados Nesta Revalidacao
@@ -49,6 +50,7 @@ Versao APK Android: 1.0.18 (versionCode 19)
 - Validado caso real de resposta da IA com quebra de linha dentro do campo `equipamentos`.
 - Validada padronizacao de dados técnicos extraídos por OCR para tela, ECU e modelo isoView.
 - Validada protecao contra perda de dados na exportacao offline quando o salvamento local falha.
+- Validado que configuracoes/calibracoes estruturadas nao sejam copiadas para o complemento do relato, mantendo somente dados essenciais de rastreabilidade do equipamento.
 - Escopo da bateria ampliada: sintaxe Python, sintaxe JavaScript, service workers, PWA iPhone/iPad, pacote APK Android, permissões nativas, persistência offline, mídia, áudio, localização, assinatura, modelo Word, importação JSON/ZIP, geração online, ZIP final, ausência de `secrets.toml`, versões e referências antigas.
 - PWA aberta por servidor local limpo em `http://127.0.0.1:8766/index.html`.
 - Validado carregamento sem erros de console da PWA atual.

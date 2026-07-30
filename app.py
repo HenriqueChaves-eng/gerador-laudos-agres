@@ -1869,6 +1869,48 @@ def contar_palavras_relato(texto: str) -> int:
     return len(re.findall(r"\b[\wÀ-ÿ]+\b", limpar_texto(texto)))
 
 
+def resumir_equipamentos_para_relato(texto: str) -> str:
+    linhas_importantes = []
+    vistos = set()
+    rotulos_importantes = (
+        "tela instalada",
+        "equipamento",
+        "ecu",
+        "compensador de terreno",
+        "modelo",
+        "s/n",
+        "sn",
+        "numero de serie",
+        "número de série",
+        "aplicacao",
+        "aplicação",
+        "sistema",
+        "sw",
+        "hw",
+        "versao do compensador",
+        "versão do compensador",
+    )
+    for linha in limpar_texto(texto).replace("•", "\n").split("\n"):
+        linha = linha.strip(" -–—\t")
+        if not linha or ":" not in linha:
+            continue
+        rotulo, valor = linha.split(":", 1)
+        rotulo_normalizado = normalizar_busca(rotulo)
+        valor = limpar_texto(valor)
+        if not valor:
+            continue
+        if rotulo_normalizado not in rotulos_importantes:
+            continue
+        item = f"{rotulo.strip()}: {valor}"
+        chave = normalizar_busca(item)
+        if chave not in vistos:
+            linhas_importantes.append(item)
+            vistos.add(chave)
+        if len(linhas_importantes) >= 12:
+            break
+    return "; ".join(linhas_importantes)
+
+
 def montar_complemento_rastreabilidade(dados: dict) -> str:
     campos = (
         ("cliente_local", "Cliente/local"),
@@ -1876,8 +1918,6 @@ def montar_complemento_rastreabilidade(dados: dict) -> str:
         ("equipamentos", "Equipamento"),
         ("maquinas", "Máquina/implemento"),
         ("objetivos", "Objetivo"),
-        ("configuracoes", "Configurações registradas"),
-        ("calibracoes", "Calibrações/validações registradas"),
         ("acompanhantes", "Acompanhantes"),
     )
     partes = []
@@ -1885,7 +1925,10 @@ def montar_complemento_rastreabilidade(dados: dict) -> str:
         valor = limpar_texto(dados.get(campo, ""))
         if not valor or normalizar_busca(valor) == "nao informado":
             continue
-        valor = re.sub(r"\n+", "; ", valor.replace("•", "")).strip(" ;")
+        if campo == "equipamentos":
+            valor = resumir_equipamentos_para_relato(valor)
+        else:
+            valor = re.sub(r"\n+", "; ", valor.replace("•", "")).strip(" ;")
         if valor:
             partes.append(f"{rotulo}: {valor}")
 
@@ -2041,16 +2084,19 @@ REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
 14. documento_revenda_fabrica: retornar sempre "".
 15. responsavel_fazenda: informar o nome do responsável da fazenda, cliente, operador, encarregado ou proprietário que validou/acompanhou o atendimento, quando mencionado.
 16. documento_fazenda: retornar sempre "".
-17. relato: concentrar todo o detalhamento técnico e cronológico. O relato deve ser a parte mais completa do relatório. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato, não a configurações nem a calibrações.
+17. relato: concentrar a narrativa técnica e cronológica do que foi realizado em campo. Cabos, chicotes, conectores, soldas, conversores PNP/NPN, pinagem, relés, terminadores CAN, suportes físicos, falhas, diagnósticos, testes, correções, pendências e recomendações pertencem ao relato quando fizerem parte da ação executada.
+   Não copiar para o relato listas de parâmetros, telas de menu, configurações, calibrações, valores de seção, largura, bicos, offset, ganhos, tabelas de versão ou demais transcrições de OCR que já estejam nos campos "equipamentos", "configuracoes" ou "calibracoes".
+   No relato, usar dados de identificação do equipamento somente de forma resumida quando forem relevantes para rastreabilidade, por exemplo modelo, número de série, versão da tela/ECU/compensador e tipo de ECU.
 18. nome_arquivo_sugerido: retornar "". O nome final é montado automaticamente pelo sistema a partir do Técnico Responsável Agres selecionado na coleta.
 
 PADRÃO DO RELATO:
 - Escrever em terceira pessoa.
 - Escrever em formato narrativo, como relato técnico do que foi realizado em campo.
 - Não usar subtítulos, tópicos, listas, markdown, negrito com **texto**, enumeração ou blocos separados por títulos.
-- Descrever em parágrafos corridos o contexto do atendimento, problema informado, diagnóstico inicial, procedimentos executados, configurações/calibrações relevantes, problemas encontrados, correções aplicadas, testes de funcionamento, resultado final, pendências, recomendações e conclusão técnica.
+- Descrever em parágrafos corridos o contexto do atendimento, problema informado, diagnóstico inicial, procedimentos executados, problemas encontrados, correções aplicadas, testes de funcionamento, resultado final, pendências, recomendações e conclusão técnica.
 - Não condensar várias ações em uma única frase genérica. Quando houver sequência de atividades, descrever a ordem de execução e o motivo técnico de cada etapa.
-- Quando forem citados valores, versões, séries, bitolas, sensores, seções, bicos, offsets, larguras, vazões, pressões, velocidade, talhões, implementos, ECUs, telas ou módulos, manter esses dados no relato além dos campos específicos.
+- Quando forem citados modelo, número de série ou versão de tela, ECU ou compensador, pode mencionar esses dados no relato de forma resumida para rastreabilidade. Parâmetros, configurações, calibrações, seções, bicos, offsets, larguras, vazões, pressões, ganhos, menus e listas extraídas das fotos devem ficar somente nos campos específicos.
+- Não iniciar parágrafos do relato com "Configurações", "Calibrações", "Parâmetros", "Equipamentos" ou outro título de campo. O relato deve permanecer narrativo.
 - Separar o relato em 6 a 10 parágrafos quando houver material suficiente, usando uma linha em branco entre parágrafos. Não retornar tudo em um único bloco.
 - Quando houver áudio ou complemento técnico com conteúdo suficiente, escrever preferencialmente um relato com no mínimo 250 palavras.
 - Em atendimentos de vários dias, separar a sequência por data ou por etapa.
