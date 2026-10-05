@@ -1,5 +1,6 @@
 ﻿import base64
 import json
+import logging
 import re
 import shutil
 import tempfile
@@ -53,6 +54,7 @@ TAM_ASSINATURA = 58
 FIGURA_CANVAS_PX = (1800, 1125)
 FIGURAS_POR_PAGINA = 2
 MAX_IMAGENS_EQUIPAMENTOS_IA = 30
+VERSAO_GERADOR = "2026.10.05.01"
 MAX_PACKAGE_BYTES = 100 * 1024 * 1024
 MAX_IMAGE_BYTES = 25 * 1024 * 1024
 MAX_AUDIO_BYTES = 100 * 1024 * 1024
@@ -60,6 +62,7 @@ MAX_IMAGE_PIXELS = 40_000_000
 DRAFT_RETENTION_DAYS = 7
 
 CAMPOS_RELATORIO = (
+    "idioma_relatorio",
     "tipo_atendimento",
     "tipos_atendimento",
     "suporte",
@@ -139,6 +142,19 @@ TERMOS_INTERVENCAO_FISICA = (
     "suporte",
     "terminador",
     "troca",
+    "cable",
+    "arnes",
+    "conector",
+    "soldadura",
+    "pinout",
+    "reemplazo",
+    "falla",
+    "wiring",
+    "harness",
+    "connector",
+    "solder",
+    "replacement",
+    "fault",
 )
 
 TERMOS_NAO_CALIBRACAO = TERMOS_INTERVENCAO_FISICA + (
@@ -147,7 +163,134 @@ TERMOS_NAO_CALIBRACAO = TERMOS_INTERVENCAO_FISICA + (
     "orientacao",
     "pendencia",
     "recomendacao",
+    "pendiente",
+    "recomendacion",
+    "recommendation",
+    "pending",
 )
+
+TRADUCOES_RELATORIO = {
+    "es": {
+        "RELATÓRIO DE ATENDIMENTO/ATIVIDADES": "INFORME DE SERVICIO/ACTIVIDADES",
+        "SUPORTE": "SOPORTE",
+        "INSTALAÇÃO": "INSTALACIÓN",
+        "TREINAMENTO": "CAPACITACIÓN",
+        "VALIDAÇÃO/HOMOLOGAÇÃO": "VALIDACIÓN/HOMOLOGACIÓN",
+        "Data Visita:": "Fecha de visita:",
+        "Técnicos Responsáveis:": "Técnicos responsables:",
+        "Cliente e Local": "Cliente y lugar",
+        "Localização Maps:": "Ubicación Maps:",
+        "Equipamento(s) Agres:": "Equipo(s) Agres:",
+        "Máquina(s) e Modelos:": "Máquina(s) y modelos:",
+        "Objetivo(s):": "Objetivo(s):",
+        "Configurações Realizadas:": "Configuraciones realizadas:",
+        "Calibrações Realizadas:": "Calibraciones realizadas:",
+        "Acompanhantes/Participantes:": "Acompañantes/Participantes:",
+        "Relato:": "Relato:",
+        "Fotos:": "Fotos:",
+        "Identificação do Equipamento": "Identificación del equipo",
+        "Instalação e Chicotes": "Instalación y cableado",
+        "Configurações": "Configuraciones",
+        "Configurações do Sistema": "Configuraciones del sistema",
+        "Calibrações": "Calibraciones",
+        "Outros Registros": "Otros registros",
+        "Atividades Adicionais": "Actividades adicionales",
+        "Assinaturas:": "Firmas:",
+        "Nome:": "Nombre:",
+        "Figura": "Figura",
+        "Fonte:": "Fuente:",
+        "Legenda:": "Leyenda:",
+        "Nota:": "Nota:",
+        "O autor": "El autor",
+        "Não informado": "No informado",
+        "Não informado nos áudios ou observações encaminhadas.": "No informado en los audios o las observaciones proporcionadas.",
+        "Foram registrados ainda os seguintes pontos técnicos:": "También se registraron los siguientes puntos técnicos:",
+        "Para fins de rastreabilidade técnica do atendimento, também ficaram registrados os seguintes dados complementares:": "Para la trazabilidad técnica del servicio, se registraron los siguientes datos complementarios:",
+        "Cliente/local": "Cliente/lugar",
+        "Localização": "Ubicación",
+        "Equipamento": "Equipo",
+        "Máquina/implemento": "Máquina/implemento",
+        "Objetivo": "Objetivo",
+        "Acompanhantes": "Acompañantes",
+        "Tela instalada": "Pantalla instalada",
+        "Aplicação": "Aplicación",
+        "Sistema": "Sistema",
+        "Compensador de terreno": "Compensador de terreno",
+        "Modelo": "Modelo",
+        "Software da tela": "Software de la pantalla",
+        "Versão do compensador": "Versión del compensador",
+        "Comando de pulverização": "Control de pulverización",
+        "Cabeamento": "Cableado",
+        "Identificação do equipamento Agres": "Identificación del equipo Agres",
+        "Instalação e chicotes do sistema": "Instalación y cableado del sistema",
+        "Configuração do sistema": "Configuración del sistema",
+        "Registro de identificação, série, versão ou componentes do equipamento Agres.": "Registro de identificación, serie, versión o componentes del equipo Agres.",
+        "Registro da instalação física, fixação, roteamento de chicotes ou conexão elétrica.": "Registro de instalación física, fijación, tendido de cableado o conexión eléctrica.",
+        "Registro de tela, parâmetro, versão, calibração ou validação realizada no sistema.": "Registro de pantalla, parámetro, versión, calibración o validación realizada en el sistema.",
+        "Registro complementar do atendimento": "Registro complementario del servicio",
+        "Registro fotográfico complementar relacionado ao atendimento técnico.": "Registro fotográfico complementario del servicio técnico.",
+    },
+    "en": {
+        "RELATÓRIO DE ATENDIMENTO/ATIVIDADES": "SERVICE/ACTIVITY REPORT",
+        "SUPORTE": "SUPPORT",
+        "INSTALAÇÃO": "INSTALLATION",
+        "TREINAMENTO": "TRAINING",
+        "VALIDAÇÃO/HOMOLOGAÇÃO": "VALIDATION/APPROVAL",
+        "Data Visita:": "Visit date:",
+        "Técnicos Responsáveis:": "Responsible technicians:",
+        "Cliente e Local": "Customer and location",
+        "Localização Maps:": "Maps location:",
+        "Equipamento(s) Agres:": "Agres equipment:",
+        "Máquina(s) e Modelos:": "Machines and models:",
+        "Objetivo(s):": "Objectives:",
+        "Configurações Realizadas:": "Settings applied:",
+        "Calibrações Realizadas:": "Calibrations performed:",
+        "Acompanhantes/Participantes:": "Accompanying personnel/Participants:",
+        "Relato:": "Service narrative:",
+        "Fotos:": "Photos:",
+        "Identificação do Equipamento": "Equipment identification",
+        "Instalação e Chicotes": "Installation and wiring",
+        "Configurações": "Settings",
+        "Configurações do Sistema": "System settings",
+        "Calibrações": "Calibrations",
+        "Outros Registros": "Other records",
+        "Atividades Adicionais": "Additional activities",
+        "Assinaturas:": "Signatures:",
+        "Nome:": "Name:",
+        "Figura": "Figure",
+        "Fonte:": "Source:",
+        "Legenda:": "Caption:",
+        "Nota:": "Note:",
+        "O autor": "The author",
+        "Não informado": "Not provided",
+        "Não informado nos áudios ou observações encaminhadas.": "Not provided in the submitted audio or notes.",
+        "Foram registrados ainda os seguintes pontos técnicos:": "The following technical points were also recorded:",
+        "Para fins de rastreabilidade técnica do atendimento, também ficaram registrados os seguintes dados complementares:": "For technical traceability of the service, the following additional data was recorded:",
+        "Cliente/local": "Customer/location",
+        "Localização": "Location",
+        "Equipamento": "Equipment",
+        "Máquina/implemento": "Machine/implement",
+        "Objetivo": "Objective",
+        "Acompanhantes": "Accompanying personnel",
+        "Tela instalada": "Installed display",
+        "Aplicação": "Application",
+        "Sistema": "System",
+        "Compensador de terreno": "Terrain compensator",
+        "Modelo": "Model",
+        "Software da tela": "Display software",
+        "Versão do compensador": "Compensator version",
+        "Comando de pulverização": "Spraying control",
+        "Cabeamento": "Wiring",
+        "Identificação do equipamento Agres": "Agres equipment identification",
+        "Instalação e chicotes do sistema": "System installation and wiring",
+        "Configuração do sistema": "System configuration",
+        "Registro de identificação, série, versão ou componentes do equipamento Agres.": "Record of Agres equipment identification, serial number, version or components.",
+        "Registro da instalação física, fixação, roteamento de chicotes ou conexão elétrica.": "Record of physical installation, mounting, harness routing or electrical connection.",
+        "Registro de tela, parâmetro, versão, calibração ou validação realizada no sistema.": "Record of a display, parameter, version, calibration or validation performed on the system.",
+        "Registro complementar do atendimento": "Additional service record",
+        "Registro fotográfico complementar relacionado ao atendimento técnico.": "Additional photographic record of the technical service.",
+    },
+}
 
 EXTENSOES_AUDIO = {"wav", "mp3", "m4a", "mp4", "aac", "ogg", "webm"}
 EXTENSOES_IMAGEM = {"jpg", "jpeg", "png"}
@@ -1373,11 +1516,15 @@ def valor_para_texto(valor) -> str:
 
 def limpar_texto(valor) -> str:
     texto = valor_para_texto(valor).replace("\r\n", "\n").replace("\r", "\n")
+    texto = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]", "", texto)
     texto = re.sub(r"[ \t]+", " ", texto)
     texto = re.sub(r" *\n *", "\n", texto)
     texto = re.sub(r"\n{3,}", "\n\n", texto)
     texto = texto.strip(" \n\t;")
-    if normalizar_busca(texto) in {"null", "none", "n/a", "nao informado", "nao informada"}:
+    if normalizar_busca(texto) in {
+        "null", "none", "n/a", "nao informado", "nao informada",
+        "no informado", "no informada", "not provided", "not informed",
+    }:
         return ""
     return texto
 
@@ -1393,6 +1540,29 @@ def lista_ou_vazia(valor) -> list:
 def texto_ou_padrao(valor, padrao="Não informado") -> str:
     texto = limpar_texto(valor)
     return texto if texto else padrao
+
+
+def normalizar_idioma_relatorio(valor: str) -> str:
+    idioma = str(valor or "").strip().lower().replace("_", "-")
+    if idioma in {"es", "espanol", "español", "espanhol", "spanish"} or idioma.startswith("es-"):
+        return "es"
+    if idioma in {"en", "english", "ingles", "inglês"} or idioma.startswith("en-"):
+        return "en"
+    return "pt-BR"
+
+
+def texto_idioma_relatorio(texto: str, idioma: str = "pt-BR") -> str:
+    return TRADUCOES_RELATORIO.get(normalizar_idioma_relatorio(idioma), {}).get(texto, texto)
+
+
+def traduzir_rotulos_equipamentos(texto: str, idioma: str) -> str:
+    linhas = []
+    for linha in texto.split("\n"):
+        if ":" in linha:
+            rotulo, valor = linha.split(":", 1)
+            linha = f"{texto_idioma_relatorio(rotulo.strip(), idioma)}:{valor}"
+        linhas.append(linha)
+    return "\n".join(linhas)
 
 
 TITULOS_RELATO_REMOVER = {
@@ -1850,7 +2020,7 @@ def filtrar_campo_curto(texto: str, termos_bloqueados: tuple[str, ...]) -> tuple
     return "\n".join(itens_validos).strip(), itens_para_relato
 
 
-def adicionar_ao_relato(relato: str, itens: list[str]) -> str:
+def adicionar_ao_relato(relato: str, itens: list[str], idioma: str = "pt-BR") -> str:
     if not itens:
         return limpar_relato_narrativo(relato)
 
@@ -1861,7 +2031,10 @@ def adicionar_ao_relato(relato: str, itens: list[str]) -> str:
         return relato_base
 
     detalhes = "; ".join(limpar_texto(item).rstrip(" .;") for item in itens_novos if limpar_texto(item))
-    complemento = finalizar_frase(f"Foram registrados ainda os seguintes pontos técnicos: {detalhes}")
+    rotulo = "Foram registrados ainda os seguintes pontos técnicos:"
+    if idioma != "pt-BR":
+        rotulo = texto_idioma_relatorio(rotulo, idioma)
+    complemento = finalizar_frase(f"{rotulo} {detalhes}")
     return limpar_relato_narrativo((relato_base + "\n\n" + complemento).strip() if relato_base else complemento)
 
 
@@ -1912,6 +2085,7 @@ def resumir_equipamentos_para_relato(texto: str) -> str:
 
 
 def montar_complemento_rastreabilidade(dados: dict) -> str:
+    idioma = dados.get("idioma_relatorio", "pt-BR")
     campos = (
         ("cliente_local", "Cliente/local"),
         ("localizacao_maps", "Localização"),
@@ -1927,18 +2101,25 @@ def montar_complemento_rastreabilidade(dados: dict) -> str:
             continue
         if campo == "equipamentos":
             valor = resumir_equipamentos_para_relato(valor)
+            if idioma != "pt-BR":
+                valor = "; ".join(
+                    traduzir_rotulos_equipamentos(item.strip(), idioma)
+                    for item in valor.split(";")
+                )
         else:
             valor = re.sub(r"\n+", "; ", valor.replace("•", "")).strip(" ;")
         if valor:
+            if idioma != "pt-BR":
+                rotulo = texto_idioma_relatorio(rotulo, idioma)
             partes.append(f"{rotulo}: {valor}")
 
     if not partes:
         return ""
 
-    return finalizar_frase(
-        "Para fins de rastreabilidade técnica do atendimento, também ficaram registrados os seguintes dados complementares: "
-        + "; ".join(partes)
-    )
+    introducao = "Para fins de rastreabilidade técnica do atendimento, também ficaram registrados os seguintes dados complementares:"
+    if idioma != "pt-BR":
+        introducao = texto_idioma_relatorio(introducao, idioma)
+    return finalizar_frase(introducao + " " + "; ".join(partes))
 
 
 def enriquecer_relato_quando_curto(dados: dict) -> str:
@@ -1959,13 +2140,19 @@ def enriquecer_relato_quando_curto(dados: dict) -> str:
 
 def normalizar_dados_relatorio(dados: dict) -> dict:
     dados_normalizados = {campo: limpar_texto(dados.get(campo, "")) for campo in CAMPOS_RELATORIO}
+    idioma = normalizar_idioma_relatorio(dados.get("idioma_relatorio", "pt-BR"))
+    dados_normalizados["idioma_relatorio"] = idioma
+    nao_informado = texto_idioma_relatorio("Não informado", idioma)
     detalhes_para_relato = []
     marcadores_servico = {}
 
     for campo in CAMPOS_SERVICO:
         marcador, detalhes = normalizar_marcador_servico(dados_normalizados[campo])
         marcadores_servico[campo] = marcador
-        detalhes_para_relato.extend(f"{ROTULOS_CAMPOS[campo]}: {detalhe}" for detalhe in detalhes)
+        detalhes_para_relato.extend(
+            f"{texto_idioma_relatorio(ROTULOS_CAMPOS[campo].upper(), idioma)}: {detalhe}"
+            for detalhe in detalhes
+        )
 
     aplicar_tipos_atendimento(
         dados_normalizados,
@@ -1983,17 +2170,18 @@ def normalizar_dados_relatorio(dados: dict) -> dict:
         TERMOS_NAO_CALIBRACAO,
     )
 
-    dados_normalizados["configuracoes"] = formatar_topicos_tecnicos(configuracoes) or "Não informado"
-    dados_normalizados["calibracoes"] = formatar_topicos_tecnicos(calibracoes) or "Não informado"
+    dados_normalizados["configuracoes"] = formatar_topicos_tecnicos(configuracoes) or nao_informado
+    dados_normalizados["calibracoes"] = formatar_topicos_tecnicos(calibracoes) or nao_informado
     dados_normalizados["equipamentos"] = formatar_equipamentos_agres(dados_normalizados["equipamentos"])
     dados_normalizados["relato"] = adicionar_ao_relato(
         dados_normalizados["relato"],
         itens_config_relato + itens_calibracao_relato + detalhes_para_relato,
+        idioma,
     )
     dados_normalizados["relato"] = enriquecer_relato_quando_curto(dados_normalizados)
 
     if not dados_normalizados["relato"]:
-        dados_normalizados["relato"] = "Não informado nos áudios ou observações encaminhadas."
+        dados_normalizados["relato"] = texto_idioma_relatorio("Não informado nos áudios ou observações encaminhadas.", idioma)
 
     if not dados_normalizados["localizacao_maps"]:
         dados_normalizados["localizacao_maps"] = extrair_link_localizacao(
@@ -2018,7 +2206,7 @@ def normalizar_dados_relatorio(dados: dict) -> dict:
         "responsavel_fazenda",
         "documento_fazenda",
     ):
-        dados_normalizados[campo] = texto_ou_padrao(dados_normalizados[campo])
+        dados_normalizados[campo] = texto_ou_padrao(dados_normalizados[campo], nao_informado)
 
     return dados_normalizados
 
@@ -2038,7 +2226,14 @@ def montar_prompt(contexto_manual: str = "") -> str:
     return f"""
 Você é redator técnico da Agres e deve transformar áudios, anotações e fotos de atendimento de campo em dados para um relatório formal.
 
-Use português técnico, claro e objetivo, porém completo e minucioso. Reescreva falas informais em linguagem profissional, sem inventar dados, versões, medidas, peças ou conclusões que não estejam no material recebido.
+IDIOMA DO ATENDIMENTO E DO RELATÓRIO:
+- Aceite áudios, anotações e fotos em português do Brasil, espanhol (incluindo espanhol argentino) e inglês, inclusive materiais mistos.
+- Identifique o idioma predominante do RELATO DO TÉCNICO nos áudios e no complemento técnico descritivo. Ignore, para essa escolha, o idioma desta instrução, os metadados automáticos da coleta, as legendas padrão e o idioma dos menus nas fotos.
+- Retorne "idioma_relatorio" como "pt-BR", "es" ou "en". Se não houver relato suficiente para identificar o idioma, use "pt-BR".
+- Redija todos os campos descritivos no mesmo idioma predominante do atendimento, com linguagem técnica profissional, clara, completa e minuciosa.
+- Mantenha as CHAVES JSON em português exatamente como no esquema e os códigos do tipo de atendimento sem tradução. O campo "equipamentos" deve manter os rótulos padronizados abaixo em português; o sistema traduz esses rótulos no Word.
+- Preserve nomes próprios, modelos, números de série, versões, unidades e valores exatamente como informados. Não traduza nomes de produtos Agres nem troque vírgulas decimais, zeros iniciais ou identificadores.
+Reescreva falas informais em linguagem profissional, sem inventar dados, versões, medidas, peças ou conclusões que não estejam no material recebido.
 Não resuma o atendimento. Preserve o máximo possível de informações técnicas citadas nos áudios/anotações, incluindo nomes, datas, local, cliente, máquina, implemento, equipamento, versões, números de série, sintomas, hipóteses, testes, tentativas, parâmetros, valores, componentes, decisões, dificuldades, pendências e conclusão.
 {bloco_contexto}
 REGRAS DE CLASSIFICAÇÃO DOS CAMPOS:
@@ -2101,7 +2296,7 @@ PADRÃO DO RELATO:
 - Quando houver áudio ou complemento técnico com conteúdo suficiente, escrever preferencialmente um relato com no mínimo 250 palavras.
 - Em atendimentos de vários dias, separar a sequência por data ou por etapa.
 - Se alguma informação técnica tiver sido mencionada de forma incerta, registrar como "foi informado" ou "foi relatado", sem transformar em certeza absoluta.
-- Informar "Não informado" nos campos textuais quando o dado não for mencionado.
+- Quando um dado não for mencionado, retornar string vazia no campo correspondente. Não inventar informações para preencher o esquema.
 
 LEITURA DAS FOTOS:
 - Quando houver fotos de identificação do equipamento ou telas de configuração, analisar visualmente os textos legíveis para preencher "equipamentos", "configuracoes" e "calibracoes".
@@ -2112,6 +2307,7 @@ LEITURA DAS FOTOS:
 
 Retorne apenas um JSON válido, sem markdown e sem comentários, com exatamente esta estrutura:
 {{
+    "idioma_relatorio": "pt-BR",
     "tipo_atendimento": "",
     "suporte": "",
     "instalacao": "",
@@ -2138,22 +2334,164 @@ Retorne apenas um JSON válido, sem markdown e sem comentários, com exatamente 
 
 
 def extrair_json_resposta(texto: str) -> dict:
-    texto_bruto = (texto or "").strip()
+    texto_bruto = (texto or "").strip().lstrip("\ufeff")
+    if texto_bruto.startswith("["):
+        raise ValueError("A IA retornou uma lista em vez dos campos do relatório.")
     inicio = texto_bruto.find("{")
-    fim = texto_bruto.rfind("}")
-    if inicio == -1 or fim == -1 or fim <= inicio:
+    if inicio == -1:
         raise ValueError("A IA não retornou um JSON válido.")
 
-    texto_json = texto_bruto[inicio : fim + 1]
+    texto_json = texto_bruto[inicio:]
+    def pares_sem_duplicatas(pares):
+        objeto = {}
+        for chave, valor in pares:
+            if chave in objeto:
+                raise ValueError("A IA retornou campos duplicados no relatório.")
+            objeto[chave] = valor
+        return objeto
+
     try:
-        return json.loads(texto_json)
+        # raw_decode respects braces inside strings and tolerates surrounding markdown.
+        dados, fim = json.JSONDecoder(strict=False, object_pairs_hook=pares_sem_duplicatas).raw_decode(texto_json)
     except json.JSONDecodeError as erro:
-        try:
-            return json.loads(texto_json, strict=False)
-        except json.JSONDecodeError:
-            pass
-        trecho = texto_json[:500]
-        raise ValueError(f"JSON inválido retornado pela IA: {erro}. Trecho recebido: {trecho}") from erro
+        raise ValueError("A resposta da IA está incompleta ou contém um JSON inválido.") from erro
+    restante = texto_json[fim:].strip().removeprefix("```").strip()
+    if restante.startswith(("{", ",", "]")):
+        raise ValueError("A IA retornou mais de um resultado para o relatório.")
+    if not isinstance(dados, dict):
+        raise ValueError("A IA não retornou os campos do relatório.")
+    return dados
+
+
+def extrair_texto_resposta_ia(resposta) -> str:
+    candidatos = getattr(resposta, "candidates", []) or []
+    if candidatos:
+        conteudo = getattr(candidatos[0], "content", None)
+        partes = [
+            getattr(parte, "text", "") or ""
+            for parte in getattr(conteudo, "parts", []) or []
+            if not getattr(parte, "thought", False)
+        ]
+        texto = "".join(partes).strip()
+        if texto:
+            return texto
+    try:
+        texto = getattr(resposta, "text", "") or ""
+        if texto:
+            return texto
+    except Exception:
+        pass
+    return ""
+
+
+def diagnostico_resposta_ia(resposta) -> str:
+    diagnosticos = []
+    for indice, candidato in enumerate(getattr(resposta, "candidates", []) or [], start=1):
+        motivo = getattr(candidato, "finish_reason", "")
+        if motivo:
+            diagnosticos.append(f"candidate {indice}: finish_reason={motivo}")
+    return "; ".join(diagnosticos)
+
+
+def esquema_resposta_relatorio_ia() -> dict:
+    campos = (
+        "idioma_relatorio", "tipo_atendimento", *CAMPOS_SERVICO,
+        "data_visita", "tecnicos", "cliente_local", "localizacao_maps",
+        "equipamentos", "maquinas", "objetivos", "configuracoes", "calibracoes",
+        "acompanhantes", "responsavel_revenda_fabrica", "documento_revenda_fabrica",
+        "responsavel_fazenda", "documento_fazenda", "nome_arquivo_sugerido", "relato",
+    )
+    propriedades = {campo: {"type": "string"} for campo in campos}
+    propriedades["idioma_relatorio"]["enum"] = ["pt-BR", "es", "en"]
+    propriedades["tipo_atendimento"]["enum"] = ["", *CAMPOS_SERVICO]
+    for campo in CAMPOS_SERVICO:
+        propriedades[campo]["enum"] = ["", "X"]
+    propriedades["relato"]["description"] = "Narrativa técnica completa no idioma do técnico, em parágrafos, sem resumir ou inventar dados."
+    return {"type": "object", "properties": propriedades, "required": list(campos)}
+
+
+def configuracao_resposta_relatorio_ia(estruturada: bool = True, retentativa: bool = False):
+    configuracao = {
+        "temperature": 0.0 if retentativa else 0.2,
+        "max_output_tokens": 32768,
+    }
+    if estruturada:
+        configuracao["response_mime_type"] = "application/json"
+        configuracao["response_json_schema"] = esquema_resposta_relatorio_ia()
+    modelo = MODELO_GEMINI.removeprefix("models/").lower()
+    if modelo.startswith("gemini-2.5-"):
+        configuracao["thinking_config"] = types.ThinkingConfig(thinking_budget=1024)
+    return types.GenerateContentConfig(**configuracao)
+
+
+def validar_dados_resposta_ia(dados: dict) -> dict:
+    if not isinstance(dados, dict):
+        raise ValueError("A IA não retornou os campos do relatório.")
+    propriedades = esquema_resposta_relatorio_ia()["properties"]
+    for campo, esquema in propriedades.items():
+        if campo not in dados or not isinstance(dados[campo], str):
+            raise ValueError(f"A IA não preencheu corretamente o campo '{campo}'.")
+        if "enum" in esquema and dados[campo] not in esquema["enum"]:
+            raise ValueError(f"A IA retornou um valor incompatível para '{campo}'.")
+    if not limpar_texto(dados["relato"]):
+        raise ValueError("A IA retornou um relato vazio.")
+    return {campo: dados[campo] for campo in propriedades}
+
+
+def validar_conclusao_resposta_ia(resposta) -> None:
+    candidatos = getattr(resposta, "candidates", []) or []
+    if candidatos:
+        motivo = getattr(candidatos[0], "finish_reason", "")
+        nome_motivo = str(getattr(motivo, "name", motivo)).upper().split(".")[-1]
+        if nome_motivo not in {"", "NONE", "STOP", "FINISH_REASON_UNSPECIFIED"}:
+            raise ValueError(f"A resposta da IA foi interrompida ({nome_motivo}).")
+    feedback = getattr(resposta, "prompt_feedback", None)
+    bloqueio = getattr(feedback, "block_reason", None)
+    if bloqueio and "UNSPECIFIED" not in str(bloqueio).upper():
+        raise ValueError("A IA não conseguiu processar o material enviado.")
+
+
+def ler_dados_resposta_ia(resposta) -> dict:
+    validar_conclusao_resposta_ia(resposta)
+    dados = getattr(resposta, "parsed", None)
+    if isinstance(dados, dict):
+        return validar_dados_resposta_ia(dados)
+    return validar_dados_resposta_ia(extrair_json_resposta(extrair_texto_resposta_ia(resposta)))
+
+
+def erro_transitorio_ia(erro: Exception) -> bool:
+    return isinstance(erro, (TimeoutError, ConnectionError)) or getattr(erro, "code", None) in {429, 500, 502, 503, 504}
+
+
+def extrair_equipamentos_fallback_contexto(contexto: str) -> str:
+    texto = limpar_texto(contexto)
+    texto_busca = normalizar_busca(texto)
+    linhas = []
+
+    if re.search(r"\bisoview\b", texto_busca):
+        linhas.append("Tela instalada: isoView")
+    elif re.search(r"\bagro\s*nave\s*7\b|\bagronave\s*7\b", texto_busca):
+        linhas.append("Tela instalada: agroNave 7")
+    elif re.search(r"\bagro\s*nave\s*12w\b|\bagronave\s*12w\b", texto_busca):
+        linhas.append("Tela instalada: agroNave 12W")
+    elif re.search(r"\bagro\s*nave\s*12\b|\bagronave\s*12\b", texto_busca):
+        linhas.append("Tela instalada: agroNave 12")
+
+    match_versao_isoview = re.search(r"vers[aã]o\s+do\s+isoview\s*[:\-]?\s*([0-9]+(?:[.,][0-9]+)+)", texto, flags=re.I)
+    if match_versao_isoview:
+        linhas.append(f"Aplicação: {match_versao_isoview.group(1).replace(',', '.')}")
+
+    match_ecu = re.search(r"\b(?:ecu\s*)?(isobox\s*(?:sprayer|spreader))\b\s*[:\-]?\s*([0-9]+(?:[.,][0-9]+)+)?", texto, flags=re.I)
+    if match_ecu:
+        linhas.append(f"ECU: {normalizar_modelos_equipamentos_agres(match_ecu.group(1))}")
+        if match_ecu.group(2):
+            linhas.append(f"SW: {match_ecu.group(2).replace(',', '.')}")
+
+    match_compensador = re.search(r"\b(ANP\s*(?:21|40))\b", texto, flags=re.I)
+    if match_compensador:
+        linhas.append(f"Modelo: {match_compensador.group(1).replace(' ', '').upper()}")
+
+    return formatar_equipamentos_agres("\n".join(linhas))
 
 
 def processar_atendimento_completo(
@@ -2198,19 +2536,65 @@ def processar_atendimento_completo(
             )
             enviar_arquivo_para_ia(imagem["caminho"], "A imagem prioritária de equipamento Agres")
 
-        resposta = genai_client.models.generate_content(
+        prompt = montar_prompt(contexto_manual)
+        for tentativa in range(2):
+            prompt_retentativa = prompt + (
+                "\n\nA resposta anterior não foi concluída corretamente. Retorne um único objeto JSON "
+                "completo conforme o esquema, com todos os campos e relato integral no idioma do técnico. "
+                "Use string vazia para dados não informados. Não resuma o relato para ajustar o JSON."
+                if tentativa else ""
+            )
+            try:
+                resposta = genai_client.models.generate_content(
+                    model=MODELO_GEMINI,
+                    contents=[prompt_retentativa] + materiais_para_ia,
+                    config=configuracao_resposta_relatorio_ia(retentativa=bool(tentativa)),
+                )
+                return normalizar_dados_relatorio(ler_dados_resposta_ia(resposta))
+            except ValueError:
+                continue
+            except Exception as erro_api:
+                if not erro_transitorio_ia(erro_api):
+                    raise
+                if tentativa:
+                    raise RuntimeError("O serviço de IA está temporariamente indisponível. Tente gerar novamente; o pacote importado foi mantido.") from erro_api
+
+        # Recover a complete transcript before retrying structured extraction.
+        # Never substitute metadata for audio that has not been interpreted.
+        resposta_recuperacao = genai_client.models.generate_content(
             model=MODELO_GEMINI,
-            contents=[montar_prompt(contexto_manual)] + materiais_para_ia,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.2,
-                max_output_tokens=16384,
-            ),
+            contents=[
+                "Transcreva integralmente TODOS os áudios recebidos, em ordem, no idioma original "
+                "(português do Brasil, espanhol ou inglês). Não resuma nem traduza a fala. "
+                "Depois transcreva os dados técnicos legíveis de TODAS as fotos, indicando a origem de cada foto. "
+                "Preserve números de série, modelos, versões, parâmetros, valores, sintomas, testes, correções e pendências. "
+                "Não solicite mais dados e não invente. Retorne texto simples completo, sem JSON. "
+                "Se não houver áudio, utilize as anotações e fotos recebidas.\n\nAnotações do técnico:\n" + contexto_manual
+            ] + materiais_para_ia,
+            config=configuracao_resposta_relatorio_ia(estruturada=False, retentativa=True),
         )
-        dados = extrair_json_resposta(resposta.text)
-        return normalizar_dados_relatorio(dados)
+        validar_conclusao_resposta_ia(resposta_recuperacao)
+        texto_recuperado = extrair_texto_resposta_ia(resposta_recuperacao)
+        if not texto_recuperado.strip():
+            raise ValueError("A IA não conseguiu transcrever o material para recuperar o relatório.")
+        resposta_final = genai_client.models.generate_content(
+            model=MODELO_GEMINI,
+            contents=[
+                prompt,
+                "TRANSCRIÇÃO AUXILIAR RECUPERADA DOS MATERIAIS ORIGINAIS. "
+                "Use-a para compor os campos, conferindo com os áudios e fotos. "
+                "Mantenha o idioma do relato original do técnico e todo o conteúdo técnico.\n" + texto_recuperado,
+            ] + materiais_para_ia,
+            config=configuracao_resposta_relatorio_ia(retentativa=True),
+        )
+        return normalizar_dados_relatorio(ler_dados_resposta_ia(resposta_final))
     except Exception as erro:
-        raise Exception(f"Erro na interpretação técnica dos dados: {erro}") from erro
+        if isinstance(erro, ValueError):
+            raise RuntimeError(
+                "Não foi possível concluir a interpretação técnica após as tentativas automáticas. "
+                "O pacote importado foi mantido. Tente gerar novamente."
+            ) from erro
+        raise RuntimeError(f"Erro na interpretação técnica dos dados: {erro}") from erro
     finally:
         for arquivo in arquivos_api:
             try:
@@ -2509,22 +2893,22 @@ def equipamento_para_nome(dados: dict) -> str:
 
     adicionar_encontrados(
         sistemas_principais,
-        r"\bgeo\s*nave\s*([0-9]{1,3})(?:\s*(OFP|FPS|FP|C|S))?\b",
+        r"\bgeo[ \t]*nave[ \t]*([0-9]{1,3})(?:[ \t]*(OFP|FPS|FP|C|S))?\b",
         lambda match: f"GEONAVE{match.group(1)}{(match.group(2) or '').upper()}",
     )
     adicionar_encontrados(
         sistemas_principais,
-        r"\bagro\s*nave\s*([0-9]{1,3})\b|\bagn\s*([0-9]{1,3})\b",
-        lambda match: f"AGRONAVE{match.group(1) or match.group(2)}",
+        r"\bagro[ \t]*nave[ \t]*([0-9]{1,3}W?)\b|\bagn[ \t]*([0-9]{1,3}W?)\b",
+        lambda match: f"AGRONAVE{(match.group(1) or match.group(2)).upper()}",
     )
     adicionar_encontrados(
         sistemas_principais,
-        r"\biso\s*(30|31|32|33|34|35|36|37)\s*(OFP|FP|E|H)?\b",
+        r"\biso[ \t]*(30|31|32|33|34|35|36|37)[ \t]*(OFP|FP|E|H)?\b",
         lambda match: codigo_modelo_isoview(match.group(1), match.group(2) or ""),
     )
     adicionar_encontrados(
         sistemas_principais,
-        r"\biso\s*([0-9]{1,3})(?:\s*(OFP|FPS|FP|C|S))?\b",
+        r"\biso[ \t]*([0-9]{1,3})(?:[ \t]*(OFP|FPS|FP|C|S))?\b",
         lambda match: f"ISO{match.group(1)}{(match.group(2) or '').upper()}",
     )
 
@@ -2593,7 +2977,7 @@ def separar_metadados_figura(linha: str) -> tuple[str, str, str]:
     return titulo, legenda, fonte
 
 
-def montar_metadados_figura(categoria: str, indice_foto: int, numero_figura: int, legendas_evidencias: dict) -> dict:
+def montar_metadados_figura(categoria: str, indice_foto: int, numero_figura: int, legendas_evidencias: dict, idioma: str = "pt-BR") -> dict:
     configuracao = CATEGORIAS_EVIDENCIAS[categoria]
     linhas_categoria = linhas_metadados((legendas_evidencias or {}).get(categoria, ""))
     titulo_manual, legenda_manual, fonte_manual = ("", "", "")
@@ -2601,16 +2985,16 @@ def montar_metadados_figura(categoria: str, indice_foto: int, numero_figura: int
     if indice_foto < len(linhas_categoria):
         titulo_manual, legenda_manual, fonte_manual = separar_metadados_figura(linhas_categoria[indice_foto])
 
-    titulo_base = finalizar_frase(titulo_manual or configuracao["titulo_padrao"])
+    titulo_base = finalizar_frase(titulo_manual or texto_idioma_relatorio(configuracao["titulo_padrao"], idioma))
     if re.match(r"^figura\s+\d+\b", normalizar_busca(titulo_base)):
         titulo = titulo_base
     else:
         titulo = f"Figura {numero_figura} – {titulo_base}"
 
-    legenda_base = finalizar_frase(legenda_manual or configuracao["legenda_padrao"])
+    legenda_base = finalizar_frase(legenda_manual or texto_idioma_relatorio(configuracao["legenda_padrao"], idioma))
     legenda = legenda_base if normalizar_busca(legenda_base).startswith(("legenda:", "nota:")) else f"Legenda: {legenda_base}"
 
-    fonte_base = finalizar_frase(fonte_manual or f"O autor ({data_atual_brasil().year})")
+    fonte_base = finalizar_frase(fonte_manual or f"{texto_idioma_relatorio('O autor', idioma)} ({data_atual_brasil().year})")
     fonte = fonte_base if normalizar_busca(fonte_base).startswith("fonte:") else f"Fonte: {fonte_base}"
 
     return {"titulo": titulo, "legenda": legenda, "fonte": fonte}
@@ -2851,6 +3235,10 @@ def gerar_docx(
 
     doc = DocxTemplate(str(TEMPLATE_PATH))
     dados_render = dict(dados_json)
+    idioma = normalizar_idioma_relatorio(dados_render.get("idioma_relatorio", "pt-BR"))
+    dados_render["equipamentos"] = traduzir_rotulos_equipamentos(dados_render.get("equipamentos", ""), idioma)
+    if idioma == "en":
+        dados_render["data_visita"] = re.sub(r"\s+a\s+", " to ", dados_render.get("data_visita", ""))
 
     dados_render["img_info_equipamento"] = imagem_docx(doc, caminhos_cabecalho.get("info_equip"), TAM_PLAQUETA)
     dados_render["img_maquina"] = imagem_docx(doc, caminhos_cabecalho.get("maquina"), TAM_MAQUINA)
@@ -2860,7 +3248,7 @@ def gerar_docx(
     for categoria in CATEGORIAS_EVIDENCIAS:
         lista_fotos = []
         for indice_foto, foto_path in enumerate(dicionario_evidencias.get(categoria, [])):
-            metadados = montar_metadados_figura(categoria, indice_foto, contador_figura, legendas_evidencias or {})
+            metadados = montar_metadados_figura(categoria, indice_foto, contador_figura, legendas_evidencias or {}, idioma)
             lista_fotos.append(
                 {
                     "titulo": metadados["titulo"],
@@ -2872,7 +3260,7 @@ def gerar_docx(
             contador_figura += 1
         dados_render[categoria] = lista_fotos
 
-    nome_arquivo = f"{gerar_nome_arquivo_relatorio(dados_render)}.docx"
+    nome_arquivo = f"{gerar_nome_arquivo_relatorio(dados_json)}.docx"
     caminho_saida = pasta_saida / nome_arquivo
     doc.render(dados_render)
     doc.save(str(caminho_saida))
@@ -2881,6 +3269,7 @@ def gerar_docx(
     inserir_assinaturas_docx(caminho_saida, dados_render, caminhos_assinaturas)
     aplicar_formatacao_texto_tecnico(caminho_saida)
     aplicar_paginacao_abnt_figuras(caminho_saida)
+    traduzir_rotulos_word(caminho_saida, idioma)
     return caminho_saida
 
 
@@ -3032,6 +3421,48 @@ def iterar_paragrafos_word(parent, vistos=None):
                 yield paragraph
         for table in parent.tables:
             yield from iterar_paragrafos_word(table, vistos)
+
+
+def substituir_trecho_paragrafo_word(paragraph, inicio: int, fim: int, substituto: str) -> None:
+    posicao = 0
+    inserido = False
+    for elemento in paragraph._p.xpath(".//w:t | .//w:br | .//w:cr | .//w:tab"):
+        if elemento.tag != qn("w:t"):
+            if elemento.tag in {qn("w:cr"), qn("w:tab")} or elemento.get(qn("w:type")) in {None, "textWrapping"}:
+                posicao += 1
+            continue
+        texto = elemento.text or ""
+        fim_elemento = posicao + len(texto)
+        if fim_elemento > inicio and posicao < fim:
+            inicio_local = max(0, inicio - posicao)
+            fim_local = min(len(texto), fim - posicao)
+            elemento.text = texto[:inicio_local] + (substituto if not inserido else "") + texto[fim_local:]
+            elemento.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+            inserido = True
+        posicao = fim_elemento
+
+
+def traduzir_rotulos_word(caminho_docx: Path, idioma: str) -> None:
+    idioma = normalizar_idioma_relatorio(idioma)
+    if idioma == "pt-BR":
+        return
+    documento = Document(str(caminho_docx))
+    traducoes = TRADUCOES_RELATORIO[idioma]
+    idioma_word = "es-AR" if idioma == "es" else "en-US"
+    for raiz in (documento.element, documento.styles.element):
+        for idioma_elemento in raiz.xpath(".//w:lang"):
+            idioma_elemento.set(qn("w:val"), idioma_word)
+    for paragraph in iterar_paragrafos_word(documento):
+        texto = paragraph.text
+        rotulo = re.sub(r"\s+", " ", texto).strip()
+        if rotulo in traducoes and not paragrafo_tem_imagem(paragraph):
+            substituir_trecho_paragrafo_word(paragraph, 0, len(texto), traducoes[rotulo])
+            continue
+        # Only template/caption prefixes are translated; customer text and images stay intact.
+        for match in reversed(list(re.finditer(r"(?m)^(?:Data Visita:|Localização Maps:|Nome:|Fonte:|Legenda:|Nota:|Figura(?= \d+))", texto))):
+            original = match.group(0)
+            substituir_trecho_paragrafo_word(paragraph, match.start(), match.end(), traducoes.get(original, original))
+    documento.save(str(caminho_docx))
 
 
 def paragrafo_tem_imagem(paragraph) -> bool:
@@ -5308,7 +5739,7 @@ with st.container(border=True):
 
         except Exception as erro:
             st.error(f"Erro no processamento: {erro}")
-            st.exception(erro)
+            logging.getLogger(__name__).exception("Falha na geração do relatório técnico")
     elif not entrada_disponivel:
         st.caption("Importe o pacote para liberar a geração do relatório técnico.")
 
@@ -5330,3 +5761,4 @@ with st.container(border=True):
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             use_container_width=True,
         )
+    st.caption(f"Gerador {VERSAO_GERADOR}")
